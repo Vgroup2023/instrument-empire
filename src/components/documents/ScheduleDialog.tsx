@@ -74,11 +74,11 @@ export function ScheduleDialog({ open, onClose, docType, customerId, customerNam
             <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" checked={autoSend} onChange={(e) => setAutoSend(e.target.checked)} />
           Automatically email it to {customerName} each time
         </label>
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel

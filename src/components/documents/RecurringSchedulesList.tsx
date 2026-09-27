@@ -68,7 +68,7 @@ export function RecurringSchedulesList({ docType }: { docType: 'invoice' | 'esti
           <Tbody>
             {templates.map((template) => (
               <Tr key={template.id}>
-                <Td className="font-medium text-slate-50">{template.customerName}</Td>
+                <Td className="font-medium text-slate-900">{template.customerName}</Td>
                 <Td className="capitalize">{template.frequency}</Td>
                 <Td>{formatDate(template.nextRunDate)}</Td>
                 <Td className="text-right">{formatCurrency(totalAmount(template))}</Td>

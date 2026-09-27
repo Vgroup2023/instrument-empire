@@ -25,7 +25,7 @@ export default async function DashboardHomePage() {
       </div>
       <ConnectBanner />
 
-      <h2 className="mb-4 text-base font-semibold text-slate-50">Financial insights</h2>
+      <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
       {connected ? <InsightsBody /> : <NotConnectedPlaceholder />}
     </div>
   );
@@ -77,7 +77,7 @@ async function InsightsBody() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Profitability (year to date)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">Profitability (year to date)</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Total income" value={formatCurrency(profitability.totalIncome)} />
           <StatCard
@@ -96,7 +96,7 @@ async function InsightsBody() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Cash flow (year to date)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">Cash flow (year to date)</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Operating cash flow" value={formatCurrency(cashFlow.operatingCashFlow)} />
           <StatCard label="Investing cash flow" value={formatCurrency(cashFlow.investingCashFlow)} />
@@ -110,7 +110,7 @@ async function InsightsBody() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">
           Balance sheet health (as of {balanceSheet.asOfDate})
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -149,13 +149,13 @@ async function InsightsBody() {
                     : v.toFixed(2);
               return (
                 <div key={metric.key} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="w-40 shrink-0 font-medium text-slate-200">{metric.label}</span>
+                  <span className="w-40 shrink-0 font-medium text-slate-700">{metric.label}</span>
                   <div className="flex flex-1 items-center gap-6">
-                    <span className={youAhead ? 'text-emerald-400' : 'text-slate-400'}>
+                    <span className={youAhead ? 'text-emerald-600' : 'text-slate-500'}>
                       You: <span className="font-semibold">{format(metric.yourValue)}</span>
                     </span>
-                    <span className="text-slate-500">
-                      Peer median: <span className="font-medium text-slate-300">{format(metric.peerMedian)}</span>
+                    <span className="text-slate-400">
+                      Peer median: <span className="font-medium text-slate-600">{format(metric.peerMedian)}</span>
                     </span>
                   </div>
                 </div>

@@ -49,13 +49,16 @@ const config: Config = {
           950: '#101113',
         },
         surface: {
-          DEFAULT: '#25282c',
-          muted: '#1a1c1f',
-          dark: '#101113',
+          // Light theme: egg-white page background, white card surfaces.
+          // The sidebar/top bar keep the dark steel look (hardcoded to the
+          // steel-* scale directly) so the metallic logo mark stays legible.
+          DEFAULT: '#ffffff',
+          muted: '#f0ead6',
+          dark: '#1a1c1f',
         },
       },
       boxShadow: {
-        card: '0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 6px -1px rgb(0 0 0 / 0.4)',
+        card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 6px -1px rgb(0 0 0 / 0.06)',
       },
       borderRadius: {
         xl2: '1rem',

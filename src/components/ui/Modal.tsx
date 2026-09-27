@@ -38,7 +38,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
@@ -48,8 +48,8 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         )}
       >
         <div className="mb-4">
-          <h2 className="text-base font-semibold text-slate-50">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-slate-400">{description}</p> : null}
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
         </div>
         <div>{children}</div>
         {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}

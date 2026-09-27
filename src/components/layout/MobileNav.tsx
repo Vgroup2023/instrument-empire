@@ -21,7 +21,7 @@ const items = [
 export function MobileNav() {
   const pathname = usePathname();
   return (
-    <nav className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-steel-700 bg-surface px-3 py-2 md:hidden">
+    <nav className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-steel-700 bg-steel-900 px-3 py-2 md:hidden">
       {items.map((item) => {
         const active = item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
         return (

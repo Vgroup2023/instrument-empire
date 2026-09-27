@@ -4,11 +4,11 @@ import { cn } from '@/lib/cn';
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'brand';
 
 const toneClasses: Record<Tone, string> = {
-  neutral: 'bg-steel-700 text-steel-100',
-  success: 'bg-emerald-500/15 text-emerald-300',
-  warning: 'bg-gold-500/15 text-gold-300',
-  danger: 'bg-red-500/15 text-red-300',
-  brand: 'bg-brand-500/15 text-brand-300',
+  neutral: 'bg-slate-100 text-slate-700',
+  success: 'bg-emerald-100 text-emerald-700',
+  warning: 'bg-gold-100 text-gold-800',
+  danger: 'bg-red-100 text-red-700',
+  brand: 'bg-brand-100 text-brand-700',
 };
 
 export function Badge({

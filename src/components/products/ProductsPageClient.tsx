@@ -86,8 +86,8 @@ export function ProductsPageClient({ initialProducts }: { initialProducts: Produ
                 {products.map((product) => (
                   <Tr key={product.Id}>
                     <Td>
-                      <p className="font-medium text-slate-50">{product.Name}</p>
-                      {product.Description ? <p className="text-xs text-slate-400">{product.Description}</p> : null}
+                      <p className="font-medium text-slate-900">{product.Name}</p>
+                      {product.Description ? <p className="text-xs text-slate-500">{product.Description}</p> : null}
                     </Td>
                     <Td>
                       <Badge tone="neutral">{product.Type}</Badge>
@@ -124,7 +124,7 @@ export function ProductsPageClient({ initialProducts }: { initialProducts: Produ
             <Label htmlFor="description">Description (optional)</Label>
             <Textarea id="description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={loading}>
               Cancel

@@ -46,7 +46,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-steel-700 bg-surface md:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-steel-700 bg-steel-900 md:flex">
       <div className="flex flex-col items-center gap-1 border-b border-steel-700 px-4 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="w-full max-w-[180px]" />

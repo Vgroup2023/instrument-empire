@@ -131,7 +131,7 @@ function AgingTable({
                 const seriouslyOverdue = row.d61to90 + row.d90plus > 0;
                 return (
                   <Tr key={row.name}>
-                    <Td className="font-medium text-slate-50">
+                    <Td className="font-medium text-slate-900">
                       {row.name}
                       {seriouslyOverdue ? (
                         <Badge tone={tone === 'ar' ? 'danger' : 'warning'} className="ml-2">
@@ -144,7 +144,7 @@ function AgingTable({
                     <Td className="text-right">{formatCurrency(row.d31to60)}</Td>
                     <Td className="text-right">{formatCurrency(row.d61to90)}</Td>
                     <Td className="text-right">{formatCurrency(row.d90plus)}</Td>
-                    <Td className="text-right font-semibold text-slate-50">{formatCurrency(row.total)}</Td>
+                    <Td className="text-right font-semibold text-slate-900">{formatCurrency(row.total)}</Td>
                   </Tr>
                 );
               })}

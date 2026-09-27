@@ -6,10 +6,10 @@ export async function ConnectBanner() {
   if (tokens) return null;
 
   return (
-    <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-xl2 border border-gold-500/30 bg-gold-500/10 p-5 shadow-card sm:flex-row sm:items-center">
+    <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-xl2 border border-gold-300 bg-gold-50 p-5 shadow-card sm:flex-row sm:items-center">
       <div>
-        <p className="text-sm font-semibold text-gold-200">Connect your QuickBooks Online account</p>
-        <p className="mt-0.5 text-sm text-gold-300/90">
+        <p className="text-sm font-semibold text-gold-900">Connect your QuickBooks Online account</p>
+        <p className="mt-0.5 text-sm text-gold-800">
           Connect QuickBooks to pull your real books, bank feed activity, and customer data into
           this screen.
         </p>

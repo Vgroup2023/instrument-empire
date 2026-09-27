@@ -65,8 +65,8 @@ export function ConfirmSendDialog({
         </>
       }
     >
-      <div className="rounded-lg border border-steel-700 bg-steel-900 p-4 text-sm">{children}</div>
-      {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">{children}</div>
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
     </Modal>
   );
 }

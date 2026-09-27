@@ -100,7 +100,7 @@ export function InvoicesPageClient({
                   const isOverdue = !isPaid && invoice.DueDate && new Date(invoice.DueDate) < new Date();
                   return (
                     <Tr key={invoice.Id}>
-                      <Td className="font-medium text-slate-50">{invoice.DocNumber ?? invoice.Id}</Td>
+                      <Td className="font-medium text-slate-900">{invoice.DocNumber ?? invoice.Id}</Td>
                       <Td>{invoice.CustomerRef.name}</Td>
                       <Td>{formatDate(invoice.TxnDate)}</Td>
                       <Td>{formatDate(invoice.DueDate)}</Td>

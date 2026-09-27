@@ -55,7 +55,7 @@ export default async function CapitalPage() {
             <Tbody>
               {loans.map((loan) => (
                 <Tr key={loan.id}>
-                  <Td className="font-medium text-slate-50">{loan.product}</Td>
+                  <Td className="font-medium text-slate-900">{loan.product}</Td>
                   <Td className="text-right">{formatCurrency(loan.originalAmount)}</Td>
                   <Td className="text-right">{formatCurrency(loan.outstandingBalance)}</Td>
                   <Td className="text-right">{formatPercent(loan.apr)}</Td>
@@ -83,7 +83,7 @@ export default async function CapitalPage() {
         <CardBody className="space-y-4">
           {benchmarks.map((metric) => (
             <div key={metric.metric} className="flex items-center justify-between text-sm">
-              <span className="w-52 shrink-0 font-medium text-slate-200">{metric.metric}</span>
+              <span className="w-52 shrink-0 font-medium text-slate-700">{metric.metric}</span>
               <div className="flex flex-1 items-center gap-6">
                 <span className="text-brand-700">
                   You:{' '}
@@ -91,9 +91,9 @@ export default async function CapitalPage() {
                     {metric.unit === 'percent' ? formatPercent(metric.yourValue) : formatCurrency(metric.yourValue)}
                   </span>
                 </span>
-                <span className="text-slate-500">
+                <span className="text-slate-400">
                   Peer median:{' '}
-                  <span className="font-medium text-slate-300">
+                  <span className="font-medium text-slate-600">
                     {metric.unit === 'percent' ? formatPercent(metric.peerMedian) : formatCurrency(metric.peerMedian)}
                   </span>
                 </span>

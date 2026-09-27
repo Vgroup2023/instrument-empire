@@ -102,7 +102,7 @@ export function EstimatesPageClient({
               <Tbody>
                 {estimates.map((estimate) => (
                   <Tr key={estimate.Id}>
-                    <Td className="font-medium text-slate-50">{estimate.DocNumber ?? estimate.Id}</Td>
+                    <Td className="font-medium text-slate-900">{estimate.DocNumber ?? estimate.Id}</Td>
                     <Td>{estimate.CustomerRef.name}</Td>
                     <Td>{formatDate(estimate.TxnDate)}</Td>
                     <Td>{formatDate(estimate.ExpirationDate)}</Td>

@@ -6,7 +6,7 @@ export async function TopBar() {
   const tokens = await getQboTokens();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-steel-700 bg-surface px-4 md:px-6">
+    <header className="flex h-16 items-center justify-between border-b border-steel-700 bg-steel-900 px-4 md:px-6">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/globlex-ai-logo.webp" alt="Globlex AI" className="h-10 md:hidden" />
       <div className="hidden md:block" />

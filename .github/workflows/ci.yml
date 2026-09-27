@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # No package-lock.json is committed yet (this repo was scaffolded
+          # without npm registry access), so there's no lockfile to key an
+          # npm cache off of. Add `cache: 'npm'` back once one exists.
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          # Dummy values so build-time env access (module-scope getters that
+          # only throw when actually called) doesn't fail the build step.
+          SESSION_SECRET: ci-build-placeholder-secret
+          APP_PASSWORD: ci-build-placeholder-password
+          QBO_CLIENT_ID: ci-build-placeholder
+          QBO_CLIENT_SECRET: ci-build-placeholder
+          QBO_REDIRECT_URI: http://localhost:3000/api/auth/callback

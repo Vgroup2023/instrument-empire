@@ -101,34 +101,54 @@ npm install
 npm run dev
 ```
 
-> **Note:** this repository was scaffolded in a sandboxed environment without access to the
-> npm registry, so dependencies could not be installed or the build verified there. Run
-> `npm install` in a normal environment with internet access before your first `npm run dev`
-> or `npm run build`.
-
 Open the app, sign in with `APP_PASSWORD`, then go to **Settings & connection** and click
 **Connect QuickBooks** to authorize against your sandbox or real company.
+
+## Deploying to Vercel
+
+The repo includes a `vercel.json` (daily cron for recurring schedules — see below), so
+deploying is mostly point-and-click:
+
+1. Push this repo to GitHub if it isn't already, then in the
+   [Vercel dashboard](https://vercel.com/new) choose **Add New → Project** and import it.
+   Vercel auto-detects Next.js; no build settings need to change.
+2. Before the first deploy (or right after, then redeploy), add these under **Project
+   Settings → Environment Variables**: `APP_PASSWORD`, `SESSION_SECRET`, `QBO_CLIENT_ID`,
+   `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, `CRON_SECRET`, and optionally the four
+   `*_PROVIDER` flags (they default to `mock` if omitted).
+3. Once Vercel gives you a domain (`https://your-app.vercel.app`, or a custom one), set
+   `APP_BASE_URL` to it and `QBO_REDIRECT_URI` to `https://<that domain>/api/auth/callback`
+   — then add that exact same redirect URI to the Intuit app (Setup step 1), and redeploy so
+   the new env vars take effect.
+4. Sign in with `APP_PASSWORD` and connect QuickBooks from **Settings & connection**, same as
+   local dev.
+
+**Filesystem caveat:** Vercel's serverless functions don't have a persistent filesystem — each
+invocation can start from a clean slate. That's fine for everything backed by QuickBooks
+(Insights, Invoices, Estimates, Customers, Products, the login/connect flow) or by the
+signed-cookie session, but the JSON-file store behind **recurring schedules**, **demo payment
+links**, and **demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist
+there — a schedule or employee you add may disappear on the next request. Those three features
+work correctly on a host with a persistent filesystem (a small VM, Docker container, Railway,
+Render, Fly.io, etc.); on Vercel, treat them as a UI preview rather than durable storage until
+that store is swapped for a real database or KV service.
 
 ## Recurring schedules
 
 `POST /api/recurring/run-due` finds every active schedule whose next run date has arrived,
 creates the invoice/estimate through QuickBooks, optionally emails it, and advances the
-schedule. Trigger it once a day from whatever scheduler you have available, e.g.:
+schedule. On Vercel this already runs once a day via the cron entry in `vercel.json` — Vercel
+signs the request with `Authorization: Bearer $CRON_SECRET` automatically as long as
+`CRON_SECRET` is set in your environment variables, and the route (in
+`src/app/api/recurring/run-due/route.ts`) checks it. Elsewhere, trigger it yourself from
+whatever scheduler you have, e.g.:
 
 ```
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app.example.com/api/recurring/run-due
 ```
 
-Set `CRON_SECRET` in your environment so only your scheduler can call it (the route is
-otherwise exempt from the app's login gate, since it's not called by a browser). If
-`CRON_SECRET` is unset, the route accepts any caller — fine for local testing, not for
+If `CRON_SECRET` is unset, the route accepts any caller — fine for local testing, not for
 production.
-
-Recurring schedules (and the demo payment links/payroll data) are stored as JSON files under
-`data/`, which requires a persistent filesystem. That's true of a normal Node process,
-container, or VM, but **not** of most serverless platforms, whose filesystem resets between
-invocations — swap `src/lib/store/jsonStore.ts` for a real database/KV store if you deploy
-there.
 
 ## Security notes
 

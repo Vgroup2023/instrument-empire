@@ -93,14 +93,14 @@ export function PayrollPageClient({
                         {initials(employee.displayName)}
                       </span>
                       <div>
-                        <p className="font-medium text-slate-900">{employee.displayName}</p>
-                        {employee.email ? <p className="text-xs text-slate-500">{employee.email}</p> : null}
+                        <p className="font-medium text-slate-50">{employee.displayName}</p>
+                        {employee.email ? <p className="text-xs text-slate-400">{employee.email}</p> : null}
                       </div>
                     </div>
                   </Td>
                   <Td>
                     {employee.jobTitle}
-                    {employee.department ? <span className="text-slate-400"> · {employee.department}</span> : null}
+                    {employee.department ? <span className="text-slate-500"> · {employee.department}</span> : null}
                   </Td>
                   <Td>{formatDate(employee.hiredDate)}</Td>
                   <Td>
@@ -162,9 +162,9 @@ export function PayrollPageClient({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-slate-100 py-1.5 last:border-0">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="font-medium text-slate-900">{value}</dd>
+    <div className="flex justify-between border-b border-steel-700 py-1.5 last:border-0">
+      <dt className="text-slate-400">{label}</dt>
+      <dd className="font-medium text-slate-50">{value}</dd>
     </div>
   );
 }
@@ -214,7 +214,7 @@ function SetPayModal({ employee, onClose, onSaved }: { employee: Employee; onClo
             </Select>
           </div>
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
@@ -314,7 +314,7 @@ function AddEmployeeModal({ open, onClose, onSaved }: { open: boolean; onClose: 
             </Select>
           </div>
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel

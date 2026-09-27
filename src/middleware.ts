@@ -15,7 +15,9 @@ export async function middleware(request: NextRequest) {
     // itself with CRON_SECRET instead of the app session cookie.
     pathname.startsWith('/api/recurring/run-due') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon');
+    // Static assets served straight out of /public (logo, favicon, etc.) —
+    // the login page itself needs these before the user is authenticated.
+    /\.[a-zA-Z0-9]+$/.test(pathname);
 
   if (isPublic) return NextResponse.next();
 

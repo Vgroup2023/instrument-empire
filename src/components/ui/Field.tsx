@@ -4,11 +4,11 @@ import { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttri
 import { cn } from '@/lib/cn';
 
 const fieldBase =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400';
+  'w-full rounded-lg border border-steel-600 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:bg-steel-900 disabled:text-slate-500';
 
 export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-slate-700">
+    <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-slate-200">
       {children}
     </label>
   );
@@ -23,7 +23,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(fieldBase, 'bg-white', className)} {...props} />;
+  return <select className={cn(fieldBase, 'bg-surface', className)} {...props} />;
 }
 
 export function FieldGroup({ children }: { children: ReactNode }) {

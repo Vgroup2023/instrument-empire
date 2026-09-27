@@ -115,12 +115,12 @@ export function PaymentsPageClient({
               <Tbody>
                 {links.map((link) => (
                   <Tr key={link.id}>
-                    <Td className="font-medium text-slate-900">{link.customerName}</Td>
+                    <Td className="font-medium text-slate-50">{link.customerName}</Td>
                     <Td className="text-right">{formatCurrency(link.amount)}</Td>
                     <Td>
                       <Badge tone={statusTone[link.status]}>{link.status}</Badge>
                     </Td>
-                    <Td className="max-w-[220px] truncate text-xs text-slate-500">{link.url}</Td>
+                    <Td className="max-w-[220px] truncate text-xs text-slate-400">{link.url}</Td>
                     <Td className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => setSendTarget(link)}>
                         Send
@@ -160,7 +160,7 @@ export function PaymentsPageClient({
               <Tbody>
                 {overdueInvoices.map((invoice) => (
                   <Tr key={invoice.Id}>
-                    <Td className="font-medium text-slate-900">{invoice.DocNumber ?? invoice.Id}</Td>
+                    <Td className="font-medium text-slate-50">{invoice.DocNumber ?? invoice.Id}</Td>
                     <Td>{invoice.CustomerRef.name}</Td>
                     <Td>{formatDate(invoice.DueDate)}</Td>
                     <Td className="text-right">{formatCurrency(invoice.Balance)}</Td>
@@ -205,7 +205,7 @@ export function PaymentsPageClient({
             <Label htmlFor="description">What&apos;s it for? (optional)</Label>
             <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)} disabled={loading}>
               Cancel

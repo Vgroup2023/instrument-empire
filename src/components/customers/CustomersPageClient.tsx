@@ -92,8 +92,8 @@ export function CustomersPageClient({ initialCustomers }: { initialCustomers: Cu
                           {initials(customer.DisplayName)}
                         </span>
                         <div>
-                          <p className="font-medium text-slate-900">{customer.DisplayName}</p>
-                          {customer.CompanyName ? <p className="text-xs text-slate-500">{customer.CompanyName}</p> : null}
+                          <p className="font-medium text-slate-50">{customer.DisplayName}</p>
+                          {customer.CompanyName ? <p className="text-xs text-slate-400">{customer.CompanyName}</p> : null}
                         </div>
                       </div>
                     </Td>
@@ -126,7 +126,7 @@ export function CustomersPageClient({ initialCustomers }: { initialCustomers: Cu
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={loading}>
               Cancel

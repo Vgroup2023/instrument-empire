@@ -14,7 +14,7 @@ export function QuickAccessGrid({ excludeHref }: { excludeHref?: string }) {
         <Link
           key={section.href}
           href={section.href}
-          className="group flex items-start gap-3 rounded-xl2 border border-slate-200 bg-white p-4 shadow-card transition hover:border-brand-300 hover:shadow-md"
+          className="group flex items-start gap-3 rounded-xl2 border border-steel-700 bg-surface p-4 shadow-card transition hover:border-brand-300 hover:shadow-md"
         >
           <span
             aria-hidden
@@ -23,8 +23,8 @@ export function QuickAccessGrid({ excludeHref }: { excludeHref?: string }) {
             {section.icon}
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900 group-hover:text-brand-700">{section.title}</p>
-            <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{section.description}</p>
+            <p className="text-sm font-semibold text-slate-50 group-hover:text-brand-700">{section.title}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{section.description}</p>
           </div>
         </Link>
       ))}

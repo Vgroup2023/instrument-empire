@@ -101,7 +101,7 @@ export function EstimateFormDialog({ open, onClose, customers, products, estimat
           <Label>Line items</Label>
           <LineItemsEditor products={products} lines={lines} onChange={setLines} />
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel

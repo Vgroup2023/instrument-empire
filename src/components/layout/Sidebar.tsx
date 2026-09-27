@@ -46,18 +46,17 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-      <div className="flex h-16 items-center gap-2 border-b border-slate-100 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white">
-          A
-        </div>
-        <span className="text-sm font-semibold text-slate-900">Accounts Copilot</span>
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-steel-700 bg-surface md:flex">
+      <div className="flex flex-col items-center gap-1 border-b border-steel-700 px-4 py-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="w-full max-w-[180px]" />
+        <span className="text-xs font-medium uppercase tracking-wide text-steel-400">Accounts Copilot</span>
       </div>
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
         {navGroups.map((group) => (
           <div key={group.title || 'root'}>
             {group.title ? (
-              <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-steel-500">
                 {group.title}
               </p>
             ) : null}
@@ -72,8 +71,8 @@ export function Sidebar() {
                     className={cn(
                       'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition',
                       active
-                        ? 'bg-brand-50 text-brand-700'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                        ? 'bg-brand-500/15 text-brand-300'
+                        : 'text-slate-300 hover:bg-steel-700 hover:text-slate-50',
                     )}
                   >
                     <span aria-hidden>{item.icon}</span>

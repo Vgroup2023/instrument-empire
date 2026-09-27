@@ -14,22 +14,22 @@ export function StatCard({ label, value, delta, hint, icon }: StatCardProps) {
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        {icon ? <div className="text-slate-400">{icon}</div> : null}
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+        {icon ? <div className="text-slate-500">{icon}</div> : null}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-50">{value}</p>
       <div className="mt-1 flex items-center gap-2">
         {delta ? (
           <span
             className={cn(
               'text-xs font-medium',
-              delta.positive ? 'text-emerald-600' : 'text-red-600',
+              delta.positive ? 'text-emerald-400' : 'text-red-400',
             )}
           >
             {delta.positive ? '▲' : '▼'} {delta.value}
           </span>
         ) : null}
-        {hint ? <span className="text-xs text-slate-400">{hint}</span> : null}
+        {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
       </div>
     </Card>
   );

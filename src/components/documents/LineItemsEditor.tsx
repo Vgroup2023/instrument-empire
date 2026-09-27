@@ -33,7 +33,7 @@ export function LineItemsEditor({
 
   return (
     <div className="space-y-3">
-      <div className="hidden grid-cols-12 gap-2 px-1 text-xs font-medium text-slate-500 sm:grid">
+      <div className="hidden grid-cols-12 gap-2 px-1 text-xs font-medium text-slate-400 sm:grid">
         <div className="col-span-5">Product / service</div>
         <div className="col-span-2">Qty</div>
         <div className="col-span-2">Unit price</div>
@@ -82,14 +82,14 @@ export function LineItemsEditor({
               required
             />
           </div>
-          <div className="col-span-3 text-right text-sm font-medium text-slate-700 sm:col-span-2">
+          <div className="col-span-3 text-right text-sm font-medium text-slate-200 sm:col-span-2">
             {formatCurrency(line.quantity * line.unitPrice)}
           </div>
           <div className="col-span-1 text-right">
             <button
               type="button"
               onClick={() => removeLine(index)}
-              className="text-slate-400 hover:text-red-600"
+              className="text-slate-500 hover:text-red-400"
               aria-label="Remove line"
             >
               ✕
@@ -101,7 +101,7 @@ export function LineItemsEditor({
         <Button type="button" variant="secondary" size="sm" onClick={addLine}>
           + Add line
         </Button>
-        <p className="text-sm font-semibold text-slate-900">Total: {formatCurrency(total)}</p>
+        <p className="text-sm font-semibold text-slate-50">Total: {formatCurrency(total)}</p>
       </div>
     </div>
   );

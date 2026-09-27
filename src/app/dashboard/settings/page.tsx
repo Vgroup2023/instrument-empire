@@ -26,12 +26,12 @@ export default async function SettingsPage({
       <PageHeader title="Settings & connection" description="Manage your QuickBooks Online connection." />
 
       {searchParams.qbo_connected ? (
-        <div className="rounded-xl2 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+        <div className="rounded-xl2 border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
           QuickBooks connected successfully.
         </div>
       ) : null}
       {searchParams.qbo_error ? (
-        <div className="rounded-xl2 border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-xl2 border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
           {ERROR_MESSAGES[searchParams.qbo_error] ?? 'Something went wrong connecting to QuickBooks.'}
         </div>
       ) : null}
@@ -47,14 +47,14 @@ export default async function SettingsPage({
         <CardBody>
           {tokens ? (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-300">
                 Connected to <strong>{tokens.companyName}</strong>.
               </p>
               <DisconnectButton />
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-300">
                 Connect your QuickBooks Online company to pull in your real bank feed activity, invoices,
                 customers, and reports. You&apos;ll be redirected to Intuit to sign in and grant access.
               </p>
@@ -92,8 +92,8 @@ export default async function SettingsPage({
 
 function ProviderRow({ name, mode }: { name: string; mode: 'mock' | 'live' }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-      <span className="text-sm font-medium text-slate-700">{name}</span>
+    <div className="flex items-center justify-between rounded-lg border border-steel-700 px-3 py-2">
+      <span className="text-sm font-medium text-slate-200">{name}</span>
       <Badge tone={mode === 'live' ? 'success' : 'neutral'}>{mode === 'live' ? 'Live' : 'Demo data'}</Badge>
     </div>
   );

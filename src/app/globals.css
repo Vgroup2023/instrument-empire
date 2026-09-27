@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html,
@@ -12,8 +12,8 @@ body {
 }
 
 body {
-  background-color: #f6f7fb;
-  color: #111827;
+  background-color: #1a1c1f;
+  color: #f8fafc;
 }
 
 @layer utilities {
@@ -22,7 +22,7 @@ body {
     width: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgb(203 213 225);
+    background-color: rgb(69 74 82);
     border-radius: 9999px;
   }
 }

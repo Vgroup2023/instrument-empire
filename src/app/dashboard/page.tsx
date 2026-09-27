@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
 import { isQboConnected } from '@/lib/quickbooks/client';
 import { getProfitAndLoss, getCashFlow, getBalanceSheet } from '@/lib/quickbooks/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
@@ -10,16 +11,21 @@ import { formatCurrency, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
-export default async function InsightsOverviewPage() {
+export default async function DashboardHomePage() {
   const connected = await isQboConnected();
 
   return (
     <div>
       <PageHeader
-        title="Financial insights"
-        description="Profitability, cash flow, and balance sheet health at a glance, year to date."
+        title="Dashboard"
+        description="Everything for the accounts department, in one place. Jump to a section, or see today's financial insights below."
       />
+      <div className="mb-8">
+        <QuickAccessGrid excludeHref="/dashboard" />
+      </div>
       <ConnectBanner />
+
+      <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
       {connected ? <InsightsBody /> : <NotConnectedPlaceholder />}
     </div>
   );

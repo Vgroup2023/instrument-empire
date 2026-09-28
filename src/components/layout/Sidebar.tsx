@@ -30,6 +30,13 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'Payables',
+    items: [
+      { href: '/dashboard/vendors', label: 'Vendors', icon: '🏭' },
+      { href: '/dashboard/bills', label: 'Bills', icon: '🧮' },
+    ],
+  },
+  {
     title: 'People & money',
     items: [
       { href: '/dashboard/payroll', label: 'Payroll', icon: '💼' },

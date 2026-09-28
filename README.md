@@ -48,6 +48,13 @@ multi-customer use — it's meant to be run by one business, for that business's
   link — goes through a preview-and-confirm dialog first.** Nothing is emailed without an
   explicit click on the exact content that will go out.
 
+**Payables**
+- Vendors and bills (`/dashboard/vendors`, `/dashboard/bills`): the Accounts Payable
+  counterpart to Invoices/Customers — add vendors, record bills against an expense/COGS
+  category, edit or duplicate a bill, and pay one from a real bank account. Everything here
+  runs against the same real QuickBooks Accounting API as Invoices — no separate product or
+  demo mode.
+
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
   an employee directory with hire/employment status, and the ability to add an employee or
@@ -62,9 +69,10 @@ sheet, etc). There's no separate bank-linking step in this app.
 
 ## What's live vs. demo data
 
-Everything under **Insights** and the core of **Actions** (invoices, estimates, recurring
-schedules, customers, products) runs against your real QuickBooks Online company through the
-public Accounting API once you connect it.
+Everything under **Insights**, the core of **Actions** (invoices, estimates, recurring
+schedules, customers, products), and all of **Payables** (vendors, bills, bill payments) runs
+against your real QuickBooks Online company through the public Accounting API once you
+connect it.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:

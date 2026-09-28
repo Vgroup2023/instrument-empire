@@ -1,31 +1,19 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BarList } from '@/components/charts/BarList';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { getSalesByCustomer, getSalesByProduct, type SalesBreakdownRow } from '@/lib/quickbooks/reports';
+import { getSalesByCustomer, getSalesByProduct, type SalesBreakdownRow } from '@/lib/accounting/reports';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
-  const connected = await isQboConnected();
-
   return (
     <div>
       <PageHeader
         title="Sales breakdown"
         description="What's driving revenue this year, by customer and by product or service."
       />
-      <ConnectBanner />
-      {connected ? (
-        <SalesBody />
-      ) : (
-        <EmptyState
-          title="No sales data yet"
-          description="Connect QuickBooks above to see sales broken down by customer and product."
-        />
-      )}
+      <SalesBody />
     </div>
   );
 }

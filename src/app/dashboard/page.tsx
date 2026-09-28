@@ -1,20 +1,16 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { getProfitAndLoss, getCashFlow, getBalanceSheet } from '@/lib/quickbooks/reports';
+import { getProfitAndLoss, getCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
 import { formatCurrency, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardHomePage() {
-  const connected = await isQboConnected();
-
   return (
     <div>
       <PageHeader
@@ -24,20 +20,10 @@ export default async function DashboardHomePage() {
       <div className="mb-8">
         <QuickAccessGrid excludeHref="/dashboard" />
       </div>
-      <ConnectBanner />
 
       <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
-      {connected ? <InsightsBody /> : <NotConnectedPlaceholder />}
+      <InsightsBody />
     </div>
-  );
-}
-
-function NotConnectedPlaceholder() {
-  return (
-    <EmptyState
-      title="No QuickBooks data yet"
-      description="Connect QuickBooks above to see profitability, cash flow, balance sheet, and benchmarking for your business."
-    />
   );
 }
 
@@ -54,7 +40,7 @@ async function InsightsBody() {
       getBalanceSheet('this-year'),
     ]);
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load QuickBooks reports.';
+    error = err instanceof Error ? err.message : 'Failed to load reports.';
   }
 
   if (error || !profitability || !cashFlow || !balanceSheet) {

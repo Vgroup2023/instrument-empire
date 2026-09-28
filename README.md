@@ -15,13 +15,15 @@ still QuickBooks-backed** below for the current split.
 
 ## Before you rely on this for real, daily bookkeeping
 
-- **Almost everything works immediately, no QuickBooks connection needed** — Chart of
-  accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates,
-  Bills, Expenses, Transfers, Payroll, Payment links, and recurring schedules all run on this
-  app's own database. **Connect your real QuickBooks company** (Settings & connection) only
-  for **Insights** (`/dashboard`, `/dashboard/ar-ap`, `/dashboard/sales`) — those still pull
-  live P&L/cash flow/balance sheet/aging/sales-breakdown reports from QuickBooks, and show an
-  explicit "not connected" state rather than fabricated numbers until you do.
+- **Everything works immediately, no QuickBooks connection needed** — Chart of accounts,
+  Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills,
+  Expenses, Transfers, Payroll, Payment links, recurring schedules, and now **Insights**
+  (`/dashboard`, `/dashboard/ar-ap`, `/dashboard/sales`) all run on this app's own database.
+  P&L, cash flow, balance sheet, A/R & A/P aging, and sales breakdown are all computed directly
+  from your local ledger — no QuickBooks account required for anything in this app anymore.
+  QuickBooks remains available as a separate, optional connection in Settings (for its own
+  Payments/Payroll/Capital/benchmarking products, if you have access to them — see **What's
+  live vs. demo data** below).
 - **Set real `SMTP_*` env vars to actually email invoices, estimates, and reminders** — see
   **Environment variables** below. Without them, clicking Send/Remind fails with a clear
   "email isn't configured" error rather than silently doing nothing.
@@ -37,12 +39,16 @@ still QuickBooks-backed** below for the current split.
 
 ## What it does
 
-**Insights**
-- Profitability, cash flow, and balance sheet health (`/dashboard`), pulled from QuickBooks'
-  ProfitAndLoss, CashFlow, and BalanceSheet reports.
-- Industry benchmarking against similar businesses, on the same page.
-- A/R and A/P aging (`/dashboard/ar-ap`) — who owes you money, and which bills are due.
-- Sales breakdown by customer and by product/service (`/dashboard/sales`).
+**Insights** — runs on this app's own database, no QuickBooks connection required:
+- Profitability, cash flow, and balance sheet health (`/dashboard`), computed directly from
+  your local ledger (`src/lib/accounting/reports.ts`) — every invoice, bill, expense, transfer,
+  and payment you've recorded, folded into account balances by `src/lib/accounting/chartOfAccounts.ts`.
+- Industry benchmarking against similar businesses, on the same page (still illustrative —
+  see **What's live vs. demo data** below).
+- A/R and A/P aging (`/dashboard/ar-ap`) — who owes you money, and which bills are due, bucketed
+  by days overdue against each invoice/bill's due date.
+- Sales breakdown by customer and by product/service (`/dashboard/sales`), from invoices dated
+  within the selected period.
 
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): runs on this app's
@@ -113,27 +119,28 @@ currency picker is gone for the moment — everything local defaults to USD. Mul
 support would need to be rebuilt as a local feature (its own settings, per-customer/vendor
 currency, exchange rates) rather than borrowed from QuickBooks — not planned yet.
 
-**Bank connections** live inside QuickBooks Online itself — once you connect your company
-(below), any bank feeds you've linked in QuickBooks show up automatically in the Banking
-center there, and their effects flow into the reports this app reads (cash flow, balance
-sheet, etc). There's no separate bank-linking step in this app.
+**Bank connections** — this app has no live bank-feed integration of its own; Bank/Credit Card
+account balances come from what you record here (Expenses, Transfers, Invoice/Bill payments),
+same as everything else in Insights. If your QuickBooks company has bank feeds connected, those
+transactions stay inside QuickBooks and don't flow into this app automatically — record them
+here directly (or via Journal entries) for them to show up in these reports.
 
 ## What's on the local database vs. still QuickBooks-backed
 
-This app is migrating, feature by feature, from QuickBooks-backed to fully standalone on its
-own Postgres database (see `src/db/schema.ts` for the full schema). Currently:
+This app has fully migrated off QuickBooks as its data source and now runs entirely on its own
+Postgres database (see `src/db/schema.ts` for the full schema):
 
 | Area | Backed by |
 |---|---|
-| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers, Payroll, Payment links, recurring schedules | This app's own database — no QuickBooks connection needed |
-| Insights (P&L, cash flow, balance sheet, A/R & A/P aging, sales breakdown) | Still QuickBooks-backed for now — being rebuilt from the local ledger in an upcoming phase |
+| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers, Payroll, Payment links, recurring schedules, Insights (P&L, cash flow, balance sheet, A/R & A/P aging, sales breakdown) | This app's own database — no QuickBooks connection needed |
 
-## What's live vs. demo data (for QuickBooks-backed features)
+QuickBooks (`src/lib/quickbooks/*`) remains available as a separate, optional connection in
+Settings, but nothing in this app requires it — see **What's live vs. demo data** below for the
+two features that still use a separate, unconnected Intuit product for illustrative peer data.
 
-Only **Insights** runs against your real QuickBooks Online company through the public
-Accounting API once you connect it. Everything else — **Accounting**, **Payables**,
-**Actions** (Invoices, Estimates, and recurring schedules), **Banking**, **Payroll**, and
-**Payment links** — no longer depends on QuickBooks at all — see the table above.
+## What's live vs. demo data
+
+No feature in this app depends on a QuickBooks connection anymore — see the table above.
 
 Two areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:
@@ -221,12 +228,13 @@ npm install
 npm run dev
 ```
 
-Open the app and sign in with `APP_PASSWORD`. Chart of accounts, Journal entries, Customers,
-Vendors, Products & services, Invoices, Estimates, Bills, Expenses, and Transfers all work
-immediately against your database (add `SMTP_*` env vars too if you want Send/Remind to
-actually email customers). To use the QuickBooks-backed features too (Insights, Payroll,
-Payment links, Capital, recurring schedules), go to **Settings & connection** and click
-**Connect QuickBooks**.
+Open the app and sign in with `APP_PASSWORD`. Everything — Chart of accounts, Journal entries,
+Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers,
+Payroll, Payment links, recurring schedules, and Insights — works immediately against your
+database (add `SMTP_*` env vars too if you want Send/Remind to actually email customers). A
+QuickBooks connection (**Settings & connection** → **Connect QuickBooks**) is only needed if
+you separately have access to QuickBooks Payments, Payroll, Capital, or industry benchmarking
+and want to wire those specific products up (see **What's live vs. demo data**).
 
 ## Deploying to Netlify
 

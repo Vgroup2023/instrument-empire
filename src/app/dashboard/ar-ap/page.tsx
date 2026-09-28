@@ -1,34 +1,22 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { getApAgingSummary, getArAgingSummary, type AgingBucketRow } from '@/lib/quickbooks/reports';
+import { getApAgingSummary, getArAgingSummary, type AgingBucketRow } from '@/lib/accounting/reports';
 import { formatCurrency } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ArApPage() {
-  const connected = await isQboConnected();
-
   return (
     <div>
       <PageHeader
         title="A/R & A/P aging"
         description="Who owes you money, and which bills are coming due — grouped by how overdue they are."
       />
-      <ConnectBanner />
-      {connected ? (
-        <ArApBody />
-      ) : (
-        <EmptyState
-          title="No aging data yet"
-          description="Connect QuickBooks above to see accounts receivable and accounts payable aging."
-        />
-      )}
+      <ArApBody />
     </div>
   );
 }

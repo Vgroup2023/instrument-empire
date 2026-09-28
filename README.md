@@ -40,8 +40,12 @@ multi-customer use — it's meant to be run by one business, for that business's
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): create, edit,
   duplicate, delete, and email — plus scheduling them to recur (weekly/monthly/quarterly/yearly).
-- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): add new
-  ones on the fly, used as line items and bill-to parties.
+- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): add, edit,
+  and deactivate/reactivate. QuickBooks doesn't allow hard-deleting either once created, so
+  deactivating is the real "delete" here, same as in QuickBooks itself — same pattern as the
+  Chart of Accounts. A deactivated one drops out of the picker on new invoices/estimates, but
+  stays visible (and editable/reactivatable) on its own management page and on any older
+  document that already references it.
 - Payment links and payment reminders (`/dashboard/payments`): create a link, email it, or
   nudge a customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
@@ -50,9 +54,10 @@ multi-customer use — it's meant to be run by one business, for that business's
 
 **Payables**
 - Vendors and bills (`/dashboard/vendors`, `/dashboard/bills`): the Accounts Payable
-  counterpart to Invoices/Customers — add vendors, record bills against an expense/COGS
-  category, edit, duplicate, or delete a bill, and pay one from a real bank account. Everything
-  here runs against the same real QuickBooks Accounting API as Invoices — no separate product
+  counterpart to Invoices/Customers — add, edit, and deactivate/reactivate vendors (QuickBooks
+  has no hard-delete for them either), record bills against an expense/COGS category, edit,
+  duplicate, or delete a bill, and pay one from a real bank account. Everything here runs
+  against the same real QuickBooks Accounting API as Invoices — no separate product
   or demo mode.
 
 **Accounting**

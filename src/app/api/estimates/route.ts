@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createEstimate, listEstimates, type CreateEstimateInput } from '@/lib/quickbooks/estimates';
+import { createEstimate, listEstimates, type CreateEstimateInput } from '@/lib/accounting/estimates';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

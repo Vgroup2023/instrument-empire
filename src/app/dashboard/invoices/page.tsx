@@ -1,28 +1,13 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { listInvoices } from '@/lib/quickbooks/invoices';
-import { listCustomers } from '@/lib/quickbooks/customers';
-import { listProducts } from '@/lib/quickbooks/items';
-import { loadCurrencies } from '@/lib/quickbooks/currencies';
+import { listInvoices, listDepositAccounts } from '@/lib/accounting/invoices';
+import { listCustomers } from '@/lib/accounting/customers';
+import { listProducts } from '@/lib/accounting/products';
 import { InvoicesPageClient } from '@/components/invoices/InvoicesPageClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InvoicesPage() {
-  const connected = await isQboConnected();
-
-  if (!connected) {
-    return (
-      <div>
-        <PageHeader title="Invoices" description="Create, send, duplicate, and schedule customer invoices." />
-        <ConnectBanner />
-        <EmptyState title="Connect QuickBooks to manage invoices" />
-      </div>
-    );
-  }
-
   let data: Awaited<ReturnType<typeof loadInvoicesData>> | null = null;
   let loadError: unknown = null;
   try {
@@ -34,8 +19,7 @@ export default async function InvoicesPage() {
   if (!data) {
     return (
       <div>
-        <PageHeader title="Invoices" />
-        <ConnectBanner />
+        <PageHeader title="Invoices" description="Create, send, duplicate, and schedule customer invoices." />
         <EmptyState
           title="Couldn't load invoices"
           description={loadError instanceof Error ? loadError.message : 'Please try again.'}
@@ -49,17 +33,18 @@ export default async function InvoicesPage() {
       initialInvoices={data.invoices}
       customers={data.customers}
       products={data.products}
-      homeCurrencyCode={data.homeCurrency?.code}
+      depositAccounts={data.depositAccounts}
+      homeCurrencyCode="USD"
     />
   );
 }
 
 async function loadInvoicesData() {
-  const [invoices, customers, products, { homeCurrency }] = await Promise.all([
+  const [invoices, customers, products, depositAccounts] = await Promise.all([
     listInvoices(),
     listCustomers(),
     listProducts(),
-    loadCurrencies(),
+    listDepositAccounts(),
   ]);
-  return { invoices, customers, products, homeCurrency };
+  return { invoices, customers, products, depositAccounts };
 }

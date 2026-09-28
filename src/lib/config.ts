@@ -37,6 +37,31 @@ export const qboConfig = {
   },
 };
 
+export const smtpConfig = {
+  get host() {
+    return required('SMTP_HOST', process.env.SMTP_HOST);
+  },
+  get port(): number {
+    return Number(process.env.SMTP_PORT ?? '587');
+  },
+  /** Defaults to true only for the standard implicit-TLS port; 587/25 use STARTTLS instead. */
+  get secure(): boolean {
+    return process.env.SMTP_SECURE === 'true' || this.port === 465;
+  },
+  get user(): string | undefined {
+    return process.env.SMTP_USER || undefined;
+  },
+  get password(): string | undefined {
+    return process.env.SMTP_PASSWORD || undefined;
+  },
+  get from(): string {
+    return required('SMTP_FROM', process.env.SMTP_FROM);
+  },
+  get isConfigured(): boolean {
+    return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM);
+  },
+};
+
 export type ProviderMode = 'mock' | 'live';
 
 function providerMode(name: string): ProviderMode {

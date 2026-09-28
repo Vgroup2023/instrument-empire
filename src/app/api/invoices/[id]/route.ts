@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteInvoice, getInvoice, updateInvoice, type UpdateInvoiceInput } from '@/lib/quickbooks/invoices';
+import { deleteInvoice, getInvoice, updateInvoice, type UpdateInvoiceInput } from '@/lib/accounting/invoices';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -26,14 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    if (!body.syncToken) {
-      return NextResponse.json({ error: 'A syncToken is required to delete an invoice.' }, { status: 400 });
-    }
-    await deleteInvoice(id, body.syncToken);
+    await deleteInvoice(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

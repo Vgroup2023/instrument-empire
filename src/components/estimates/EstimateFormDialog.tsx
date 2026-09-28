@@ -7,10 +7,10 @@ import { Label, Input } from '@/components/ui/Field';
 import { CustomerSelect } from '@/components/documents/CustomerSelect';
 import { LineItemsEditor } from '@/components/documents/LineItemsEditor';
 import { useToast } from '@/components/ui/Toast';
-import type { Customer } from '@/lib/quickbooks/customers';
-import type { Product } from '@/lib/quickbooks/items';
+import type { Customer } from '@/lib/accounting/customers';
+import type { Product } from '@/lib/accounting/products';
 import type { LineItemInput } from '@/lib/quickbooks/salesTypes';
-import type { Estimate } from '@/lib/quickbooks/estimates';
+import type { Estimate } from '@/lib/accounting/estimates';
 
 interface EstimateFormDialogProps {
   open: boolean;

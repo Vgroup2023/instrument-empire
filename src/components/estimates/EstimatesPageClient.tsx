@@ -14,9 +14,9 @@ import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Customer } from '@/lib/quickbooks/customers';
-import type { Product } from '@/lib/quickbooks/items';
-import type { Estimate } from '@/lib/quickbooks/estimates';
+import type { Customer } from '@/lib/accounting/customers';
+import type { Product } from '@/lib/accounting/products';
+import type { Estimate } from '@/lib/accounting/estimates';
 
 const statusTone: Record<string, 'neutral' | 'success' | 'warning' | 'danger'> = {
   Pending: 'neutral',

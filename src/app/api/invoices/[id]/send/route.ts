@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendInvoice } from '@/lib/quickbooks/invoices';
+import { sendInvoice } from '@/lib/accounting/invoices';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

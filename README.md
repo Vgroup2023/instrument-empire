@@ -15,11 +15,14 @@ still QuickBooks-backed** below for the current split.
 
 ## Before you rely on this for real, daily bookkeeping
 
-- **Chart of accounts, Journal entries, Customers, Vendors, and Products & services work
-  immediately** — no QuickBooks connection needed, since they run on this app's own database.
-  **Connect your real QuickBooks company** (Settings & connection) to use everything else —
-  until then, those screens show an explicit "not connected" state rather than fabricated
-  numbers.
+- **Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, and
+  Estimates work immediately** — no QuickBooks connection needed, since they run on this app's
+  own database. **Connect your real QuickBooks company** (Settings & connection) to use
+  everything else — until then, those screens show an explicit "not connected" state rather
+  than fabricated numbers.
+- **Set real `SMTP_*` env vars to actually email invoices, estimates, and reminders** — see
+  **Environment variables** below. Without them, clicking Send/Remind fails with a clear
+  "email isn't configured" error rather than silently doing nothing.
 - **Payment links, Payroll, and QuickBooks Capital start empty and stay demo-mode**
   (`PAYMENTS_PROVIDER`, `PAYROLL_PROVIDER`, `CAPITAL_PROVIDER` in `.env`) until you have
   the corresponding Intuit product access and wire it up — see **What's live vs. demo
@@ -46,15 +49,20 @@ still QuickBooks-backed** below for the current split.
 - Sales breakdown by customer and by product/service (`/dashboard/sales`).
 
 **Actions**
-- Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): create, edit,
-  duplicate, delete, and email — plus scheduling them to recur (weekly/monthly/quarterly/yearly).
+- Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): runs on this app's
+  own database — create, edit, duplicate, delete, and email, plus scheduling them to recur
+  (weekly/monthly/quarterly/yearly, still created through QuickBooks until recurring schedules
+  are migrated too — see the table below). Sending or reminding emails the customer for real
+  via the SMTP server you configure (see **Environment variables**), not through QuickBooks.
+  Invoice payments (`/dashboard/invoices` → Record payment) track what's actually been paid
+  against an invoice — this app's own replacement for the balance QuickBooks used to compute
+  for us — and post into a bank account from your Chart of Accounts.
 - Customers and products/services (`/dashboard/customers`, `/dashboard/products`): runs on
   this app's own database — add, edit, and deactivate/reactivate. There's no hard-delete, so
   deactivating is the real "delete" here — same pattern as the Chart of Accounts. A
   deactivated one drops out of the picker on new invoices/estimates, but stays visible (and
   editable/reactivatable) on its own management page and on any older document that already
-  references it. **Not yet wired up**: Invoices and Estimates still pick customers/products
-  from QuickBooks, not this list, until they're migrated too (see the table below).
+  references it.
 - Payment links and payment reminders (`/dashboard/payments`): create a link, edit it while
   it's still unsent, email it, cancel it, or nudge a customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
@@ -99,14 +107,13 @@ still QuickBooks-backed** below for the current split.
 
 **Multi-currency** — only relevant if your QuickBooks company has it enabled (Settings →
 Advanced → Currency; it's a one-way company setting that can't be turned off once on):
-- Invoices and bills for a foreign-currency customer/vendor show an exchange-rate field (with
-  a one-click "use today's rate" lookup against QuickBooks' own rate service, or type in the
-  rate you already know), and list views display amounts in each document's own currency.
-- **Not yet wired up**: now that Customers and Vendors run on this app's own database
-  (see above), the currency picker on adding one is gone for the moment — every local
-  customer/vendor defaults to USD. Estimates, Expenses, and Journal Entries also don't have
-  currency pickers. Multi-currency support returns once the invoicing/billing phases land on
-  the local database too.
+- Bills for a foreign-currency vendor show an exchange-rate field (with a one-click "use
+  today's rate" lookup against QuickBooks' own rate service, or type in the rate you already
+  know), and list views display amounts in the bill's own currency.
+- **Not yet wired up**: now that Customers, Vendors, Invoices, and Estimates run on this app's
+  own database (see above), the currency picker is gone for the moment — everything local
+  defaults to USD. Expenses and Journal Entries also don't have currency pickers. Multi-currency
+  support returns once Bills also lands on the local database.
 
 **Bank connections** live inside QuickBooks Online itself — once you connect your company
 (below), any bank feeds you've linked in QuickBooks show up automatically in the Banking
@@ -120,16 +127,24 @@ own Postgres database (see `src/db/schema.ts` for the full schema). Currently:
 
 | Area | Backed by |
 |---|---|
-| Chart of accounts, Journal entries, Customers, Vendors, Products & services | This app's own database — no QuickBooks connection needed |
-| Everything else (Invoices, Estimates, Bills, Expenses, Transfers, Insights, Payroll, Payment links, Capital) | Still QuickBooks-backed for now — being migrated in upcoming phases |
+| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates | This app's own database — no QuickBooks connection needed |
+| Everything else (Bills, Expenses, Transfers, Insights, Payroll, Payment links, Capital, recurring schedules) | Still QuickBooks-backed for now — being migrated in upcoming phases |
 
 ## What's live vs. demo data (for QuickBooks-backed features)
 
-Everything under **Insights**, the core of **Actions** (invoices, estimates, recurring
-schedules), **Bills** and bill payments, and all of **Banking** (expenses, transfers) runs
-against your real QuickBooks Online company through the public Accounting API once you
-connect it. **Accounting** (chart of accounts, journal entries) and **Customers, Vendors, and
-Products & services** no longer depend on QuickBooks at all — see the table above.
+Everything under **Insights**, **recurring schedules** (which still create their invoices/
+estimates through QuickBooks even though the Invoices/Estimates tabs themselves no longer need
+it — see the note below), **Bills** and bill payments, and all of **Banking** (expenses,
+transfers) runs against your real QuickBooks Online company through the public Accounting API
+once you connect it. **Accounting** (chart of accounts, journal entries), **Customers,
+Vendors, Products & services**, and **Invoices and Estimates** no longer depend on QuickBooks
+at all — see the table above.
+
+**Recurring schedules caveat:** a recurring invoice/estimate schedule still creates its
+documents through the QuickBooks Accounting API (`src/lib/quickbooks/recurring.ts`), so a
+document created automatically by a schedule shows up in QuickBooks, not in this app's own
+Invoices/Estimates tabs, until recurring schedules are migrated too (see the phases below).
+Manually created and edited invoices/estimates are unaffected — those are fully local now.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:
@@ -178,10 +193,17 @@ QBO_CLIENT_ID=           # optional — only needed for QuickBooks-backed featur
 QBO_CLIENT_SECRET=
 QBO_ENVIRONMENT=sandbox  # or "production"
 QBO_REDIRECT_URI=        # must exactly match the Intuit app's redirect URI
+SMTP_HOST=               # optional — only needed to actually send invoice/estimate emails
+SMTP_PORT=587            # 587 (STARTTLS) or 465 (implicit TLS) are typical
+SMTP_USER=               # leave blank if your SMTP relay doesn't require auth
+SMTP_PASSWORD=
+SMTP_FROM=               # e.g. "Your Business <billing@yourbusiness.com>"
 ```
 
 Leave `PAYMENTS_PROVIDER`, `PAYROLL_PROVIDER`, `CAPITAL_PROVIDER`, `BENCHMARK_PROVIDER` as
-`mock` until you've provisioned the corresponding Intuit product.
+`mock` until you've provisioned the corresponding Intuit product. Leave the `SMTP_*` vars blank
+until you have a mailbox/relay to send from — Invoices/Estimates work fine without them; only
+Send/Remind need SMTP configured, and fail with a clear error otherwise.
 
 ### 3. Set up the database
 
@@ -205,7 +227,8 @@ npm run dev
 ```
 
 Open the app and sign in with `APP_PASSWORD`. Chart of accounts, Journal entries, Customers,
-Vendors, and Products & services work immediately against your database. To use the
+Vendors, Products & services, Invoices, and Estimates work immediately against your database
+(add `SMTP_*` env vars too if you want Send/Remind to actually email customers). To use the
 QuickBooks-backed features too, go to **Settings & connection** and click **Connect
 QuickBooks**.
 
@@ -223,7 +246,8 @@ point-and-click:
    configuration → Environment variables**: `DATABASE_URL`, `APP_PASSWORD`, `SESSION_SECRET`,
    `QBO_CLIENT_ID`, `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, `CRON_SECRET`, and optionally the
    four `*_PROVIDER` flags (they default to `mock` if omitted). `QBO_*` vars are only needed if
-   you're using the QuickBooks-backed features.
+   you're using the QuickBooks-backed features; `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+   `SMTP_PASSWORD`, and `SMTP_FROM` are only needed to actually send invoice/estimate emails.
 3. Once Netlify gives you a domain (`https://your-app.netlify.app`, or a custom one), set
    `APP_BASE_URL` to it and `QBO_REDIRECT_URI` to `https://<that domain>/api/auth/callback`
    — then add that exact same redirect URI to the Intuit app (Setup step 1), and redeploy so

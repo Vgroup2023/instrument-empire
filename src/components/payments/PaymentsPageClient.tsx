@@ -28,10 +28,12 @@ export function PaymentsPageClient({
   customers,
   initialLinks,
   overdueInvoices,
+  isDemoPayments,
 }: {
   customers: Customer[];
   initialLinks: PaymentLink[];
   overdueInvoices: Invoice[];
+  isDemoPayments: boolean;
 }) {
   const { notify } = useToast();
   const [links, setLinks] = useState(initialLinks);
@@ -93,9 +95,19 @@ export function PaymentsPageClient({
         <CardHeader>
           <div>
             <CardTitle>Payment links</CardTitle>
-            <CardDescription>Demo mode — QuickBooks Payments product access isn&apos;t wired up yet.</CardDescription>
+            <CardDescription>
+              {isDemoPayments
+                ? "Demo mode — these links are not real and won't be emailed to anyone. QuickBooks Payments product access isn't wired up yet (see Settings)."
+                : 'Create a link and email it to get paid directly.'}
+            </CardDescription>
           </div>
         </CardHeader>
+        {isDemoPayments ? (
+          <div className="border-b border-gold-200 bg-gold-50 px-5 py-2.5 text-sm text-gold-900">
+            ⚠️ Demo mode: payment links here are placeholders. Sending one only updates its status in
+            this app — it does <strong>not</strong> email the customer or process any payment.
+          </div>
+        ) : null}
         <CardBody className="p-0">
           {links.length === 0 ? (
             <div className="p-6">
@@ -222,7 +234,7 @@ export function PaymentsPageClient({
           open={Boolean(sendTarget)}
           onClose={() => setSendTarget(null)}
           title="Send payment link"
-          confirmLabel="Send link"
+          confirmLabel={isDemoPayments ? 'Mark as sent (demo)' : 'Send link'}
           onConfirm={async () => {
             const res = await fetch(`/api/payments/links/${sendTarget.id}/send`, {
               method: 'POST',
@@ -235,10 +247,20 @@ export function PaymentsPageClient({
             }
           }}
           onSuccess={() => {
-            notify('Payment link sent.');
+            notify(
+              isDemoPayments
+                ? 'Marked as sent — this is demo mode, so no email actually went out.'
+                : 'Payment link sent.',
+            );
             refreshLinks();
           }}
         >
+          {isDemoPayments ? (
+            <p className="mb-3 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-gold-900">
+              ⚠️ Demo mode — clicking confirm will <strong>not</strong> email this customer or process a
+              real payment. It only updates the link&apos;s status here.
+            </p>
+          ) : null}
           <p>
             <strong>To:</strong> {sendTarget.email ?? sendTarget.customerName}
           </p>

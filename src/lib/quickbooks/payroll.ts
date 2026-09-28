@@ -38,9 +38,9 @@ export interface CreateEmployeeInput {
 export interface PayrollSummary {
   totalEmployees: number;
   activeEmployees: number;
-  lastPayrollRunDate: string;
-  lastPayrollGross: number;
-  nextPayrollDate: string;
+  lastPayrollRunDate: string | null;
+  lastPayrollGross: number | null;
+  nextPayrollDate: string | null;
 }
 
 function assertMock(action: string) {
@@ -55,9 +55,11 @@ function assertMock(action: string) {
 
 /**
  * QuickBooks Payroll requires its own product access beyond the standard
- * Accounting API scope, so this runs against realistic demo data by default
- * (PAYROLL_PROVIDER=mock). The read-only summary, employee directory, and
- * add-employee/set-pay actions are fully functional against that data.
+ * Accounting API scope, so this runs against a local employee directory by
+ * default (PAYROLL_PROVIDER=mock) rather than fabricated numbers — it
+ * starts empty and is genuinely yours: everything you add here is stored
+ * for real (see src/lib/store/jsonStore.ts) until Payroll access is
+ * provisioned and PAYROLL_PROVIDER=live is wired up.
  */
 export async function listEmployees(): Promise<Employee[]> {
   assertMock('listing employees');

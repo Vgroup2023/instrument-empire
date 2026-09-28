@@ -66,7 +66,7 @@ export function PayrollPageClient({
         <StatCard
           label="Last payroll run"
           value={formatDate(summary.lastPayrollRunDate)}
-          hint={formatCurrency(summary.lastPayrollGross) + ' gross'}
+          hint={summary.lastPayrollGross !== null ? formatCurrency(summary.lastPayrollGross) + ' gross' : undefined}
         />
         <StatCard label="Next payroll date" value={formatDate(summary.nextPayrollDate)} />
       </div>

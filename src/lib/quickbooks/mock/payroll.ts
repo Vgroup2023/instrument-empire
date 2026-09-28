@@ -3,51 +3,8 @@ import type { Employee, CreateEmployeeInput, PayrollSummary } from '@/lib/quickb
 
 const FILE_NAME = 'payroll-employees.json';
 
-const SEED_EMPLOYEES: Employee[] = [
-  {
-    id: 'emp_1',
-    displayName: 'Jordan Alvarez',
-    email: 'jordan.alvarez@example.com',
-    jobTitle: 'Store Manager',
-    department: 'Retail',
-    hiredDate: '2021-03-15',
-    status: 'active',
-    basePay: { amount: 68000, period: 'salary-annual' },
-  },
-  {
-    id: 'emp_2',
-    displayName: 'Priya Nair',
-    email: 'priya.nair@example.com',
-    jobTitle: 'Repair Technician',
-    department: 'Service',
-    hiredDate: '2022-07-01',
-    status: 'active',
-    basePay: { amount: 28.5, period: 'hourly' },
-  },
-  {
-    id: 'emp_3',
-    displayName: 'Marcus Webb',
-    email: 'marcus.webb@example.com',
-    jobTitle: 'Sales Associate',
-    department: 'Retail',
-    hiredDate: '2024-01-10',
-    status: 'active',
-    basePay: { amount: 19.0, period: 'hourly' },
-  },
-  {
-    id: 'emp_4',
-    displayName: 'Dana Kim',
-    email: 'dana.kim@example.com',
-    jobTitle: 'Bookkeeper',
-    department: 'Admin',
-    hiredDate: '2020-11-02',
-    status: 'terminated',
-    basePay: { amount: 52000, period: 'salary-annual' },
-  },
-];
-
 async function loadAll(): Promise<Employee[]> {
-  return readJsonFile<Employee[]>(FILE_NAME, SEED_EMPLOYEES);
+  return readJsonFile<Employee[]>(FILE_NAME, []);
 }
 
 async function saveAll(employees: Employee[]): Promise<void> {
@@ -96,8 +53,11 @@ export async function mockGetPayrollSummary(): Promise<PayrollSummary> {
   return {
     totalEmployees: employees.length,
     activeEmployees: active.length,
-    lastPayrollRunDate: '2026-09-15',
-    lastPayrollGross: 24680,
-    nextPayrollDate: '2026-09-30',
+    // This app doesn't run actual payroll (that requires QuickBooks
+    // Payroll product access — see PAYROLL_PROVIDER=live), so there's no
+    // real payroll-run history to report yet.
+    lastPayrollRunDate: null,
+    lastPayrollGross: null,
+    nextPayrollDate: null,
   };
 }

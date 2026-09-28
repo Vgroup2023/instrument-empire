@@ -1,5 +1,5 @@
 import { qboFetch, qboQuery } from '@/lib/quickbooks/client';
-import { toQboLines, type LineItemInput, type SalesDocLine } from '@/lib/quickbooks/salesTypes';
+import { toQboLines, stripForDuplicate, type LineItemInput, type SalesDocLine } from '@/lib/quickbooks/salesTypes';
 
 export interface Estimate {
   Id: string;
@@ -79,16 +79,11 @@ export async function sendEstimate(id: string, email?: string): Promise<Estimate
 }
 
 export async function duplicateEstimate(id: string): Promise<Estimate> {
-  const original = await getEstimate(id);
-  const data = await qboFetch<{ Estimate: Estimate }>('estimate', {
-    method: 'POST',
-    body: {
-      CustomerRef: original.CustomerRef,
-      TxnDate: new Date().toISOString().slice(0, 10),
-      ExpirationDate: original.ExpirationDate,
-      BillEmail: original.BillEmail,
-      Line: original.Line,
-    },
-  });
+  // Loosely-typed fetch (not just the narrow Estimate shape above) so
+  // fields this app doesn't otherwise model — tax, discounts, memos,
+  // terms, class, currency — still get preserved on the duplicate.
+  const original = (await qboFetch<{ Estimate: Record<string, unknown> }>(`estimate/${id}`)).Estimate;
+  const body = stripForDuplicate(original, { TxnDate: new Date().toISOString().slice(0, 10) });
+  const data = await qboFetch<{ Estimate: Estimate }>('estimate', { method: 'POST', body });
   return data.Estimate;
 }

@@ -5,6 +5,7 @@ import { isQboConnected } from '@/lib/quickbooks/client';
 import { listCustomers } from '@/lib/quickbooks/customers';
 import { listInvoices } from '@/lib/quickbooks/invoices';
 import { listPaymentLinks } from '@/lib/quickbooks/payments';
+import { providers } from '@/lib/config';
 import { PaymentsPageClient } from '@/components/payments/PaymentsPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -31,5 +32,12 @@ export default async function PaymentsPage() {
     (inv) => inv.Balance > 0 && inv.DueDate && new Date(inv.DueDate) < today,
   );
 
-  return <PaymentsPageClient customers={customers} initialLinks={links} overdueInvoices={overdueInvoices} />;
+  return (
+    <PaymentsPageClient
+      customers={customers}
+      initialLinks={links}
+      overdueInvoices={overdueInvoices}
+      isDemoPayments={providers.payments === 'mock'}
+    />
+  );
 }

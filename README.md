@@ -1,9 +1,32 @@
 # Accounts Copilot
 
-A financial insights **and actions** app for the accounts department, built on top of
-QuickBooks Online. It's a Next.js 14 (App Router + TypeScript + Tailwind) app with no
-external UI/chart libraries — everything is hand-rolled so the dependency footprint stays
-tiny and auditable.
+A proprietary, single-tenant financial insights **and actions** app for the accounts
+department, built on top of QuickBooks Online. It's a Next.js 14 (App Router + TypeScript +
+Tailwind) app with no external UI/chart libraries — everything is hand-rolled so the
+dependency footprint stays tiny and auditable. This is not a product for resale or
+multi-customer use — it's meant to be run by one business, for that business's own books.
+
+## Before you rely on this for real, daily bookkeeping
+
+- **Connect your real QuickBooks company** (Settings & connection) — until then, every
+  screen either shows nothing or an explicit "not connected" state. Nothing here is
+  seeded with fake data on purpose: a real accounting tool should never risk showing
+  fabricated numbers that could be mistaken for your actual books.
+- **Payment links, Payroll, and QuickBooks Capital start empty and stay demo-mode**
+  (`PAYMENTS_PROVIDER`, `PAYROLL_PROVIDER`, `CAPITAL_PROVIDER` in `.env`) until you have
+  the corresponding Intuit product access and wire it up — see **What's live vs. demo
+  data** below. Payment links created in demo mode are clearly flagged everywhere and
+  cannot actually be emailed to a customer or process a payment.
+- **Set a real `APP_PASSWORD` and `SESSION_SECRET`** — not the placeholder values from
+  `.env.example`. The login route now rate-limits repeated failed attempts, but the
+  passphrase is still the only thing standing between the internet and your financials.
+- **Pick hosting with a persistent filesystem** (a small VM, Docker container, Railway,
+  Render, Fly.io, or your own machine) if you want recurring schedules, payment links, or
+  payroll edits to actually stick — see the **Deploying to Vercel** filesystem caveat
+  below. Everything QuickBooks-backed (reports, invoices, estimates, customers, products)
+  is unaffected either way.
+- **Back up the `data/` directory** if you're self-hosting — it's the only place
+  recurring-schedule and payroll/payment-link records live outside of QuickBooks itself.
 
 ## What it does
 
@@ -44,20 +67,20 @@ schedules, customers, products) runs against your real QuickBooks Online company
 public Accounting API once you connect it.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
-so they run on realistic in-memory/on-disk demo data by default:
+so they don't have a real data source by default:
 
-| Feature | Env var | Why |
-|---|---|---|
-| Payment links | `PAYMENTS_PROVIDER` | Standalone payment links are a QuickBooks Payments feature, not the Accounting API. |
-| Payroll | `PAYROLL_PROVIDER` | QuickBooks Payroll has its own product, API, and scopes. |
-| QuickBooks Capital | `CAPITAL_PROVIDER` | Loan/lending data is a separate Intuit lending product. |
-| Industry benchmarking | `BENCHMARK_PROVIDER` | Requires Intuit's benchmarking product for your industry code/region. |
+| Feature | Env var | Why | Until then |
+|---|---|---|---|
+| Payment links | `PAYMENTS_PROVIDER` | Standalone payment links are a QuickBooks Payments feature, not the Accounting API. | Links you create are stored locally and clearly marked as demo — sending one updates its status here but never emails anyone or moves money. |
+| Payroll | `PAYROLL_PROVIDER` | QuickBooks Payroll has its own product, API, and scopes. | The employee directory starts empty and is genuinely yours (stored locally) — no fabricated employees. |
+| QuickBooks Capital | `CAPITAL_PROVIDER` | Loan/lending data is a separate Intuit lending product. | The page shows "not connected" rather than invented loans. |
+| Industry benchmarking | `BENCHMARK_PROVIDER` | Requires Intuit's benchmarking product for your industry code/region. | "Your" figures are computed from your real connected P&L/balance sheet; the peer-side numbers are illustrative and clearly labeled "Estimated." |
 
-Each defaults to `mock`. The UI, the confirm-before-send flow, and all the CRUD screens are
-fully functional either way — only the underlying data source changes. Each corresponding
-module (`src/lib/quickbooks/payments.ts`, `payroll.ts`, `capital.ts`, `benchmark.ts`) has a
-single, clearly-commented spot to wire in the real Intuit API call once that product access is
-provisioned; flip the env var to `live` after doing so.
+Each defaults to `mock`. The UI and confirm-before-send flow are fully functional either way —
+only the underlying data source changes, and nothing fabricated is ever presented as real.
+Each corresponding module (`src/lib/quickbooks/payments.ts`, `payroll.ts`, `capital.ts`,
+`benchmark.ts`) has a single, clearly-commented spot to wire in the real Intuit API call once
+that product access is provisioned; flip the env var to `live` after doing so.
 
 Recurring invoices/estimates are also app-owned rather than a QuickBooks feature: the public
 Accounting API has no endpoint for creating recurring transaction templates. This app stores
@@ -155,8 +178,15 @@ production.
 - The whole app sits behind a single shared passphrase (`APP_PASSWORD`), checked in
   `src/middleware.ts` via a signed, httpOnly cookie — this is an internal tool for one
   business's accounts team, not a multi-tenant product.
+- The login route (`src/lib/rateLimit.ts`) locks out an IP after repeated failed attempts
+  within a 15-minute window. It's in-memory (resets on restart, doesn't share state across
+  multiple server instances), so it's a real deterrent for the single-server deployment
+  this app is meant for, not a substitute for a strong `APP_PASSWORD`.
 - QuickBooks tokens are stored the same way (signed, httpOnly, `secure` in production) and
   refreshed automatically before they expire.
+- `next.config.mjs` sends a Content-Security-Policy and standard hardening headers
+  (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) on
+  every response.
 - Every action that emails something to a customer (invoice, estimate, reminder, payment
   link) requires an explicit confirmation on a dialog that shows exactly who it's going to and
   what's in it — see `src/components/ui/ConfirmSendDialog.tsx`.

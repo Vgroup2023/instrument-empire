@@ -3,6 +3,7 @@ import { deleteRecurringTemplate, setRecurringActive } from '@/lib/quickbooks/re
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {

@@ -3,6 +3,7 @@ import { runDueTemplates } from '@/lib/quickbooks/recurring';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * Meant to be called once a day by an external scheduler (cron job,

@@ -19,14 +19,17 @@ export interface BenchmarkResult {
   peerCompanyCount: number;
   generatedAt: string;
   metrics: BenchmarkMetric[];
+  /** True until BENCHMARK_PROVIDER=live is wired up — the peer-side numbers are illustrative, not real Intuit benchmark data. */
+  isEstimate: boolean;
 }
 
 /**
  * Industry benchmarking requires Intuit's benchmarking product, which is
  * provisioned separately from the standard Accounting API scope. Until that
- * is wired up (BENCHMARK_PROVIDER=live), this returns realistic peer data
- * computed against your actual P&L/balance sheet so the Insights screen is
- * fully usable today.
+ * is wired up (BENCHMARK_PROVIDER=live), "yourValue" on each metric is
+ * computed from your actual connected P&L/balance sheet, but the peer-side
+ * numbers are illustrative placeholders — clearly flagged via isEstimate
+ * so they're never mistaken for real industry data when making decisions.
  */
 export async function getBenchmark(
   profitability: ProfitabilitySummary,

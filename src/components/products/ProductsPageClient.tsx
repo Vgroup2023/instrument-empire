@@ -11,9 +11,15 @@ import { Modal } from '@/components/ui/Modal';
 import { Label, Input, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Product } from '@/lib/quickbooks/items';
+import type { Product, IncomeAccount } from '@/lib/quickbooks/items';
 
-export function ProductsPageClient({ initialProducts }: { initialProducts: Product[] }) {
+export function ProductsPageClient({
+  initialProducts,
+  incomeAccounts,
+}: {
+  initialProducts: Product[];
+  incomeAccounts: IncomeAccount[];
+}) {
   const { notify } = useToast();
   const [products, setProducts] = useState(initialProducts);
   const [open, setOpen] = useState(false);
@@ -21,6 +27,7 @@ export function ProductsPageClient({ initialProducts }: { initialProducts: Produ
   const [type, setType] = useState<'Service' | 'NonInventory'>('Service');
   const [unitPrice, setUnitPrice] = useState('0');
   const [description, setDescription] = useState('');
+  const [incomeAccountId, setIncomeAccountId] = useState(incomeAccounts[0]?.Id ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,10 +44,18 @@ export function ProductsPageClient({ initialProducts }: { initialProducts: Produ
     setLoading(true);
     setError(null);
     try {
+      const incomeAccount = incomeAccounts.find((a) => a.Id === incomeAccountId);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, unitPrice: Number(unitPrice) || 0, description: description || undefined }),
+        body: JSON.stringify({
+          name,
+          type,
+          unitPrice: Number(unitPrice) || 0,
+          description: description || undefined,
+          incomeAccountId,
+          incomeAccountName: incomeAccount?.Name,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -124,12 +139,33 @@ export function ProductsPageClient({ initialProducts }: { initialProducts: Produ
             <Label htmlFor="description">Description (optional)</Label>
             <Textarea id="description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          <div>
+            <Label htmlFor="incomeAccount">Posts revenue to</Label>
+            {incomeAccounts.length > 0 ? (
+              <Select
+                id="incomeAccount"
+                value={incomeAccountId}
+                onChange={(e) => setIncomeAccountId(e.target.value)}
+                required
+              >
+                {incomeAccounts.map((account) => (
+                  <option key={account.Id} value={account.Id}>
+                    {account.Name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <p className="text-sm text-red-600">
+                No income accounts found in QuickBooks — add one there first.
+              </p>
+            )}
+          </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} disabled={incomeAccounts.length === 0}>
               Add
             </Button>
           </div>

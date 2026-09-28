@@ -33,6 +33,21 @@ async function saveAll(templates: RecurringTemplate[]): Promise<void> {
   await writeJsonFile(FILE_NAME, templates);
 }
 
+/**
+ * Adds months to a UTC date without overflowing into the next month when
+ * the target month is shorter — e.g. Jan 31 + 1 month lands on Feb 28/29,
+ * not Mar 2/3 (JS Date's native rollover behavior). Without this, a
+ * schedule set for the 29th/30th/31st would silently drift to a different
+ * day every time it crosses a shorter month.
+ */
+function addUtcMonthsClamped(date: Date, months: number): void {
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const daysInTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, daysInTargetMonth));
+}
+
 export function computeNextRunDate(frequency: RecurringFrequency, from: string): string {
   const date = new Date(`${from}T00:00:00Z`);
   switch (frequency) {
@@ -40,13 +55,13 @@ export function computeNextRunDate(frequency: RecurringFrequency, from: string):
       date.setUTCDate(date.getUTCDate() + 7);
       break;
     case 'monthly':
-      date.setUTCMonth(date.getUTCMonth() + 1);
+      addUtcMonthsClamped(date, 1);
       break;
     case 'quarterly':
-      date.setUTCMonth(date.getUTCMonth() + 3);
+      addUtcMonthsClamped(date, 3);
       break;
     case 'yearly':
-      date.setUTCFullYear(date.getUTCFullYear() + 1);
+      addUtcMonthsClamped(date, 12);
       break;
   }
   return date.toISOString().slice(0, 10);

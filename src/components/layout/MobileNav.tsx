@@ -16,6 +16,7 @@ const items = [
   { href: '/dashboard/vendors', label: 'Vendors' },
   { href: '/dashboard/bills', label: 'Bills' },
   { href: '/dashboard/accounts', label: 'Chart of accounts' },
+  { href: '/dashboard/journal-entries', label: 'Journal entries' },
   { href: '/dashboard/payroll', label: 'Payroll' },
   { href: '/dashboard/capital', label: 'Capital' },
   { href: '/dashboard/settings', label: 'Settings' },

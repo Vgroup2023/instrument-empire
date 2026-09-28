@@ -61,6 +61,9 @@ multi-customer use — it's meant to be run by one business, for that business's
   deactivate or reactivate one. QuickBooks doesn't allow hard-deleting an account or changing
   its type/category after creation, so this app doesn't offer either — deactivating is the
   real "delete" here, same as in QuickBooks itself.
+- Journal entries (`/dashboard/journal-entries`): manual double-entry adjustments — accruals,
+  corrections, depreciation, and the like. The line editor shows a running debit/credit total
+  and won't let you save an out-of-balance entry, since QuickBooks would reject it anyway.
 
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
@@ -77,9 +80,9 @@ sheet, etc). There's no separate bank-linking step in this app.
 ## What's live vs. demo data
 
 Everything under **Insights**, the core of **Actions** (invoices, estimates, recurring
-schedules, customers, products), all of **Payables** (vendors, bills, bill payments), and
-**Accounting** (chart of accounts) runs against your real QuickBooks Online company through
-the public Accounting API once you connect it.
+schedules, customers, products), all of **Payables** (vendors, bills, bill payments), and all
+of **Accounting** (chart of accounts, journal entries) runs against your real QuickBooks
+Online company through the public Accounting API once you connect it.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:

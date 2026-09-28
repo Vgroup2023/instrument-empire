@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Label, Input } from '@/components/ui/Field';
 import { CustomerSelect } from '@/components/documents/CustomerSelect';
 import { LineItemsEditor } from '@/components/documents/LineItemsEditor';
+import { CurrencyExchangeRateField } from '@/components/documents/CurrencyExchangeRateField';
 import { useToast } from '@/components/ui/Toast';
 import type { Customer } from '@/lib/quickbooks/customers';
 import type { Product } from '@/lib/quickbooks/items';
@@ -18,15 +19,26 @@ interface InvoiceFormDialogProps {
   customers: Customer[];
   products: Product[];
   invoice?: Invoice;
+  homeCurrencyCode?: string;
   onSaved: () => void;
 }
 
-export function InvoiceFormDialog({ open, onClose, customers, products, invoice, onSaved }: InvoiceFormDialogProps) {
+export function InvoiceFormDialog({
+  open,
+  onClose,
+  customers,
+  products,
+  invoice,
+  homeCurrencyCode,
+  onSaved,
+}: InvoiceFormDialogProps) {
   const { notify } = useToast();
   const isEdit = Boolean(invoice);
 
   const [customerId, setCustomerId] = useState(invoice?.CustomerRef.value ?? '');
   const [customerName, setCustomerName] = useState(invoice?.CustomerRef.name ?? '');
+  const [customerCurrency, setCustomerCurrency] = useState(invoice?.CurrencyRef);
+  const [exchangeRate, setExchangeRate] = useState(invoice?.ExchangeRate ?? 1);
   const [email, setEmail] = useState(invoice?.BillEmail?.Address ?? '');
   const [dueDate, setDueDate] = useState(invoice?.DueDate ?? '');
   const [lines, setLines] = useState<LineItemInput[]>(
@@ -40,6 +52,10 @@ export function InvoiceFormDialog({ open, onClose, customers, products, invoice,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isForeignCurrency = Boolean(
+    !isEdit && homeCurrencyCode && customerCurrency && customerCurrency.value !== homeCurrencyCode,
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,7 +71,15 @@ export function InvoiceFormDialog({ open, onClose, customers, products, invoice,
         body: JSON.stringify(
           isEdit
             ? { syncToken: invoice!.SyncToken, dueDate, email: email || undefined, lines: validLines, customerId, customerName }
-            : { customerId, customerName, email: email || undefined, dueDate: dueDate || undefined, lines: validLines },
+            : {
+                customerId,
+                customerName,
+                email: email || undefined,
+                dueDate: dueDate || undefined,
+                lines: validLines,
+                currencyCode: isForeignCurrency ? customerCurrency!.value : undefined,
+                exchangeRate: isForeignCurrency ? exchangeRate : undefined,
+              },
         ),
       });
       if (!res.ok) {
@@ -81,9 +105,11 @@ export function InvoiceFormDialog({ open, onClose, customers, products, invoice,
             <CustomerSelect
               customers={customers}
               value={customerId}
-              onChange={(id, name, defaultEmail) => {
+              onChange={(id, name, defaultEmail, currencyRef) => {
                 setCustomerId(id);
                 setCustomerName(name);
+                setCustomerCurrency(currencyRef);
+                setExchangeRate(1);
                 if (defaultEmail && !email) setEmail(defaultEmail);
               }}
             />
@@ -93,6 +119,14 @@ export function InvoiceFormDialog({ open, onClose, customers, products, invoice,
             <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
+        {isForeignCurrency ? (
+          <CurrencyExchangeRateField
+            currencyCode={customerCurrency!.value}
+            homeCurrencyCode={homeCurrencyCode}
+            exchangeRate={exchangeRate}
+            onExchangeRateChange={setExchangeRate}
+          />
+        ) : null}
         <div>
           <Label htmlFor="email">Billing email</Label>
           <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="customer@example.com" />

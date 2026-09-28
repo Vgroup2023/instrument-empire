@@ -81,6 +81,18 @@ multi-customer use — it's meant to be run by one business, for that business's
 - QuickBooks Capital (`/dashboard/capital`): your loans and how your borrowing terms compare
   to peer businesses (read-only, as requested).
 
+**Multi-currency** — only relevant if your QuickBooks company has it enabled (Settings →
+Advanced → Currency; it's a one-way company setting that can't be turned off once on):
+- Assign a currency to a customer or vendor when you add them (`/dashboard/customers`,
+  `/dashboard/vendors`) — QuickBooks locks this in permanently once they have a transaction,
+  so this app makes the choice explicit up front rather than silently defaulting.
+- Invoices and bills for a foreign-currency customer/vendor show an exchange-rate field (with
+  a one-click "use today's rate" lookup against QuickBooks' own rate service, or type in the
+  rate you already know), and list views display amounts in each document's own currency.
+- **Not yet wired up**: Estimates, Expenses, and Journal Entries don't have currency pickers
+  yet — they'll default to the company's home currency even for a foreign-currency
+  customer/vendor. Extending them follows the identical pattern used for Invoices/Bills.
+
 **Bank connections** live inside QuickBooks Online itself — once you connect your company
 (below), any bank feeds you've linked in QuickBooks show up automatically in the Banking
 center there, and their effects flow into the reports this app reads (cash flow, balance

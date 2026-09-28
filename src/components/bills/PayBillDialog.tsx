@@ -40,6 +40,8 @@ export function PayBillDialog({
           amount: Number(amount),
           bankAccountId,
           bankAccountName: bankAccount?.Name,
+          currencyCode: bill.CurrencyRef?.value,
+          exchangeRate: bill.ExchangeRate,
         }),
       });
       if (!res.ok) {
@@ -75,7 +77,8 @@ export function PayBillDialog({
     >
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          Balance due: <span className="font-medium text-slate-900">{formatCurrency(bill.Balance)}</span>
+          Balance due:{' '}
+          <span className="font-medium text-slate-900">{formatCurrency(bill.Balance, bill.CurrencyRef?.value)}</span>
         </p>
         <div>
           <Label htmlFor="payAmount">Amount to pay</Label>

@@ -14,6 +14,9 @@ export interface Invoice {
   Balance: number;
   EmailStatus?: string;
   InvoiceLink?: string;
+  /** Only present when this customer bills in a currency other than the company's home currency. */
+  CurrencyRef?: { value: string; name?: string };
+  ExchangeRate?: number;
 }
 
 export async function listInvoices(): Promise<Invoice[]> {
@@ -32,6 +35,9 @@ export interface CreateInvoiceInput {
   txnDate?: string;
   dueDate?: string;
   lines: LineItemInput[];
+  /** Required when the customer bills in a non-home currency; QuickBooks rejects the create otherwise. */
+  currencyCode?: string;
+  exchangeRate?: number;
 }
 
 export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice> {
@@ -43,6 +49,8 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice>
       DueDate: input.dueDate,
       BillEmail: input.email ? { Address: input.email } : undefined,
       Line: toQboLines(input.lines),
+      CurrencyRef: input.currencyCode ? { value: input.currencyCode } : undefined,
+      ExchangeRate: input.exchangeRate,
     },
   });
   return data.Invoice;

@@ -5,6 +5,7 @@ import { isQboConnected } from '@/lib/quickbooks/client';
 import { listBills } from '@/lib/quickbooks/bills';
 import { listVendors } from '@/lib/quickbooks/vendors';
 import { listExpenseAccounts, listBankAccounts } from '@/lib/quickbooks/accounts';
+import { loadCurrencies } from '@/lib/quickbooks/currencies';
 import { BillsPageClient } from '@/components/bills/BillsPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -49,16 +50,18 @@ export default async function BillsPage() {
       vendors={data.vendors}
       expenseAccounts={data.expenseAccounts}
       bankAccounts={data.bankAccounts}
+      homeCurrencyCode={data.homeCurrency?.code}
     />
   );
 }
 
 async function loadBillsData() {
-  const [bills, vendors, expenseAccounts, bankAccounts] = await Promise.all([
+  const [bills, vendors, expenseAccounts, bankAccounts, { homeCurrency }] = await Promise.all([
     listBills(),
     listVendors(),
     listExpenseAccounts(),
     listBankAccounts(),
+    loadCurrencies(),
   ]);
-  return { bills, vendors, expenseAccounts, bankAccounts };
+  return { bills, vendors, expenseAccounts, bankAccounts, homeCurrency };
 }

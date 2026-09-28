@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Label, Input } from '@/components/ui/Field';
 import { VendorSelect } from '@/components/bills/VendorSelect';
 import { BillLineItemsEditor } from '@/components/bills/BillLineItemsEditor';
+import { CurrencyExchangeRateField } from '@/components/documents/CurrencyExchangeRateField';
 import { useToast } from '@/components/ui/Toast';
 import type { Vendor } from '@/lib/quickbooks/vendors';
 import type { GlAccount } from '@/lib/quickbooks/accounts';
@@ -17,15 +18,26 @@ interface BillFormDialogProps {
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   bill?: Bill;
+  homeCurrencyCode?: string;
   onSaved: () => void;
 }
 
-export function BillFormDialog({ open, onClose, vendors, expenseAccounts, bill, onSaved }: BillFormDialogProps) {
+export function BillFormDialog({
+  open,
+  onClose,
+  vendors,
+  expenseAccounts,
+  bill,
+  homeCurrencyCode,
+  onSaved,
+}: BillFormDialogProps) {
   const { notify } = useToast();
   const isEdit = Boolean(bill);
 
   const [vendorId, setVendorId] = useState(bill?.VendorRef.value ?? '');
   const [vendorName, setVendorName] = useState(bill?.VendorRef.name ?? '');
+  const [vendorCurrency, setVendorCurrency] = useState(bill?.CurrencyRef);
+  const [exchangeRate, setExchangeRate] = useState(bill?.ExchangeRate ?? 1);
   const [dueDate, setDueDate] = useState(bill?.DueDate ?? '');
   const [lines, setLines] = useState<ExpenseLineInput[]>(
     bill?.Line.map((l) => ({
@@ -37,6 +49,10 @@ export function BillFormDialog({ open, onClose, vendors, expenseAccounts, bill, 
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isForeignCurrency = Boolean(
+    !isEdit && homeCurrencyCode && vendorCurrency && vendorCurrency.value !== homeCurrencyCode,
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +68,14 @@ export function BillFormDialog({ open, onClose, vendors, expenseAccounts, bill, 
         body: JSON.stringify(
           isEdit
             ? { syncToken: bill!.SyncToken, dueDate, lines: validLines, vendorId, vendorName }
-            : { vendorId, vendorName, dueDate: dueDate || undefined, lines: validLines },
+            : {
+                vendorId,
+                vendorName,
+                dueDate: dueDate || undefined,
+                lines: validLines,
+                currencyCode: isForeignCurrency ? vendorCurrency!.value : undefined,
+                exchangeRate: isForeignCurrency ? exchangeRate : undefined,
+              },
         ),
       });
       if (!res.ok) {
@@ -78,9 +101,11 @@ export function BillFormDialog({ open, onClose, vendors, expenseAccounts, bill, 
             <VendorSelect
               vendors={vendors}
               value={vendorId}
-              onChange={(id, name) => {
+              onChange={(id, name, currencyRef) => {
                 setVendorId(id);
                 setVendorName(name);
+                setVendorCurrency(currencyRef);
+                setExchangeRate(1);
               }}
             />
           </div>
@@ -89,6 +114,14 @@ export function BillFormDialog({ open, onClose, vendors, expenseAccounts, bill, 
             <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
+        {isForeignCurrency ? (
+          <CurrencyExchangeRateField
+            currencyCode={vendorCurrency!.value}
+            homeCurrencyCode={homeCurrencyCode}
+            exchangeRate={exchangeRate}
+            onExchangeRateChange={setExchangeRate}
+          />
+        ) : null}
         <div>
           <Label>Expense lines</Label>
           <BillLineItemsEditor expenseAccounts={expenseAccounts} lines={lines} onChange={setLines} />

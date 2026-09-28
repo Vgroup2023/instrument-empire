@@ -11,7 +11,11 @@ export function VendorSelect({
 }: {
   vendors: Vendor[];
   value: string;
-  onChange: (vendorId: string, vendorName: string) => void;
+  onChange: (
+    vendorId: string,
+    vendorName: string,
+    currencyRef?: { value: string; name?: string },
+  ) => void;
   required?: boolean;
 }) {
   return (
@@ -19,7 +23,7 @@ export function VendorSelect({
       value={value}
       onChange={(e) => {
         const vendor = vendors.find((v) => v.Id === e.target.value);
-        onChange(e.target.value, vendor?.DisplayName ?? '');
+        onChange(e.target.value, vendor?.DisplayName ?? '', vendor?.CurrencyRef);
       }}
       required={required}
     >

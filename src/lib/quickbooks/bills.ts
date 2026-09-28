@@ -1,15 +1,8 @@
 import { qboFetch, qboQuery } from '@/lib/quickbooks/client';
 import { stripForDuplicate } from '@/lib/quickbooks/salesTypes';
+import { toQboExpenseLines, type AccountExpenseLine, type ExpenseLineInput } from '@/lib/quickbooks/expenseLineTypes';
 
-export interface BillExpenseLine {
-  Id?: string;
-  DetailType: 'AccountBasedExpenseLineDetail';
-  Amount: number;
-  Description?: string;
-  AccountBasedExpenseLineDetail: {
-    AccountRef: { value: string; name?: string };
-  };
-}
+export type { ExpenseLineInput };
 
 export interface Bill {
   Id: string;
@@ -18,7 +11,7 @@ export interface Bill {
   TxnDate: string;
   DueDate?: string;
   VendorRef: { value: string; name?: string };
-  Line: BillExpenseLine[];
+  Line: AccountExpenseLine[];
   TotalAmt: number;
   Balance: number;
 }
@@ -30,24 +23,6 @@ export async function listBills(): Promise<Bill[]> {
 export async function getBill(id: string): Promise<Bill> {
   const data = await qboFetch<{ Bill: Bill }>(`bill/${id}`);
   return data.Bill;
-}
-
-export interface ExpenseLineInput {
-  accountId: string;
-  accountName?: string;
-  description?: string;
-  amount: number;
-}
-
-function toQboExpenseLines(lines: ExpenseLineInput[]): BillExpenseLine[] {
-  return lines.map((line) => ({
-    DetailType: 'AccountBasedExpenseLineDetail',
-    Amount: line.amount,
-    Description: line.description || undefined,
-    AccountBasedExpenseLineDetail: {
-      AccountRef: { value: line.accountId, name: line.accountName },
-    },
-  }));
 }
 
 export interface CreateBillInput {

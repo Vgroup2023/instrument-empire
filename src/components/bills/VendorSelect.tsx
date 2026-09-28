@@ -7,10 +7,12 @@ export function VendorSelect({
   vendors,
   value,
   onChange,
+  required = true,
 }: {
   vendors: Vendor[];
   value: string;
   onChange: (vendorId: string, vendorName: string) => void;
+  required?: boolean;
 }) {
   return (
     <Select
@@ -19,9 +21,9 @@ export function VendorSelect({
         const vendor = vendors.find((v) => v.Id === e.target.value);
         onChange(e.target.value, vendor?.DisplayName ?? '');
       }}
-      required
+      required={required}
     >
-      <option value="">Select a vendor…</option>
+      <option value="">{required ? 'Select a vendor…' : 'No vendor (optional)'}</option>
       {vendors.map((vendor) => (
         <option key={vendor.Id} value={vendor.Id}>
           {vendor.DisplayName}

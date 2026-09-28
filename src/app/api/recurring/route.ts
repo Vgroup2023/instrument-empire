@@ -3,7 +3,7 @@ import {
   createRecurringTemplate,
   listRecurringTemplates,
   type CreateRecurringInput,
-} from '@/lib/quickbooks/recurring';
+} from '@/lib/accounting/recurring';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

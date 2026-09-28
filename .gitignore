@@ -30,9 +30,6 @@ yarn-error.log*
 .netlify
 deno.lock
 
-# app-owned local data store (recurring schedules, demo payment links/payroll)
-/data
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts

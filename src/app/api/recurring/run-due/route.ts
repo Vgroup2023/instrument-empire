@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runDueTemplates } from '@/lib/quickbooks/recurring';
+import { runDueTemplates } from '@/lib/accounting/recurring';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Accounts Copilot',
   description:
-    'Financial insights and actions for the accounts department, backed by QuickBooks Online.',
+    'Financial insights and actions for the accounts department, with QuickBooks Online as an optional connection.',
   icons: { icon: '/globlex-ai-logo.webp' },
 };
 

@@ -15,30 +15,25 @@ still QuickBooks-backed** below for the current split.
 
 ## Before you rely on this for real, daily bookkeeping
 
-- **Everything under Accounting, Payables, Actions, and Banking works immediately** — no
-  QuickBooks connection needed, since it all runs on this app's own database now (Chart of
+- **Almost everything works immediately, no QuickBooks connection needed** — Chart of
   accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates,
-  Bills, Expenses, and Transfers). **Connect your real QuickBooks company** (Settings &
-  connection) to use Insights, Payroll, Payment links, Capital, and recurring schedules —
-  until then, those screens show an explicit "not connected" state rather than fabricated
-  numbers.
+  Bills, Expenses, Transfers, Payroll, Payment links, and recurring schedules all run on this
+  app's own database. **Connect your real QuickBooks company** (Settings & connection) only
+  for **Insights** (`/dashboard`, `/dashboard/ar-ap`, `/dashboard/sales`) — those still pull
+  live P&L/cash flow/balance sheet/aging/sales-breakdown reports from QuickBooks, and show an
+  explicit "not connected" state rather than fabricated numbers until you do.
 - **Set real `SMTP_*` env vars to actually email invoices, estimates, and reminders** — see
   **Environment variables** below. Without them, clicking Send/Remind fails with a clear
   "email isn't configured" error rather than silently doing nothing.
-- **Payment links, Payroll, and QuickBooks Capital start empty and stay demo-mode**
-  (`PAYMENTS_PROVIDER`, `PAYROLL_PROVIDER`, `CAPITAL_PROVIDER` in `.env`) until you have
-  the corresponding Intuit product access and wire it up — see **What's live vs. demo
-  data** below. Payment links created in demo mode are clearly flagged everywhere and
-  cannot actually be emailed to a customer or process a payment.
+- **Payment links and Payroll default to demo/local mode** (`PAYMENTS_PROVIDER`,
+  `PAYROLL_PROVIDER` in `.env`) until you have real QuickBooks Payments/Payroll product access
+  and wire it up — see **What's live vs. demo data** below. This only affects whether a
+  payment link can really be emailed/paid; everything you create either way is stored for
+  real in this app's database. QuickBooks Capital and industry benchmarking (`CAPITAL_PROVIDER`,
+  `BENCHMARK_PROVIDER`) work the same way.
 - **Set a real `APP_PASSWORD` and `SESSION_SECRET`** — not the placeholder values from
   `.env.example`. The login route now rate-limits repeated failed attempts, but the
   passphrase is still the only thing standing between the internet and your financials.
-- **Pick hosting with a persistent filesystem** (a small VM, Docker container, Railway,
-  Render, Fly.io, or your own machine) if you want recurring schedules, payment links, or
-  payroll edits to actually stick — see the **Deploying to Netlify** filesystem caveat
-  below. Everything backed by QuickBooks or this app's own database is unaffected either way.
-- **Back up the `data/` directory** if you're self-hosting — it's the only place
-  recurring-schedule and payroll/payment-link records live outside of QuickBooks itself.
 
 ## What it does
 
@@ -52,20 +47,22 @@ still QuickBooks-backed** below for the current split.
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): runs on this app's
   own database — create, edit, duplicate, delete, and email, plus scheduling them to recur
-  (weekly/monthly/quarterly/yearly, still created through QuickBooks until recurring schedules
-  are migrated too — see the table below). Sending or reminding emails the customer for real
-  via the SMTP server you configure (see **Environment variables**), not through QuickBooks.
-  Invoice payments (`/dashboard/invoices` → Record payment) track what's actually been paid
-  against an invoice — this app's own replacement for the balance QuickBooks used to compute
-  for us — and post into a bank account from your Chart of Accounts.
+  (weekly/monthly/quarterly/yearly — a schedule's documents land in these same tabs, since
+  recurring schedules run on this app's own database too). Sending or reminding emails the
+  customer for real via the SMTP server you configure (see **Environment variables**), not
+  through QuickBooks. Invoice payments (`/dashboard/invoices` → Record payment) track what's
+  actually been paid against an invoice — this app's own replacement for the balance
+  QuickBooks used to compute for us — and post into a bank account from your Chart of
+  Accounts.
 - Customers and products/services (`/dashboard/customers`, `/dashboard/products`): runs on
   this app's own database — add, edit, and deactivate/reactivate. There's no hard-delete, so
   deactivating is the real "delete" here — same pattern as the Chart of Accounts. A
   deactivated one drops out of the picker on new invoices/estimates, but stays visible (and
   editable/reactivatable) on its own management page and on any older document that already
   references it.
-- Payment links and payment reminders (`/dashboard/payments`): create a link, edit it while
-  it's still unsent, email it, cancel it, or nudge a customer with an overdue balance.
+- Payment links and payment reminders (`/dashboard/payments`): runs on this app's own
+  database — create a link, edit it while it's still unsent, email it, cancel it, or nudge a
+  customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
   link — goes through a preview-and-confirm dialog first.** Nothing is emailed without an
   explicit click on the exact content that will go out.
@@ -101,11 +98,14 @@ still QuickBooks-backed** below for the current split.
   it).
 
 **People & money**
-- Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
-  an employee directory with hire/employment status, and the ability to add an employee, edit
-  their profile (name, job title, department, email), set base pay, and terminate/reactivate them.
+- Payroll (`/dashboard/payroll`): runs on this app's own database — read-only answers
+  (headcount, last/next payroll run), an employee directory with hire/employment status, and
+  the ability to add an employee, edit their profile (name, job title, department, email), set
+  base pay, and terminate/reactivate them.
 - QuickBooks Capital (`/dashboard/capital`): your loans and how your borrowing terms compare
-  to peer businesses (read-only, as requested).
+  to peer businesses (read-only, as requested). QuickBooks Capital is a separate Intuit
+  lending product this app doesn't have access to, so this stays empty rather than inventing
+  loans — see the table further down.
 
 **Multi-currency** was only relevant while your QuickBooks company had it enabled. Now that
 Customers, Vendors, Invoices, Estimates, and Bills all run on this app's own database, the
@@ -125,45 +125,43 @@ own Postgres database (see `src/db/schema.ts` for the full schema). Currently:
 
 | Area | Backed by |
 |---|---|
-| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers | This app's own database — no QuickBooks connection needed |
-| Everything else (Insights, Payroll, Payment links, Capital, recurring schedules) | Still QuickBooks-backed for now — being migrated in upcoming phases |
+| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers, Payroll, Payment links, recurring schedules | This app's own database — no QuickBooks connection needed |
+| Insights (P&L, cash flow, balance sheet, A/R & A/P aging, sales breakdown) | Still QuickBooks-backed for now — being rebuilt from the local ledger in an upcoming phase |
 
 ## What's live vs. demo data (for QuickBooks-backed features)
 
-Everything under **Insights** and **recurring schedules** (which still create their invoices/
-estimates through QuickBooks even though the Invoices/Estimates tabs themselves no longer need
-it — see the note below) runs against your real QuickBooks Online company through the public
-Accounting API once you connect it. **Accounting**, **Payables**, **Actions** (Invoices and
-Estimates), and **Banking** (Expenses and Transfers) no longer depend on QuickBooks at all —
-see the table above.
+Only **Insights** runs against your real QuickBooks Online company through the public
+Accounting API once you connect it. Everything else — **Accounting**, **Payables**,
+**Actions** (Invoices, Estimates, and recurring schedules), **Banking**, **Payroll**, and
+**Payment links** — no longer depends on QuickBooks at all — see the table above.
 
-**Recurring schedules caveat:** a recurring invoice/estimate schedule still creates its
-documents through the QuickBooks Accounting API (`src/lib/quickbooks/recurring.ts`), so a
-document created automatically by a schedule shows up in QuickBooks, not in this app's own
-Invoices/Estimates tabs, until recurring schedules are migrated too (see the phases below).
-Manually created and edited invoices/estimates are unaffected — those are fully local now.
-
-Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
+Two areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:
 
 | Feature | Env var | Why | Until then |
 |---|---|---|---|
-| Payment links | `PAYMENTS_PROVIDER` | Standalone payment links are a QuickBooks Payments feature, not the Accounting API. | Links you create are stored locally and clearly marked as demo — sending one updates its status here but never emails anyone or moves money. |
-| Payroll | `PAYROLL_PROVIDER` | QuickBooks Payroll has its own product, API, and scopes. | The employee directory starts empty and is genuinely yours (stored locally) — no fabricated employees. |
-| QuickBooks Capital | `CAPITAL_PROVIDER` | Loan/lending data is a separate Intuit lending product. | The page shows "not connected" rather than invented loans. |
+| QuickBooks Capital | `CAPITAL_PROVIDER` | Loan/lending data is a separate Intuit lending product. | The page stays empty rather than inventing loans. |
 | Industry benchmarking | `BENCHMARK_PROVIDER` | Requires Intuit's benchmarking product for your industry code/region. | "Your" figures are computed from your real connected P&L/balance sheet; the peer-side numbers are illustrative and clearly labeled "Estimated." |
 
-Each defaults to `mock`. The UI and confirm-before-send flow are fully functional either way —
-only the underlying data source changes, and nothing fabricated is ever presented as real.
-Each corresponding module (`src/lib/quickbooks/payments.ts`, `payroll.ts`, `capital.ts`,
-`benchmark.ts`) has a single, clearly-commented spot to wire in the real Intuit API call once
-that product access is provisioned; flip the env var to `live` after doing so.
+Each defaults to `mock`. The UI is fully functional either way — only the underlying data
+source changes, and nothing fabricated is ever presented as real. Each corresponding module
+(`src/lib/quickbooks/capital.ts`, `benchmark.ts`) has a single, clearly-commented spot to wire
+in the real Intuit API call once that product access is provisioned; flip the env var to
+`live` after doing so.
+
+Payment links (`PAYMENTS_PROVIDER`) and Payroll (`PAYROLL_PROVIDER`) use the same `mock`/`live`
+pattern, but "mock" here means something better than a placeholder: everything you create is
+stored for real in this app's own database (`src/lib/accounting/paymentLinks.ts` and
+`payroll.ts`) — it just isn't backed by a real QuickBooks Payments/Payroll integration yet.
+Sending a payment link in this mode updates its status here but doesn't email anyone or move
+money, and is clearly flagged as demo in the UI.
 
 Recurring invoices/estimates are also app-owned rather than a QuickBooks feature: the public
 Accounting API has no endpoint for creating recurring transaction templates. This app stores
-schedules itself (`src/lib/quickbooks/recurring.ts`) and creates/sends the actual invoice or
-estimate through the real QuickBooks API when a schedule comes due. See **Recurring schedules**
-below for how to run that on a timer.
+schedules and creates/sends the actual invoice or estimate itself
+(`src/lib/accounting/recurring.ts`) when a schedule comes due — through the same local
+Invoices/Estimates ledger a manually-created document uses. See **Recurring schedules** below
+for how to run that on a timer.
 
 ## Setup
 
@@ -260,23 +258,16 @@ scheduler (a GitHub Actions workflow on a `schedule:` trigger, cron-job.org, etc
 `Authorization: Bearer <CRON_SECRET>` header. This is host-agnostic — it'll keep working if
 you ever move hosts again.
 
-**Filesystem caveat:** Netlify Functions don't have a persistent filesystem — each invocation
-can start from a clean slate. That's fine for everything backed by QuickBooks or this app's
-own database (Insights, Invoices, Estimates, Bills, Expenses, Transfers, Chart of accounts,
-Journal entries, Customers, Vendors, Products & services, the login/connect flow) or by the
-signed-cookie session, but the
-JSON-file store behind **recurring schedules**, **demo payment links**, and
-**demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist there — a
-schedule or employee you add may disappear on the next request. Those three features work
-correctly on a host with a persistent filesystem (a small VM, Docker container, Railway,
-Render, Fly.io, etc.); on Netlify, treat them as a UI preview rather than durable storage
-until that store is swapped for a real database or KV service.
+Netlify Functions don't have a persistent filesystem, but that's no longer a concern here —
+every feature in this app, including recurring schedules, payment links, and payroll, is
+backed by Postgres now (see `src/db/schema.ts`), not a JSON file, so nothing depends on
+filesystem state surviving between requests.
 
 ## Recurring schedules
 
 `POST /api/recurring/run-due` finds every active schedule whose next run date has arrived,
-creates the invoice/estimate through QuickBooks, optionally emails it, and advances the
-schedule. The route (in `src/app/api/recurring/run-due/route.ts`) checks the
+creates the invoice/estimate in this app's own database, optionally emails it, and advances
+the schedule. The route (in `src/app/api/recurring/run-due/route.ts`) checks the
 `Authorization: Bearer $CRON_SECRET` header, so point any external scheduler at it once a day
 — a GitHub Actions workflow on a `schedule:` trigger, cron-job.org, or similar — e.g.:
 
@@ -314,8 +305,9 @@ src/
     api/               Route handlers for mutations (create/update/send/duplicate/etc.)
   components/          UI split by feature, plus a small shared kit in components/ui
   lib/
-    quickbooks/        QuickBooks API client, OAuth, and one module per feature area
-      mock/            Demo-data providers for Payments/Payroll/Capital/Benchmark
-    store/             Tiny JSON-file store backing recurring schedules & demo data
+    accounting/        This app's own database-backed modules — the default for most features
+    quickbooks/        QuickBooks API client, OAuth, and the (optional) QuickBooks-backed
+                       equivalents still used by Insights and a few feature areas
+      mock/            Demo-data providers for Capital/Benchmark (no real Intuit product access)
     session.ts         Signed-cookie session (app login + QuickBooks tokens)
 ```

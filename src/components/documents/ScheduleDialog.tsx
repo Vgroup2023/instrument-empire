@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Select, Input } from '@/components/ui/Field';
 import type { LineItemInput } from '@/lib/quickbooks/salesTypes';
-import type { RecurringFrequency } from '@/lib/quickbooks/recurring';
+import type { RecurringFrequency } from '@/lib/accounting/recurring';
 import { useToast } from '@/components/ui/Toast';
 
 interface ScheduleDialogProps {

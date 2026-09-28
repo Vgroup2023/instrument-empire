@@ -9,8 +9,8 @@ import type { SalesDocLine } from '@/lib/quickbooks/salesTypes';
 // This is the standalone, database-backed Estimates ledger — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/estimates.ts for
 // the (optional, separate) QuickBooks-backed equivalent. Recurring schedules
-// (src/lib/quickbooks/recurring.ts) still create documents through
-// QuickBooks until that's migrated too (Phase 6).
+// (src/lib/accounting/recurring.ts) create their documents through this
+// module too.
 
 export interface Estimate {
   Id: string;

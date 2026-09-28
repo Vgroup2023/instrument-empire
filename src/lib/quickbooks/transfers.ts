@@ -39,6 +39,35 @@ export async function createTransfer(input: CreateTransferInput): Promise<Transf
   return data.Transfer;
 }
 
+export interface UpdateTransferInput {
+  id: string;
+  syncToken: string;
+  fromAccountId?: string;
+  fromAccountName?: string;
+  toAccountId?: string;
+  toAccountName?: string;
+  amount?: number;
+  txnDate?: string;
+  memo?: string;
+}
+
+export async function updateTransfer(input: UpdateTransferInput): Promise<Transfer> {
+  const data = await qboFetch<{ Transfer: Transfer }>('transfer', {
+    method: 'POST',
+    body: {
+      Id: input.id,
+      SyncToken: input.syncToken,
+      sparse: true,
+      FromAccountRef: input.fromAccountId ? { value: input.fromAccountId, name: input.fromAccountName } : undefined,
+      ToAccountRef: input.toAccountId ? { value: input.toAccountId, name: input.toAccountName } : undefined,
+      Amount: input.amount,
+      TxnDate: input.txnDate,
+      PrivateNote: input.memo,
+    },
+  });
+  return data.Transfer;
+}
+
 export async function deleteTransfer(id: string, syncToken: string): Promise<void> {
   await qboFetch('transfer', {
     method: 'POST',

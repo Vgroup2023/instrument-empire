@@ -70,6 +70,14 @@ export async function updateEstimate(input: UpdateEstimateInput): Promise<Estima
   return data.Estimate;
 }
 
+export async function deleteEstimate(id: string, syncToken: string): Promise<void> {
+  await qboFetch('estimate', {
+    method: 'POST',
+    query: { operation: 'delete' },
+    body: { Id: id, SyncToken: syncToken },
+  });
+}
+
 export async function sendEstimate(id: string, email?: string): Promise<Estimate> {
   const data = await qboFetch<{ Estimate: Estimate }>(`estimate/${id}/send`, {
     method: 'POST',

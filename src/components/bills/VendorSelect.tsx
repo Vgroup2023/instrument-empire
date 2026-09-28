@@ -18,6 +18,10 @@ export function VendorSelect({
   ) => void;
   required?: boolean;
 }) {
+  // Deactivated vendors shouldn't be picked for new transactions, but an
+  // already-selected one (e.g. editing an older document) must stay visible.
+  const selectable = vendors.filter((v) => v.Active !== false || v.Id === value);
+
   return (
     <Select
       value={value}
@@ -28,7 +32,7 @@ export function VendorSelect({
       required={required}
     >
       <option value="">{required ? 'Select a vendor…' : 'No vendor (optional)'}</option>
-      {vendors.map((vendor) => (
+      {selectable.map((vendor) => (
         <option key={vendor.Id} value={vendor.Id}>
           {vendor.DisplayName}
         </option>

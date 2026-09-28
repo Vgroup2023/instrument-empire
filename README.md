@@ -39,21 +39,26 @@ multi-customer use — it's meant to be run by one business, for that business's
 
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): create, edit,
-  duplicate, and email — plus scheduling them to recur (weekly/monthly/quarterly/yearly).
-- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): add new
-  ones on the fly, used as line items and bill-to parties.
-- Payment links and payment reminders (`/dashboard/payments`): create a link, email it, or
-  nudge a customer with an overdue balance.
+  duplicate, delete, and email — plus scheduling them to recur (weekly/monthly/quarterly/yearly).
+- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): add, edit,
+  and deactivate/reactivate. QuickBooks doesn't allow hard-deleting either once created, so
+  deactivating is the real "delete" here, same as in QuickBooks itself — same pattern as the
+  Chart of Accounts. A deactivated one drops out of the picker on new invoices/estimates, but
+  stays visible (and editable/reactivatable) on its own management page and on any older
+  document that already references it.
+- Payment links and payment reminders (`/dashboard/payments`): create a link, edit it while
+  it's still unsent, email it, cancel it, or nudge a customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
   link — goes through a preview-and-confirm dialog first.** Nothing is emailed without an
   explicit click on the exact content that will go out.
 
 **Payables**
 - Vendors and bills (`/dashboard/vendors`, `/dashboard/bills`): the Accounts Payable
-  counterpart to Invoices/Customers — add vendors, record bills against an expense/COGS
-  category, edit or duplicate a bill, and pay one from a real bank account. Everything here
-  runs against the same real QuickBooks Accounting API as Invoices — no separate product or
-  demo mode.
+  counterpart to Invoices/Customers — add, edit, and deactivate/reactivate vendors (QuickBooks
+  has no hard-delete for them either), record bills against an expense/COGS category, edit,
+  duplicate, or delete a bill, and pay one from a real bank account. Everything here runs
+  against the same real QuickBooks Accounting API as Invoices — no separate product
+  or demo mode.
 
 **Accounting**
 - Chart of accounts (`/dashboard/accounts`): every account in your books — add a new one
@@ -68,16 +73,17 @@ multi-customer use — it's meant to be run by one business, for that business's
 **Banking**
 - Expenses (`/dashboard/expenses`): money paid immediately — by card, cash, or check — as
   opposed to a bill owed for later. Categorize each line to an expense/COGS account, same
-  picker as bills.
+  picker as bills. Create, edit, or delete any expense.
 - Transfers (`/dashboard/transfers`): move money between your own bank/credit card accounts.
-  QuickBooks' own bank-reconciliation screen isn't exposed by the public Accounting API, so
-  recording expenses and transfers accurately is as close as an app built on it can get —
-  the actual "Reconcile" workflow still happens inside QuickBooks itself.
+  Create, edit, or delete a transfer. QuickBooks' own bank-reconciliation screen isn't exposed
+  by the public Accounting API, so recording expenses and transfers accurately is as close as
+  an app built on it can get — the actual "Reconcile" workflow still happens inside QuickBooks
+  itself.
 
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
-  an employee directory with hire/employment status, and the ability to add an employee or
-  set someone's base pay.
+  an employee directory with hire/employment status, and the ability to add an employee, edit
+  their profile (name, job title, department, email), set base pay, and terminate/reactivate them.
 - QuickBooks Capital (`/dashboard/capital`): your loans and how your borrowing terms compare
   to peer businesses (read-only, as requested).
 

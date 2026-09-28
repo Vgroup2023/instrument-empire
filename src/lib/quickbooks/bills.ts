@@ -78,6 +78,14 @@ export async function updateBill(input: UpdateBillInput): Promise<Bill> {
   return data.Bill;
 }
 
+export async function deleteBill(id: string, syncToken: string): Promise<void> {
+  await qboFetch('bill', {
+    method: 'POST',
+    query: { operation: 'delete' },
+    body: { Id: id, SyncToken: syncToken },
+  });
+}
+
 export async function duplicateBill(id: string): Promise<Bill> {
   // Fetched loosely-typed (not just the narrow Bill shape above) so fields
   // this app doesn't otherwise model — class, currency, memo — still carry

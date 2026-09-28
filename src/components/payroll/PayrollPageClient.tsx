@@ -42,7 +42,31 @@ export function PayrollPageClient({
   const [employees, setEmployees] = useState(initialEmployees);
   const [detailEmployee, setDetailEmployee] = useState<Employee | null>(null);
   const [payEmployee, setPayEmployee] = useState<Employee | null>(null);
+  const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  async function toggleStatus(employee: Employee) {
+    setTogglingId(employee.id);
+    try {
+      const nextStatus = employee.status === 'terminated' ? 'active' : 'terminated';
+      const res = await fetch(`/api/payroll/employees/${employee.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Failed to update employee status.');
+      }
+      notify(nextStatus === 'terminated' ? 'Employee terminated.' : 'Employee reactivated.');
+      refresh();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Something went wrong.', 'error');
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   async function refresh() {
     const res = await fetch('/api/payroll/employees', { cache: 'no-store' });
@@ -112,8 +136,19 @@ export function PayrollPageClient({
                       <Button size="sm" variant="ghost" onClick={() => setDetailEmployee(employee)}>
                         Details
                       </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditEmployee(employee)}>
+                        Edit
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => setPayEmployee(employee)}>
                         Set pay
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={togglingId === employee.id}
+                        onClick={() => toggleStatus(employee)}
+                      >
+                        {employee.status === 'terminated' ? 'Reactivate' : 'Terminate'}
                       </Button>
                     </div>
                   </Td>
@@ -156,6 +191,17 @@ export function PayrollPageClient({
           refresh();
         }}
       />
+
+      {editEmployee ? (
+        <EditEmployeeModal
+          employee={editEmployee}
+          onClose={() => setEditEmployee(null)}
+          onSaved={() => {
+            notify('Employee updated.');
+            refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -321,6 +367,85 @@ function AddEmployeeModal({ open, onClose, onSaved }: { open: boolean; onClose: 
           </Button>
           <Button type="submit" loading={loading}>
             Add employee
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditEmployeeModal({
+  employee,
+  onClose,
+  onSaved,
+}: {
+  employee: Employee;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [displayName, setDisplayName] = useState(employee.displayName);
+  const [email, setEmail] = useState(employee.email ?? '');
+  const [jobTitle, setJobTitle] = useState(employee.jobTitle ?? '');
+  const [department, setDepartment] = useState(employee.department ?? '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/payroll/employees/${employee.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName,
+          email: email || undefined,
+          jobTitle: jobTitle || undefined,
+          department: department || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Failed to update employee.');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Edit ${employee.displayName}`}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="editDisplayName">Full name</Label>
+          <Input id="editDisplayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="editJobTitle">Job title</Label>
+            <Input id="editJobTitle" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="editDepartment">Department</Label>
+            <Input id="editDepartment" value={department} onChange={(e) => setDepartment(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="editEmail">Email</Label>
+          <Input id="editEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={loading}>
+            Save changes
           </Button>
         </div>
       </form>

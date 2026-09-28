@@ -7,8 +7,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
-import { Modal } from '@/components/ui/Modal';
-import { Label, Input, Select, Textarea } from '@/components/ui/Field';
+import { ProductFormDialog } from '@/components/products/ProductFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
 import type { Product, IncomeAccount } from '@/lib/quickbooks/items';
@@ -22,14 +21,9 @@ export function ProductsPageClient({
 }) {
   const { notify } = useToast();
   const [products, setProducts] = useState(initialProducts);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [type, setType] = useState<'Service' | 'NonInventory'>('Service');
-  const [unitPrice, setUnitPrice] = useState('0');
-  const [description, setDescription] = useState('');
-  const [incomeAccountId, setIncomeAccountId] = useState(incomeAccounts[0]?.Id ?? '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/products', { cache: 'no-store' });
@@ -39,38 +33,24 @@ export function ProductsPageClient({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  async function toggleActive(product: Product) {
+    setTogglingId(product.Id);
     try {
-      const incomeAccount = incomeAccounts.find((a) => a.Id === incomeAccountId);
-      const res = await fetch('/api/products', {
-        method: 'POST',
+      const res = await fetch(`/api/products/${product.Id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          type,
-          unitPrice: Number(unitPrice) || 0,
-          description: description || undefined,
-          incomeAccountId,
-          incomeAccountName: incomeAccount?.Name,
-        }),
+        body: JSON.stringify({ syncToken: product.SyncToken, active: !product.Active }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Failed to add product.');
+        throw new Error(data.error ?? 'Failed to update product/service.');
       }
-      notify('Product/service added.');
-      setName('');
-      setUnitPrice('0');
-      setDescription('');
-      setOpen(false);
+      notify(product.Active ? 'Product/service deactivated.' : 'Product/service reactivated.');
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      notify(err instanceof Error ? err.message : 'Something went wrong.', 'error');
     } finally {
-      setLoading(false);
+      setTogglingId(null);
     }
   }
 
@@ -79,7 +59,16 @@ export function ProductsPageClient({
       <PageHeader
         title="Products & services"
         description="What you sell — used as line items on invoices and estimates."
-        actions={<Button onClick={() => setOpen(true)}>+ Add product/service</Button>}
+        actions={
+          <Button
+            onClick={() => {
+              setEditingProduct(undefined);
+              setFormOpen(true);
+            }}
+          >
+            + Add product/service
+          </Button>
+        }
       />
 
       <Card>
@@ -95,6 +84,8 @@ export function ProductsPageClient({
                   <Th>Name</Th>
                   <Th>Type</Th>
                   <Th className="text-right">Price</Th>
+                  <Th>Status</Th>
+                  <Th className="text-right">Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -108,6 +99,33 @@ export function ProductsPageClient({
                       <Badge tone="neutral">{product.Type}</Badge>
                     </Td>
                     <Td className="text-right">{formatCurrency(product.UnitPrice ?? 0)}</Td>
+                    <Td>
+                      <Badge tone={product.Active ? 'success' : 'neutral'}>
+                        {product.Active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </Td>
+                    <Td className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingProduct(product);
+                            setFormOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          loading={togglingId === product.Id}
+                          onClick={() => toggleActive(product)}
+                        >
+                          {product.Active ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                      </div>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -116,61 +134,13 @@ export function ProductsPageClient({
         </CardBody>
       </Card>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Add a product or service">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="type">Type</Label>
-              <Select id="type" value={type} onChange={(e) => setType(e.target.value as 'Service' | 'NonInventory')}>
-                <option value="Service">Service</option>
-                <option value="NonInventory">Non-inventory product</option>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="unitPrice">Price</Label>
-              <Input id="unitPrice" type="number" min={0} step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="description">Description (optional)</Label>
-            <Textarea id="description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="incomeAccount">Posts revenue to</Label>
-            {incomeAccounts.length > 0 ? (
-              <Select
-                id="incomeAccount"
-                value={incomeAccountId}
-                onChange={(e) => setIncomeAccountId(e.target.value)}
-                required
-              >
-                {incomeAccounts.map((account) => (
-                  <option key={account.Id} value={account.Id}>
-                    {account.Name}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="text-sm text-red-600">
-                No income accounts found in QuickBooks — add one there first.
-              </p>
-            )}
-          </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={loading} disabled={incomeAccounts.length === 0}>
-              Add
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <ProductFormDialog
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        product={editingProduct}
+        incomeAccounts={incomeAccounts}
+        onSaved={refresh}
+      />
     </div>
   );
 }

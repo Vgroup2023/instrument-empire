@@ -27,6 +27,7 @@ export function ExpensesPageClient({
 }) {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
 
   async function refresh() {
@@ -42,7 +43,16 @@ export function ExpensesPageClient({
       <PageHeader
         title="Expenses"
         description="Money paid immediately — by card, cash, or check — as opposed to a bill owed for later."
-        actions={<Button onClick={() => setFormOpen(true)}>+ Record expense</Button>}
+        actions={
+          <Button
+            onClick={() => {
+              setEditingExpense(undefined);
+              setFormOpen(true);
+            }}
+          >
+            + Record expense
+          </Button>
+        }
       />
 
       <Card>
@@ -76,9 +86,21 @@ export function ExpensesPageClient({
                     </Td>
                     <Td className="text-right">{formatCurrency(expense.TotalAmt)}</Td>
                     <Td className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(expense)}>
-                        Delete
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingExpense(expense);
+                            setFormOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(expense)}>
+                          Delete
+                        </Button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -94,6 +116,7 @@ export function ExpensesPageClient({
         vendors={vendors}
         expenseAccounts={expenseAccounts}
         paymentAccounts={paymentAccounts}
+        expense={editingExpense}
         onSaved={refresh}
       />
 

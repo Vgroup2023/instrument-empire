@@ -1,5 +1,11 @@
 import { providers } from '@/lib/config';
-import { mockCreatePaymentLink, mockListPaymentLinks, mockSendPaymentLink } from '@/lib/quickbooks/mock/payments';
+import {
+  mockCancelPaymentLink,
+  mockCreatePaymentLink,
+  mockListPaymentLinks,
+  mockSendPaymentLink,
+  mockUpdatePaymentLink,
+} from '@/lib/quickbooks/mock/payments';
 
 export interface PaymentLink {
   id: string;
@@ -8,7 +14,7 @@ export interface PaymentLink {
   email?: string;
   amount: number;
   description?: string;
-  status: 'active' | 'sent' | 'paid' | 'expired';
+  status: 'active' | 'sent' | 'paid' | 'expired' | 'cancelled';
   url: string;
   createdAt: string;
   sentAt?: string;
@@ -52,4 +58,21 @@ export async function createPaymentLink(input: CreatePaymentLinkInput): Promise<
 export async function sendPaymentLink(id: string, email?: string): Promise<PaymentLink> {
   assertMock('sending a payment link');
   return mockSendPaymentLink(id, email);
+}
+
+export interface UpdatePaymentLinkInput {
+  amount?: number;
+  description?: string;
+  email?: string;
+}
+
+/** Only a still-active (not yet sent/paid/cancelled) link can be edited. */
+export async function updatePaymentLink(id: string, input: UpdatePaymentLinkInput): Promise<PaymentLink> {
+  assertMock('updating a payment link');
+  return mockUpdatePaymentLink(id, input);
+}
+
+export async function cancelPaymentLink(id: string): Promise<PaymentLink> {
+  assertMock('cancelling a payment link');
+  return mockCancelPaymentLink(id);
 }

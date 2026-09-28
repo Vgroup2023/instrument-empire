@@ -12,8 +12,9 @@ export interface Product {
   IncomeAccountRef?: { value: string; name?: string };
 }
 
+/** Lists every product/service — active and inactive — same as QuickBooks' own Products and Services list. */
 export async function listProducts(): Promise<Product[]> {
-  return qboQuery<Product>('SELECT * FROM Item WHERE Active = true ORDERBY Name MAXRESULTS 500');
+  return qboQuery<Product>('SELECT * FROM Item ORDERBY Name MAXRESULTS 500');
 }
 
 export async function getProduct(id: string): Promise<Product> {
@@ -60,6 +61,37 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       ...(input.type === 'Inventory'
         ? { TrackQtyOnHand: true, QtyOnHand: 0, InvStartDate: new Date().toISOString().slice(0, 10) }
         : {}),
+    },
+  });
+  return data.Item;
+}
+
+export interface UpdateProductInput {
+  id: string;
+  syncToken: string;
+  name?: string;
+  description?: string;
+  unitPrice?: number;
+  incomeAccountId?: string;
+  incomeAccountName?: string;
+  /** Deactivate/reactivate — QuickBooks has no hard-delete for items. */
+  active?: boolean;
+}
+
+export async function updateProduct(input: UpdateProductInput): Promise<Product> {
+  const data = await qboFetch<{ Item: Product }>('item', {
+    method: 'POST',
+    body: {
+      Id: input.id,
+      SyncToken: input.syncToken,
+      sparse: true,
+      Name: input.name,
+      Description: input.description,
+      UnitPrice: input.unitPrice,
+      IncomeAccountRef: input.incomeAccountId
+        ? { value: input.incomeAccountId, name: input.incomeAccountName }
+        : undefined,
+      Active: input.active,
     },
   });
   return data.Item;

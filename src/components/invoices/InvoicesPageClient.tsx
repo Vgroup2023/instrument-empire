@@ -9,6 +9,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog';
+import { DeleteInvoiceDialog } from '@/components/invoices/DeleteInvoiceDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
 import { useToast } from '@/components/ui/Toast';
@@ -36,6 +37,7 @@ export function InvoicesPageClient({
   const [reminderTarget, setReminderTarget] = useState<Invoice | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<Invoice | null>(null);
   const [scheduleListKey, setScheduleListKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
@@ -143,6 +145,9 @@ export function InvoicesPageClient({
                           <Button size="sm" variant="ghost" onClick={() => setScheduleTarget(invoice)}>
                             Schedule
                           </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(invoice)}>
+                            Delete
+                          </Button>
                         </div>
                       </Td>
                     </Tr>
@@ -245,6 +250,10 @@ export function InvoicesPageClient({
       ) : null}
 
       <RecurringSchedulesList key={scheduleListKey} docType="invoice" />
+
+      {deleteTarget ? (
+        <DeleteInvoiceDialog invoice={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />
+      ) : null}
     </div>
   );
 }

@@ -39,7 +39,11 @@ export function LineItemsEditor({
         <div className="col-span-2">Unit price</div>
         <div className="col-span-2">Amount</div>
       </div>
-      {lines.map((line, index) => (
+      {lines.map((line, index) => {
+        // Deactivated products/services shouldn't be picked on new lines, but
+        // an already-selected one (e.g. editing an older document) must stay visible.
+        const selectableProducts = products.filter((p) => p.Active !== false || p.Id === line.itemId);
+        return (
         <div key={index} className="grid grid-cols-12 items-center gap-2">
           <div className="col-span-12 sm:col-span-5">
             <Select
@@ -55,7 +59,7 @@ export function LineItemsEditor({
               required
             >
               <option value="">Select a product/service…</option>
-              {products.map((p) => (
+              {selectableProducts.map((p) => (
                 <option key={p.Id} value={p.Id}>
                   {p.Name}
                 </option>
@@ -96,7 +100,8 @@ export function LineItemsEditor({
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
       <div className="flex items-center justify-between pt-1">
         <Button type="button" variant="secondary" size="sm" onClick={addLine}>
           + Add line

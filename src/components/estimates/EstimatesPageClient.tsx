@@ -9,6 +9,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { EstimateFormDialog } from '@/components/estimates/EstimateFormDialog';
+import { DeleteEstimateDialog } from '@/components/estimates/DeleteEstimateDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
 import { useToast } from '@/components/ui/Toast';
@@ -40,6 +41,7 @@ export function EstimatesPageClient({
   const [sendTarget, setSendTarget] = useState<Estimate | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<Estimate | null>(null);
   const [scheduleListKey, setScheduleListKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Estimate | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/estimates', { cache: 'no-store' });
@@ -133,6 +135,9 @@ export function EstimatesPageClient({
                         <Button size="sm" variant="ghost" onClick={() => setScheduleTarget(estimate)}>
                           Schedule
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(estimate)}>
+                          Delete
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -205,6 +210,10 @@ export function EstimatesPageClient({
       ) : null}
 
       <RecurringSchedulesList key={scheduleListKey} docType="estimate" />
+
+      {deleteTarget ? (
+        <DeleteEstimateDialog estimate={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />
+      ) : null}
     </div>
   );
 }

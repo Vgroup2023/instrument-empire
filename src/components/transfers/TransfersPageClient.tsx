@@ -21,6 +21,7 @@ export function TransfersPageClient({
 }) {
   const [transfers, setTransfers] = useState(initialTransfers);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState<Transfer | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
 
   async function refresh() {
@@ -36,7 +37,16 @@ export function TransfersPageClient({
       <PageHeader
         title="Bank transfers"
         description="Move money between your own bank and credit card accounts."
-        actions={<Button onClick={() => setFormOpen(true)}>+ Transfer money</Button>}
+        actions={
+          <Button
+            onClick={() => {
+              setEditingTransfer(undefined);
+              setFormOpen(true);
+            }}
+          >
+            + Transfer money
+          </Button>
+        }
       />
 
       <Card>
@@ -66,9 +76,21 @@ export function TransfersPageClient({
                     <Td className="text-slate-500">{transfer.PrivateNote ?? '—'}</Td>
                     <Td className="text-right">{formatCurrency(transfer.Amount)}</Td>
                     <Td className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(transfer)}>
-                        Delete
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingTransfer(transfer);
+                            setFormOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(transfer)}>
+                          Delete
+                        </Button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -78,7 +100,13 @@ export function TransfersPageClient({
         </CardBody>
       </Card>
 
-      <TransferFormDialog open={formOpen} onClose={() => setFormOpen(false)} accounts={accounts} onSaved={refresh} />
+      <TransferFormDialog
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        accounts={accounts}
+        transfer={editingTransfer}
+        onSaved={refresh}
+      />
 
       {deleteTarget ? (
         <DeleteTransferDialog transfer={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />

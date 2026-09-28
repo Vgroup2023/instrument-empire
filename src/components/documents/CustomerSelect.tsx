@@ -17,6 +17,10 @@ export function CustomerSelect({
     currencyRef?: { value: string; name?: string },
   ) => void;
 }) {
+  // Deactivated customers shouldn't be picked for new transactions, but an
+  // already-selected one (e.g. editing an older document) must stay visible.
+  const selectable = customers.filter((c) => c.Active !== false || c.Id === value);
+
   return (
     <Select
       value={value}
@@ -32,7 +36,7 @@ export function CustomerSelect({
       required
     >
       <option value="">Select a customer…</option>
-      {customers.map((customer) => (
+      {selectable.map((customer) => (
         <option key={customer.Id} value={customer.Id}>
           {customer.DisplayName}
         </option>

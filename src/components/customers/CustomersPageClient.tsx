@@ -7,8 +7,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
-import { Modal } from '@/components/ui/Modal';
-import { Label, Input, Select } from '@/components/ui/Field';
+import { CustomerFormDialog } from '@/components/customers/CustomerFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, initials } from '@/lib/format';
 import type { Customer } from '@/lib/quickbooks/customers';
@@ -25,17 +24,9 @@ export function CustomersPageClient({
 }) {
   const { notify } = useToast();
   const [customers, setCustomers] = useState(initialCustomers);
-  const [open, setOpen] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [currencyCode, setCurrencyCode] = useState(homeCurrency?.code ?? '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Only companies with multi-currency enabled have more than one option here.
-  const showCurrencyPicker = currencies.length > 1;
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/customers', { cache: 'no-store' });
@@ -45,38 +36,24 @@ export function CustomersPageClient({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  async function toggleActive(customer: Customer) {
+    setTogglingId(customer.Id);
     try {
-      const res = await fetch('/api/customers', {
-        method: 'POST',
+      const res = await fetch(`/api/customers/${customer.Id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName,
-          companyName: companyName || undefined,
-          email: email || undefined,
-          phone: phone || undefined,
-          currencyCode: showCurrencyPicker ? currencyCode || undefined : undefined,
-        }),
+        body: JSON.stringify({ syncToken: customer.SyncToken, active: !customer.Active }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Failed to add customer.');
+        throw new Error(data.error ?? 'Failed to update customer.');
       }
-      notify('Customer added.');
-      setDisplayName('');
-      setCompanyName('');
-      setEmail('');
-      setPhone('');
-      setCurrencyCode(homeCurrency?.code ?? '');
-      setOpen(false);
+      notify(customer.Active ? 'Customer deactivated.' : 'Customer reactivated.');
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      notify(err instanceof Error ? err.message : 'Something went wrong.', 'error');
     } finally {
-      setLoading(false);
+      setTogglingId(null);
     }
   }
 
@@ -85,7 +62,16 @@ export function CustomersPageClient({
       <PageHeader
         title="Customers"
         description="Everyone you bill, all in one place."
-        actions={<Button onClick={() => setOpen(true)}>+ Add customer</Button>}
+        actions={
+          <Button
+            onClick={() => {
+              setEditingCustomer(undefined);
+              setFormOpen(true);
+            }}
+          >
+            + Add customer
+          </Button>
+        }
       />
 
       <Card>
@@ -102,6 +88,8 @@ export function CustomersPageClient({
                   <Th>Email</Th>
                   <Th>Phone</Th>
                   <Th className="text-right">Balance</Th>
+                  <Th>Status</Th>
+                  <Th className="text-right">Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -128,6 +116,33 @@ export function CustomersPageClient({
                       <Td className="text-right">
                         {formatCurrency(customer.Balance ?? 0, customer.CurrencyRef?.value ?? homeCurrency?.code)}
                       </Td>
+                      <Td>
+                        <Badge tone={customer.Active ? 'success' : 'neutral'}>
+                          {customer.Active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </Td>
+                      <Td className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingCustomer(customer);
+                              setFormOpen(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            loading={togglingId === customer.Id}
+                            onClick={() => toggleActive(customer)}
+                          >
+                            {customer.Active ? 'Deactivate' : 'Reactivate'}
+                          </Button>
+                        </div>
+                      </Td>
                     </Tr>
                   );
                 })}
@@ -137,50 +152,14 @@ export function CustomersPageClient({
         </CardBody>
       </Card>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Add a customer">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="displayName">Name</Label>
-            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-          </div>
-          <div>
-            <Label htmlFor="companyName">Company (optional)</Label>
-            <Input id="companyName" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          {showCurrencyPicker ? (
-            <div>
-              <Label htmlFor="currency">Currency</Label>
-              <Select id="currency" value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)}>
-                {currencies.map((currency) => (
-                  <option key={currency.code} value={currency.code}>
-                    {currency.name} ({currency.code})
-                  </option>
-                ))}
-              </Select>
-              <p className="mt-1 text-xs text-slate-500">
-                Can&apos;t be changed once this customer has a transaction.
-              </p>
-            </div>
-          ) : null}
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={loading}>
-              Add customer
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <CustomerFormDialog
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        customer={editingCustomer}
+        currencies={currencies}
+        homeCurrency={homeCurrency}
+        onSaved={refresh}
+      />
     </div>
   );
 }

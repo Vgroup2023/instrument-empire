@@ -6,25 +6,31 @@ import { Button } from '@/components/ui/Button';
 import { Label, Input, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import type { GlAccount } from '@/lib/quickbooks/accounts';
+import type { Transfer } from '@/lib/quickbooks/transfers';
 
 export function TransferFormDialog({
   open,
   onClose,
   accounts,
+  transfer,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   accounts: GlAccount[];
+  transfer?: Transfer;
   onSaved: () => void;
 }) {
   const { notify } = useToast();
+  const isEdit = Boolean(transfer);
 
-  const [fromAccountId, setFromAccountId] = useState(accounts[0]?.Id ?? '');
-  const [toAccountId, setToAccountId] = useState(accounts[1]?.Id ?? accounts[0]?.Id ?? '');
-  const [amount, setAmount] = useState('0');
-  const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
-  const [memo, setMemo] = useState('');
+  const [fromAccountId, setFromAccountId] = useState(transfer?.FromAccountRef.value ?? accounts[0]?.Id ?? '');
+  const [toAccountId, setToAccountId] = useState(
+    transfer?.ToAccountRef.value ?? accounts[1]?.Id ?? accounts[0]?.Id ?? '',
+  );
+  const [amount, setAmount] = useState(String(transfer?.Amount ?? 0));
+  const [txnDate, setTxnDate] = useState(transfer?.TxnDate ?? new Date().toISOString().slice(0, 10));
+  const [memo, setMemo] = useState(transfer?.PrivateNote ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,10 +45,11 @@ export function TransferFormDialog({
 
       const fromAccount = accounts.find((a) => a.Id === fromAccountId);
       const toAccount = accounts.find((a) => a.Id === toAccountId);
-      const res = await fetch('/api/transfers', {
-        method: 'POST',
+      const res = await fetch(isEdit ? `/api/transfers/${transfer!.Id}` : '/api/transfers', {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(isEdit ? { syncToken: transfer!.SyncToken } : {}),
           fromAccountId,
           fromAccountName: fromAccount?.Name,
           toAccountId,
@@ -54,9 +61,9 @@ export function TransferFormDialog({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Failed to record transfer.');
+        throw new Error(data.error ?? 'Failed to save transfer.');
       }
-      notify('Transfer recorded.');
+      notify(isEdit ? 'Transfer updated.' : 'Transfer recorded.');
       onSaved();
       onClose();
     } catch (err) {
@@ -67,7 +74,7 @@ export function TransferFormDialog({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Transfer between accounts">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit transfer' : 'Transfer between accounts'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {accounts.length < 2 ? (
           <p className="text-sm text-red-600">
@@ -127,7 +134,7 @@ export function TransferFormDialog({
             Cancel
           </Button>
           <Button type="submit" loading={loading} disabled={accounts.length < 2}>
-            Record transfer
+            {isEdit ? 'Save changes' : 'Record transfer'}
           </Button>
         </div>
       </form>

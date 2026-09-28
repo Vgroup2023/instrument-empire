@@ -37,6 +37,10 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'Accounting',
+    items: [{ href: '/dashboard/accounts', label: 'Chart of accounts', icon: '📚' }],
+  },
+  {
     title: 'People & money',
     items: [
       { href: '/dashboard/payroll', label: 'Payroll', icon: '💼' },

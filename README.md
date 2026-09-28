@@ -55,6 +55,13 @@ multi-customer use — it's meant to be run by one business, for that business's
   runs against the same real QuickBooks Accounting API as Invoices — no separate product or
   demo mode.
 
+**Accounting**
+- Chart of accounts (`/dashboard/accounts`): every account in your books — add a new one
+  (bank, income, expense, and everything between), edit its name/number/description, and
+  deactivate or reactivate one. QuickBooks doesn't allow hard-deleting an account or changing
+  its type/category after creation, so this app doesn't offer either — deactivating is the
+  real "delete" here, same as in QuickBooks itself.
+
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
   an employee directory with hire/employment status, and the ability to add an employee or
@@ -70,9 +77,9 @@ sheet, etc). There's no separate bank-linking step in this app.
 ## What's live vs. demo data
 
 Everything under **Insights**, the core of **Actions** (invoices, estimates, recurring
-schedules, customers, products), and all of **Payables** (vendors, bills, bill payments) runs
-against your real QuickBooks Online company through the public Accounting API once you
-connect it.
+schedules, customers, products), all of **Payables** (vendors, bills, bill payments), and
+**Accounting** (chart of accounts) runs against your real QuickBooks Online company through
+the public Accounting API once you connect it.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:

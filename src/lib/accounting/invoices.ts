@@ -1,6 +1,6 @@
 import { getDb } from '@/db/client';
 import { invoices, invoiceLines, invoicePayments, customers, products, accounts } from '@/db/schema';
-import { and, eq, inArray, desc, sql } from 'drizzle-orm';
+import { eq, inArray, desc, sql } from 'drizzle-orm';
 import { sendMail } from '@/lib/email/mailer';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toLineInsertRows, rowsToSalesDocLines, type LineItemInput, type LineRow } from '@/lib/accounting/salesLines';
@@ -356,18 +356,6 @@ export async function deleteInvoicePayment(invoiceId: string, paymentId: string)
   if (deleted.length === 0 || deleted[0].invoiceId !== invoiceId) throw new Error('Payment not found.');
 }
 
-export interface DepositAccount {
-  Id: string;
-  Name: string;
-}
-
+export type { GlAccount as DepositAccount } from '@/lib/accounting/chartOfAccounts';
 /** Lists Bank accounts (from this app's own Chart of Accounts) so "record a payment" can ask which account the money landed in. */
-export async function listDepositAccounts(): Promise<DepositAccount[]> {
-  const db = getDb();
-  const rows = await db
-    .select({ id: accounts.id, name: accounts.name })
-    .from(accounts)
-    .where(and(eq(accounts.accountType, 'Bank'), eq(accounts.active, true)))
-    .orderBy(accounts.name);
-  return rows.map((r) => ({ Id: r.id, Name: r.name }));
-}
+export { listBankAccounts as listDepositAccounts } from '@/lib/accounting/chartOfAccounts';

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { payBill } from '@/lib/quickbooks/billPayments';
+import { payBill } from '@/lib/accounting/bills';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -9,23 +9,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { id } = await params;
     const body = await request.json();
-    if (!body.vendorId || !body.bankAccountId || !body.amount) {
-      return NextResponse.json(
-        { error: 'A vendor, bank account, and amount are required to pay a bill.' },
-        { status: 400 },
-      );
+    if (!body.bankAccountId || !body.amount) {
+      return NextResponse.json({ error: 'A bank account and amount are required to pay a bill.' }, { status: 400 });
     }
-    const payment = await payBill({
+    const bill = await payBill({
       billId: id,
-      vendorId: body.vendorId,
-      vendorName: body.vendorName,
       amount: Number(body.amount),
       bankAccountId: body.bankAccountId,
-      bankAccountName: body.bankAccountName,
-      currencyCode: body.currencyCode,
-      exchangeRate: body.exchangeRate,
     });
-    return NextResponse.json({ payment });
+    return NextResponse.json({ bill });
   } catch (err) {
     return apiErrorResponse(err);
   }

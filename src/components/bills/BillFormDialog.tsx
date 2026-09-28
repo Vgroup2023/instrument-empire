@@ -8,9 +8,9 @@ import { VendorSelect } from '@/components/bills/VendorSelect';
 import { BillLineItemsEditor } from '@/components/bills/BillLineItemsEditor';
 import { CurrencyExchangeRateField } from '@/components/documents/CurrencyExchangeRateField';
 import { useToast } from '@/components/ui/Toast';
-import type { Vendor } from '@/lib/quickbooks/vendors';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { ExpenseLineInput, Bill } from '@/lib/quickbooks/bills';
+import type { Vendor } from '@/lib/accounting/vendors';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { ExpenseLineInput, Bill } from '@/lib/accounting/bills';
 
 interface BillFormDialogProps {
   open: boolean;

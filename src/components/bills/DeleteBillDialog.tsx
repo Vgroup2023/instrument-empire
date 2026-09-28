@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Bill } from '@/lib/quickbooks/bills';
+import type { Bill } from '@/lib/accounting/bills';
 
 export function DeleteBillDialog({
   bill,
@@ -48,7 +48,7 @@ export function DeleteBillDialog({
       open
       onClose={loading ? () => {} : onClose}
       title="Delete this bill?"
-      description="This permanently removes it from QuickBooks. If a payment has already been applied, QuickBooks will reject the delete until that payment is removed."
+      description="This permanently removes it. If a payment has already been recorded against it, remove that payment first."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>

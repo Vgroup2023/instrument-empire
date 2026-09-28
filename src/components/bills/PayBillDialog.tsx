@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Label, Input, Select } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Bill } from '@/lib/quickbooks/bills';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
+import type { Bill } from '@/lib/accounting/bills';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
 
 export function PayBillDialog({
   bill,

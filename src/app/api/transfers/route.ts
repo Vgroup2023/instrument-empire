@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTransfer, listTransfers, type CreateTransferInput } from '@/lib/quickbooks/transfers';
+import { createTransfer, listTransfers, type CreateTransferInput } from '@/lib/accounting/transfers';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

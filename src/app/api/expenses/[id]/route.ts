@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteExpense, getExpense, updateExpense, type UpdateExpenseInput } from '@/lib/quickbooks/expenses';
+import { deleteExpense, getExpense, updateExpense, type UpdateExpenseInput } from '@/lib/accounting/expenses';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -19,9 +19,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const { id } = await params;
     const body = (await request.json()) as Omit<UpdateExpenseInput, 'id'>;
-    if (!body.syncToken) {
-      return NextResponse.json({ error: 'A syncToken is required to update an expense.' }, { status: 400 });
-    }
     const expense = await updateExpense({ id, ...body });
     return NextResponse.json({ expense });
   } catch (err) {
@@ -29,14 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    if (!body.syncToken) {
-      return NextResponse.json({ error: 'A syncToken is required to delete an expense.' }, { status: 400 });
-    }
-    await deleteExpense(id, body.syncToken);
+    await deleteExpense(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

@@ -3,6 +3,7 @@ import { getEstimate, updateEstimate, type UpdateEstimateInput } from '@/lib/qui
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {

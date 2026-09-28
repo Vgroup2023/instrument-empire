@@ -7,6 +7,7 @@ import { verifyPayload } from '@/lib/crypto';
 import { getSessionSecret } from '@/lib/config';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const STATE_COOKIE = 'ac_oauth_state';
 

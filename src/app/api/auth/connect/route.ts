@@ -5,6 +5,7 @@ import { getSessionSecret } from '@/lib/config';
 import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const STATE_COOKIE = 'ac_oauth_state';
 

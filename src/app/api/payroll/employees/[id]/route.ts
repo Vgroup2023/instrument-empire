@@ -3,6 +3,7 @@ import { getEmployee, setEmployeeBasePay } from '@/lib/quickbooks/payroll';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {

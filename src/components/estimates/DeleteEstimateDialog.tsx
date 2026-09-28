@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Estimate } from '@/lib/quickbooks/estimates';
+import type { Estimate } from '@/lib/accounting/estimates';
 
 export function DeleteEstimateDialog({
   estimate,
@@ -48,7 +48,7 @@ export function DeleteEstimateDialog({
       open
       onClose={loading ? () => {} : onClose}
       title="Delete this estimate?"
-      description="This permanently removes it from QuickBooks. This can't be undone from here."
+      description="This permanently removes it. This can't be undone."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>

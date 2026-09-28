@@ -8,10 +8,10 @@ import { CustomerSelect } from '@/components/documents/CustomerSelect';
 import { LineItemsEditor } from '@/components/documents/LineItemsEditor';
 import { CurrencyExchangeRateField } from '@/components/documents/CurrencyExchangeRateField';
 import { useToast } from '@/components/ui/Toast';
-import type { Customer } from '@/lib/quickbooks/customers';
-import type { Product } from '@/lib/quickbooks/items';
+import type { Customer } from '@/lib/accounting/customers';
+import type { Product } from '@/lib/accounting/products';
 import type { LineItemInput } from '@/lib/quickbooks/salesTypes';
-import type { Invoice } from '@/lib/quickbooks/invoices';
+import type { Invoice } from '@/lib/accounting/invoices';
 
 interface InvoiceFormDialogProps {
   open: boolean;

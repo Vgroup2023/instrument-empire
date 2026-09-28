@@ -10,23 +10,26 @@ import { Badge } from '@/components/ui/Badge';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog';
 import { DeleteInvoiceDialog } from '@/components/invoices/DeleteInvoiceDialog';
+import { RecordInvoicePaymentDialog } from '@/components/invoices/RecordInvoicePaymentDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Customer } from '@/lib/quickbooks/customers';
-import type { Product } from '@/lib/quickbooks/items';
-import type { Invoice } from '@/lib/quickbooks/invoices';
+import type { Customer } from '@/lib/accounting/customers';
+import type { Product } from '@/lib/accounting/products';
+import type { Invoice, DepositAccount } from '@/lib/accounting/invoices';
 
 export function InvoicesPageClient({
   initialInvoices,
   customers,
   products,
+  depositAccounts,
   homeCurrencyCode,
 }: {
   initialInvoices: Invoice[];
   customers: Customer[];
   products: Product[];
+  depositAccounts: DepositAccount[];
   homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
@@ -38,12 +41,22 @@ export function InvoicesPageClient({
   const [scheduleTarget, setScheduleTarget] = useState<Invoice | null>(null);
   const [scheduleListKey, setScheduleListKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       setInvoices(data.invoices);
+      return data.invoices as Invoice[];
+    }
+    return null;
+  }
+
+  async function handlePaymentsChanged() {
+    const updated = await refresh();
+    if (updated && paymentTarget) {
+      setPaymentTarget(updated.find((i) => i.Id === paymentTarget.Id) ?? null);
     }
   }
 
@@ -129,6 +142,9 @@ export function InvoicesPageClient({
                               Remind
                             </Button>
                           ) : null}
+                          <Button size="sm" variant="ghost" onClick={() => setPaymentTarget(invoice)}>
+                            {isPaid ? 'Payments' : 'Record payment'}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -253,6 +269,15 @@ export function InvoicesPageClient({
 
       {deleteTarget ? (
         <DeleteInvoiceDialog invoice={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />
+      ) : null}
+
+      {paymentTarget ? (
+        <RecordInvoicePaymentDialog
+          invoice={paymentTarget}
+          depositAccounts={depositAccounts}
+          onClose={() => setPaymentTarget(null)}
+          onChanged={handlePaymentsChanged}
+        />
       ) : null}
     </div>
   );

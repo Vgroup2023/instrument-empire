@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { duplicateEstimate } from '@/lib/quickbooks/estimates';
+import { duplicateEstimate } from '@/lib/accounting/estimates';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

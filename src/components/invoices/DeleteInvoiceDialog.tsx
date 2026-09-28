@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Invoice } from '@/lib/quickbooks/invoices';
+import type { Invoice } from '@/lib/accounting/invoices';
 
 export function DeleteInvoiceDialog({
   invoice,
@@ -48,7 +48,7 @@ export function DeleteInvoiceDialog({
       open
       onClose={loading ? () => {} : onClose}
       title="Delete this invoice?"
-      description="This permanently removes it from QuickBooks. If a payment has already been applied, QuickBooks will reject the delete until that payment is removed."
+      description="This permanently removes it. If a payment has already been recorded against it, remove that payment first."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>

@@ -1,13 +1,13 @@
 import { providers } from '@/lib/config';
 import {
-  mockCreateEmployee,
-  mockGetEmployee,
-  mockGetPayrollSummary,
-  mockListEmployees,
-  mockSetBasePay,
-  mockSetEmployeeStatus,
-  mockUpdateEmployee,
-} from '@/lib/quickbooks/mock/payroll';
+  createEmployee as dbCreateEmployee,
+  getEmployee as dbGetEmployee,
+  getPayrollSummary as dbGetPayrollSummary,
+  listEmployees as dbListEmployees,
+  setEmployeeBasePay as dbSetBasePay,
+  setEmployeeStatus as dbSetEmployeeStatus,
+  updateEmployee as dbUpdateEmployee,
+} from '@/lib/accounting/payroll';
 
 export type EmploymentStatus = 'active' | 'terminated' | 'pending';
 export type PayPeriod = 'hourly' | 'salary-annual';
@@ -57,30 +57,29 @@ function assertMock(action: string) {
 
 /**
  * QuickBooks Payroll requires its own product access beyond the standard
- * Accounting API scope, so this runs against a local employee directory by
+ * Accounting API scope, so this runs against this app's own database by
  * default (PAYROLL_PROVIDER=mock) rather than fabricated numbers — it
- * starts empty and is genuinely yours: everything you add here is stored
- * for real (see src/lib/store/jsonStore.ts) until Payroll access is
- * provisioned and PAYROLL_PROVIDER=live is wired up.
+ * starts empty and is genuinely yours (see src/lib/accounting/payroll.ts)
+ * until Payroll access is provisioned and PAYROLL_PROVIDER=live is wired up.
  */
 export async function listEmployees(): Promise<Employee[]> {
   assertMock('listing employees');
-  return mockListEmployees();
+  return dbListEmployees();
 }
 
 export async function getEmployee(id: string): Promise<Employee | null> {
   assertMock('looking up an employee');
-  return mockGetEmployee(id);
+  return dbGetEmployee(id);
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
   assertMock('adding an employee');
-  return mockCreateEmployee(input);
+  return dbCreateEmployee(input);
 }
 
 export async function setEmployeeBasePay(id: string, basePay: BasePay): Promise<Employee> {
   assertMock("setting an employee's base pay");
-  return mockSetBasePay(id, basePay);
+  return dbSetBasePay(id, basePay);
 }
 
 export interface UpdateEmployeeInput {
@@ -92,16 +91,16 @@ export interface UpdateEmployeeInput {
 
 export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
   assertMock("updating an employee's profile");
-  return mockUpdateEmployee(id, input);
+  return dbUpdateEmployee(id, input);
 }
 
 /** Terminating/reactivating is this app's own status field — there's no hard-delete for an employee record. */
 export async function setEmployeeStatus(id: string, status: EmploymentStatus): Promise<Employee> {
   assertMock("updating an employee's status");
-  return mockSetEmployeeStatus(id, status);
+  return dbSetEmployeeStatus(id, status);
 }
 
 export async function getPayrollSummary(): Promise<PayrollSummary> {
   assertMock('reading the payroll summary');
-  return mockGetPayrollSummary();
+  return dbGetPayrollSummary();
 }

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { RecurringTemplate } from '@/lib/quickbooks/recurring';
+import type { RecurringTemplate } from '@/lib/accounting/recurring';
 
 export function RecurringSchedulesList({ docType }: { docType: 'invoice' | 'estimate' }) {
   const { notify } = useToast();

@@ -13,9 +13,9 @@ import { CustomerSelect } from '@/components/documents/CustomerSelect';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Customer } from '@/lib/quickbooks/customers';
+import type { Customer } from '@/lib/accounting/customers';
 import type { PaymentLink } from '@/lib/quickbooks/payments';
-import type { Invoice } from '@/lib/quickbooks/invoices';
+import type { Invoice } from '@/lib/accounting/invoices';
 
 const statusTone: Record<PaymentLink['status'], 'neutral' | 'success' | 'warning' | 'danger' | 'brand'> = {
   active: 'neutral',

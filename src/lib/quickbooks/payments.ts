@@ -1,11 +1,11 @@
 import { providers } from '@/lib/config';
 import {
-  mockCancelPaymentLink,
-  mockCreatePaymentLink,
-  mockListPaymentLinks,
-  mockSendPaymentLink,
-  mockUpdatePaymentLink,
-} from '@/lib/quickbooks/mock/payments';
+  cancelPaymentLink as dbCancelPaymentLink,
+  createPaymentLink as dbCreatePaymentLink,
+  listPaymentLinks as dbListPaymentLinks,
+  sendPaymentLink as dbSendPaymentLink,
+  updatePaymentLink as dbUpdatePaymentLink,
+} from '@/lib/accounting/paymentLinks';
 
 export interface PaymentLink {
   id: string;
@@ -40,24 +40,25 @@ function assertMock(action: string) {
 
 /**
  * Standalone payment links are a QuickBooks Payments feature, not part of
- * the public Accounting API, so this runs against demo data by default
- * (PAYMENTS_PROVIDER=mock). The UI, preview, and confirm-before-send flow
- * are fully real — only the underlying "create/send" calls are simulated
- * until QuickBooks Payments access is wired in here.
+ * the public Accounting API, so this runs against this app's own database
+ * by default (PAYMENTS_PROVIDER=mock, see src/lib/accounting/paymentLinks.ts).
+ * The UI, preview, and confirm-before-send flow are fully real — only the
+ * underlying "create/send" calls are simulated until QuickBooks Payments
+ * access is wired in here.
  */
 export async function listPaymentLinks(): Promise<PaymentLink[]> {
   assertMock('listing payment links');
-  return mockListPaymentLinks();
+  return dbListPaymentLinks();
 }
 
 export async function createPaymentLink(input: CreatePaymentLinkInput): Promise<PaymentLink> {
   assertMock('creating a payment link');
-  return mockCreatePaymentLink(input);
+  return dbCreatePaymentLink(input);
 }
 
 export async function sendPaymentLink(id: string, email?: string): Promise<PaymentLink> {
   assertMock('sending a payment link');
-  return mockSendPaymentLink(id, email);
+  return dbSendPaymentLink(id, email);
 }
 
 export interface UpdatePaymentLinkInput {
@@ -69,10 +70,10 @@ export interface UpdatePaymentLinkInput {
 /** Only a still-active (not yet sent/paid/cancelled) link can be edited. */
 export async function updatePaymentLink(id: string, input: UpdatePaymentLinkInput): Promise<PaymentLink> {
   assertMock('updating a payment link');
-  return mockUpdatePaymentLink(id, input);
+  return dbUpdatePaymentLink(id, input);
 }
 
 export async function cancelPaymentLink(id: string): Promise<PaymentLink> {
   assertMock('cancelling a payment link');
-  return mockCancelPaymentLink(id);
+  return dbCancelPaymentLink(id);
 }

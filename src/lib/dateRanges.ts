@@ -4,7 +4,12 @@ function toISODate(date: Date): string {
 
 export type PeriodKey = 'this-month' | 'this-quarter' | 'this-year' | 'last-12-months';
 
-export function resolvePeriod(period: PeriodKey = 'this-year'): { startDate: string; endDate: string } {
+export interface DateRange {
+  startDate: string;
+  endDate: string;
+}
+
+export function resolvePeriod(period: PeriodKey = 'this-year'): DateRange {
   const now = new Date();
   const end = toISODate(now);
 

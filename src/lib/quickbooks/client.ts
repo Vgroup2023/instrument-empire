@@ -99,11 +99,6 @@ export async function qboReport<T = unknown>(
   return qboFetch<T>(`reports/${reportName}`, { query: params });
 }
 
-export async function isQboConnected(): Promise<boolean> {
-  const tokens = await getQboTokens();
-  return Boolean(tokens);
-}
-
 export async function getConnectedCompanyName(): Promise<string | null> {
   const tokens = await getQboTokens();
   return tokens?.companyName ?? null;

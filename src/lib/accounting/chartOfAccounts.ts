@@ -1,6 +1,22 @@
 import { getDb } from '@/db/client';
-import { accounts, journalLines } from '@/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import {
+  accounts,
+  journalLines,
+  journalEntries,
+  invoiceLines,
+  invoices,
+  products,
+  billLines,
+  bills,
+  expenseLines,
+  expenses,
+  invoicePayments,
+  billPayments,
+  transfers,
+} from '@/db/schema';
+import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { DateRange } from '@/lib/dateRanges';
 
 // This is the standalone, database-backed Chart of Accounts — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/chartOfAccounts.ts
@@ -59,35 +75,142 @@ function toAccount(row: AccountRow, balance: number): Account {
   };
 }
 
+/** A single debit or credit posting to a GL account, collected from every transaction type below. */
+interface Posting {
+  accountId: string;
+  postingType: 'Debit' | 'Credit';
+  amount: number;
+}
+
 /**
- * Sums every journal-entry posting per account. As later phases add
- * Bills/Invoices/Expenses/Transfers to the ledger, this must be extended to
- * fold in their postings too, or account balances will drift from reality.
+ * Folds every transaction type into GL postings: journal entries directly,
+ * plus Invoices (credit to the product's income account), Bills (debit to
+ * the line's account), Expenses (debit to the line's account, credit to the
+ * payment account), invoice/bill Payments (debit/credit the bank account),
+ * and Transfers (credit the source, debit the destination). Accounts
+ * Receivable/Payable are deliberately not posted here — see reports.ts,
+ * which computes those directly from invoice/bill balances instead.
+ *
+ * When `range` is given, only postings dated within it are counted, so the
+ * result reflects account activity for that period rather than an
+ * all-time balance.
  */
-async function getAccountBalances(): Promise<Map<string, number>> {
+async function collectPostings(range?: DateRange): Promise<Posting[]> {
   const db = getDb();
-  const [accountRows, lineRows] = await Promise.all([
+  const inRange = (col: AnyPgColumn<{ data: string }>) =>
+    range ? and(gte(col, range.startDate), lte(col, range.endDate)) : undefined;
+
+  const [journalRows, invoiceLineRows, billLineRows, expenseLineRows, invoicePaymentRows, billPaymentRows, transferRows] =
+    await Promise.all([
+      db
+        .select({ accountId: journalLines.accountId, postingType: journalLines.postingType, amount: journalLines.amount })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(inRange(journalEntries.txnDate)),
+      db
+        .select({ incomeAccountId: products.incomeAccountId, amount: invoiceLines.amount })
+        .from(invoiceLines)
+        .innerJoin(invoices, eq(invoiceLines.invoiceId, invoices.id))
+        .leftJoin(products, eq(invoiceLines.productId, products.id))
+        .where(inRange(invoices.txnDate)),
+      db
+        .select({ accountId: billLines.accountId, amount: billLines.amount })
+        .from(billLines)
+        .innerJoin(bills, eq(billLines.billId, bills.id))
+        .where(inRange(bills.txnDate)),
+      db
+        .select({
+          accountId: expenseLines.accountId,
+          amount: expenseLines.amount,
+          paymentAccountId: expenses.paymentAccountId,
+        })
+        .from(expenseLines)
+        .innerJoin(expenses, eq(expenseLines.expenseId, expenses.id))
+        .where(inRange(expenses.txnDate)),
+      db
+        .select({ depositAccountId: invoicePayments.depositAccountId, amount: invoicePayments.amount })
+        .from(invoicePayments)
+        .where(inRange(invoicePayments.paymentDate)),
+      db
+        .select({ bankAccountId: billPayments.bankAccountId, amount: billPayments.amount })
+        .from(billPayments)
+        .where(inRange(billPayments.paymentDate)),
+      db
+        .select({ fromAccountId: transfers.fromAccountId, toAccountId: transfers.toAccountId, amount: transfers.amount })
+        .from(transfers)
+        .where(inRange(transfers.txnDate)),
+    ]);
+
+  const postings: Posting[] = [];
+
+  for (const row of journalRows) {
+    postings.push({ accountId: row.accountId, postingType: row.postingType, amount: Number(row.amount) });
+  }
+  for (const row of invoiceLineRows) {
+    if (!row.incomeAccountId) continue;
+    postings.push({ accountId: row.incomeAccountId, postingType: 'Credit', amount: Number(row.amount) });
+  }
+  for (const row of billLineRows) {
+    postings.push({ accountId: row.accountId, postingType: 'Debit', amount: Number(row.amount) });
+  }
+  for (const row of expenseLineRows) {
+    postings.push({ accountId: row.accountId, postingType: 'Debit', amount: Number(row.amount) });
+    postings.push({ accountId: row.paymentAccountId, postingType: 'Credit', amount: Number(row.amount) });
+  }
+  for (const row of invoicePaymentRows) {
+    postings.push({ accountId: row.depositAccountId, postingType: 'Debit', amount: Number(row.amount) });
+  }
+  for (const row of billPaymentRows) {
+    postings.push({ accountId: row.bankAccountId, postingType: 'Credit', amount: Number(row.amount) });
+  }
+  for (const row of transferRows) {
+    postings.push({ accountId: row.fromAccountId, postingType: 'Credit', amount: Number(row.amount) });
+    postings.push({ accountId: row.toAccountId, postingType: 'Debit', amount: Number(row.amount) });
+  }
+
+  return postings;
+}
+
+/** Sums every posting per account (all-time, or within `range` if given), signed so each balance reads naturally for its classification. */
+async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
+  const db = getDb();
+  const [accountRows, postings] = await Promise.all([
     db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
-    db
-      .select({
-        accountId: journalLines.accountId,
-        postingType: journalLines.postingType,
-        amount: journalLines.amount,
-      })
-      .from(journalLines),
+    collectPostings(range),
   ]);
 
   const classificationById = new Map(accountRows.map((a) => [a.id, CLASSIFICATION_BY_TYPE[a.accountType]]));
   const balances = new Map<string, number>();
-  for (const line of lineRows) {
-    const classification = classificationById.get(line.accountId);
+  for (const posting of postings) {
+    const classification = classificationById.get(posting.accountId);
     const isDebitNormal = classification ? DEBIT_NORMAL.has(classification) : true;
-    const amount = Number(line.amount);
-    const signedDelta = line.postingType === 'Debit' ? amount : -amount;
+    const signedDelta = posting.postingType === 'Debit' ? posting.amount : -posting.amount;
     const delta = isDebitNormal ? signedDelta : -signedDelta;
-    balances.set(line.accountId, (balances.get(line.accountId) ?? 0) + delta);
+    balances.set(posting.accountId, (balances.get(posting.accountId) ?? 0) + delta);
   }
   return balances;
+}
+
+/**
+ * Sums account balances by their raw account type (e.g. distinguishing
+ * "Cost of Goods Sold" from "Expense"), for reports that need finer-grained
+ * grouping than the Classification enum provides. Balances are signed to
+ * read naturally for their classification, same as getAccountBalances.
+ */
+export async function sumBalancesByAccountType(range?: DateRange): Promise<Map<string, number>> {
+  const db = getDb();
+  const [accountRows, balances] = await Promise.all([
+    db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
+    getAccountBalances(range),
+  ]);
+
+  const totals = new Map<string, number>();
+  for (const account of accountRows) {
+    const balance = balances.get(account.id) ?? 0;
+    if (balance === 0) continue;
+    totals.set(account.accountType, (totals.get(account.accountType) ?? 0) + balance);
+  }
+  return totals;
 }
 
 /** Lists every account — active and inactive — same as QuickBooks' own Chart of Accounts view. */

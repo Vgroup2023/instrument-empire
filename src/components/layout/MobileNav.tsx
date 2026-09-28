@@ -13,6 +13,8 @@ const items = [
   { href: '/dashboard/customers', label: 'Customers' },
   { href: '/dashboard/products', label: 'Products' },
   { href: '/dashboard/payments', label: 'Payments' },
+  { href: '/dashboard/vendors', label: 'Vendors' },
+  { href: '/dashboard/bills', label: 'Bills' },
   { href: '/dashboard/payroll', label: 'Payroll' },
   { href: '/dashboard/capital', label: 'Capital' },
   { href: '/dashboard/settings', label: 'Settings' },

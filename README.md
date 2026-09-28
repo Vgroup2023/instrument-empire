@@ -1,7 +1,7 @@
 # Accounts Copilot
 
 A proprietary, single-tenant financial insights **and actions** app for the accounts
-department, built on top of QuickBooks Online. It's a Next.js 14 (App Router + TypeScript +
+department, built on top of QuickBooks Online. It's a Next.js 16 (App Router + TypeScript +
 Tailwind) app with no external UI/chart libraries — everything is hand-rolled so the
 dependency footprint stays tiny and auditable. This is not a product for resale or
 multi-customer use — it's meant to be run by one business, for that business's own books.
@@ -176,7 +176,7 @@ production.
 ## Security notes
 
 - The whole app sits behind a single shared passphrase (`APP_PASSWORD`), checked in
-  `src/middleware.ts` via a signed, httpOnly cookie — this is an internal tool for one
+  `src/proxy.ts` via a signed, httpOnly cookie — this is an internal tool for one
   business's accounts team, not a multi-tenant product.
 - The login route (`src/lib/rateLimit.ts`) locks out an IP after repeated failed attempts
   within a 15-minute window. It's in-memory (resets on restart, doesn't share state across

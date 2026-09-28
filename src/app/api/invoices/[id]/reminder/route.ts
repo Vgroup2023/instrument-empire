@@ -5,10 +5,11 @@ import { apiErrorResponse } from '@/lib/apiError';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const invoice = await sendInvoiceReminder(params.id, body.email);
+    const invoice = await sendInvoiceReminder(id, body.email);
     return NextResponse.json({ invoice });
   } catch (err) {
     return apiErrorResponse(err);

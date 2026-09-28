@@ -5,7 +5,7 @@ import { APP_SESSION_COOKIE } from '@/lib/cookieNames';
 // Runs on the Edge runtime, so it uses the Web Crypto based verifyPayload
 // helper directly rather than importing from lib/session (which touches
 // next/headers cookies() semantics tied to route handlers).
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isPublic =

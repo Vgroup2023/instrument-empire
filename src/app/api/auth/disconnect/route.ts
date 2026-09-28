@@ -5,6 +5,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  clearQboTokens();
+  await clearQboTokens();
   return NextResponse.json({ ok: true });
 }

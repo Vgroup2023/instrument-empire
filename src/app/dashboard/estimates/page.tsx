@@ -22,19 +22,37 @@ export default async function EstimatesPage() {
     );
   }
 
+  let data: Awaited<ReturnType<typeof loadEstimatesData>> | null = null;
+  let loadError: unknown = null;
   try {
-    const [estimates, customers, products] = await Promise.all([listEstimates(), listCustomers(), listProducts()]);
-    return <EstimatesPageClient initialEstimates={estimates} customers={customers} products={products} />;
+    data = await loadEstimatesData();
   } catch (err) {
+    loadError = err;
+  }
+
+  if (!data) {
     return (
       <div>
         <PageHeader title="Estimates" />
         <ConnectBanner />
         <EmptyState
           title="Couldn't load estimates"
-          description={err instanceof Error ? err.message : 'Please try again.'}
+          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
         />
       </div>
     );
   }
+
+  return (
+    <EstimatesPageClient
+      initialEstimates={data.estimates}
+      customers={data.customers}
+      products={data.products}
+    />
+  );
+}
+
+async function loadEstimatesData() {
+  const [estimates, customers, products] = await Promise.all([listEstimates(), listCustomers(), listProducts()]);
+  return { estimates, customers, products };
 }

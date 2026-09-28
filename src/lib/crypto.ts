@@ -1,6 +1,6 @@
 // Minimal signed-payload helper built on the Web Crypto API so it works in
 // both the Node.js runtime (route handlers) and the Edge runtime
-// (middleware) without extra dependencies.
+// (src/proxy.ts) without extra dependencies.
 
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';

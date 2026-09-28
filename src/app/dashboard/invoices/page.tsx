@@ -22,19 +22,37 @@ export default async function InvoicesPage() {
     );
   }
 
+  let data: Awaited<ReturnType<typeof loadInvoicesData>> | null = null;
+  let loadError: unknown = null;
   try {
-    const [invoices, customers, products] = await Promise.all([listInvoices(), listCustomers(), listProducts()]);
-    return <InvoicesPageClient initialInvoices={invoices} customers={customers} products={products} />;
+    data = await loadInvoicesData();
   } catch (err) {
+    loadError = err;
+  }
+
+  if (!data) {
     return (
       <div>
         <PageHeader title="Invoices" />
         <ConnectBanner />
         <EmptyState
           title="Couldn't load invoices"
-          description={err instanceof Error ? err.message : 'Please try again.'}
+          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
         />
       </div>
     );
   }
+
+  return (
+    <InvoicesPageClient
+      initialInvoices={data.invoices}
+      customers={data.customers}
+      products={data.products}
+    />
+  );
+}
+
+async function loadInvoicesData() {
+  const [invoices, customers, products] = await Promise.all([listInvoices(), listCustomers(), listProducts()]);
+  return { invoices, customers, products };
 }

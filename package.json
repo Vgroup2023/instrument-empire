@@ -2,7 +2,8 @@
   "name": "accounts-copilot",
   "version": "0.1.0",
   "private": true,
-  "description": "Financial insights and actions app for the accounts department, backed by QuickBooks Online.",
+  "license": "UNLICENSED",
+  "description": "Proprietary financial insights and actions app for the accounts department, backed by QuickBooks Online.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

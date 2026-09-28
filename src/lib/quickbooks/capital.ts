@@ -33,9 +33,11 @@ function assertMock(action: string) {
 
 /**
  * QuickBooks Capital loan and peer-lending data requires separate Intuit
- * lending product access, so this runs against demo data by default
- * (CAPITAL_PROVIDER=mock) — read-only, matching the "check my loans and
- * peer benchmarks" use case (no loan origination actions are exposed here).
+ * lending product access, so this returns empty by default
+ * (CAPITAL_PROVIDER=mock) rather than fabricated loans — read-only,
+ * matching the "check my loans and peer benchmarks" use case (no loan
+ * origination actions are exposed here). Wire up real calls here once
+ * that access is provisioned and flip CAPITAL_PROVIDER=live.
  */
 export async function getLoans(): Promise<Loan[]> {
   assertMock('reading QuickBooks Capital loans');

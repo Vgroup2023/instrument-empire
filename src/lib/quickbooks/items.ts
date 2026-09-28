@@ -21,19 +21,21 @@ export async function getProduct(id: string): Promise<Product> {
   return data.Item;
 }
 
-interface IncomeAccount {
+export interface IncomeAccount {
   Id: string;
   Name: string;
 }
 
-async function getDefaultIncomeAccount(): Promise<IncomeAccount> {
-  const accounts = await qboQuery<IncomeAccount>(
-    "SELECT * FROM Account WHERE AccountType = 'Income' MAXRESULTS 1",
+/**
+ * Lists Income accounts so the "add product/service" form can let the
+ * user pick which one revenue posts to, rather than this app silently
+ * guessing — picking the wrong income account would miscategorize real
+ * revenue in their books.
+ */
+export async function listIncomeAccounts(): Promise<IncomeAccount[]> {
+  return qboQuery<IncomeAccount>(
+    "SELECT * FROM Account WHERE AccountType = 'Income' AND Active = true ORDERBY Name MAXRESULTS 100",
   );
-  if (accounts.length === 0) {
-    throw new Error('No income account found in QuickBooks to attach this product/service to.');
-  }
-  return accounts[0];
 }
 
 export interface CreateProductInput {
@@ -41,10 +43,12 @@ export interface CreateProductInput {
   description?: string;
   type: 'Service' | 'Inventory' | 'NonInventory';
   unitPrice?: number;
+  /** Which Income account revenue from this item posts to (from listIncomeAccounts). */
+  incomeAccountId: string;
+  incomeAccountName?: string;
 }
 
 export async function createProduct(input: CreateProductInput): Promise<Product> {
-  const incomeAccount = await getDefaultIncomeAccount();
   const data = await qboFetch<{ Item: Product }>('item', {
     method: 'POST',
     body: {
@@ -52,7 +56,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       Description: input.description || undefined,
       Type: input.type,
       UnitPrice: input.unitPrice,
-      IncomeAccountRef: { value: incomeAccount.Id, name: incomeAccount.Name },
+      IncomeAccountRef: { value: input.incomeAccountId, name: input.incomeAccountName },
       ...(input.type === 'Inventory'
         ? { TrackQtyOnHand: true, QtyOnHand: 0, InvStartDate: new Date().toISOString().slice(0, 10) }
         : {}),

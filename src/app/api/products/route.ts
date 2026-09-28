@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
     if (!body.name) {
       return NextResponse.json({ error: 'A product/service name is required.' }, { status: 400 });
     }
+    if (!body.incomeAccountId) {
+      return NextResponse.json({ error: 'Choose which income account this posts to.' }, { status: 400 });
+    }
     const product = await createProduct(body);
     return NextResponse.json({ product });
   } catch (err) {

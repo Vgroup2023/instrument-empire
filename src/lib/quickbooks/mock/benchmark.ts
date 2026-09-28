@@ -15,10 +15,11 @@ export function buildMockBenchmark(
     : 0;
 
   return {
-    industry: 'Musical Instruments & Supplies Retail',
+    industry: 'General small business',
     region: 'United States',
-    peerCompanyCount: 412,
+    peerCompanyCount: 0,
     generatedAt: new Date().toISOString(),
+    isEstimate: true,
     metrics: [
       {
         key: 'gross_margin',

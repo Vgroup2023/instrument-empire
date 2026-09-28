@@ -1,5 +1,5 @@
 import { qboFetch, qboQuery } from '@/lib/quickbooks/client';
-import { toQboLines, type LineItemInput, type SalesDocLine } from '@/lib/quickbooks/salesTypes';
+import { toQboLines, stripForDuplicate, type LineItemInput, type SalesDocLine } from '@/lib/quickbooks/salesTypes';
 
 export interface Invoice {
   Id: string;
@@ -92,17 +92,12 @@ export async function sendInvoiceReminder(id: string, email?: string): Promise<I
 }
 
 export async function duplicateInvoice(id: string): Promise<Invoice> {
-  const original = await getInvoice(id);
-  const data = await qboFetch<{ Invoice: Invoice }>('invoice', {
-    method: 'POST',
-    body: {
-      CustomerRef: original.CustomerRef,
-      TxnDate: new Date().toISOString().slice(0, 10),
-      DueDate: original.DueDate,
-      BillEmail: original.BillEmail,
-      Line: original.Line,
-    },
-  });
+  // Fetched as a loosely-typed record (not just the narrow Invoice shape
+  // above) so fields this app doesn't otherwise model — sales tax,
+  // discounts, memos, terms, class, currency — still get preserved.
+  const original = (await qboFetch<{ Invoice: Record<string, unknown> }>(`invoice/${id}`)).Invoice;
+  const body = stripForDuplicate(original, { TxnDate: new Date().toISOString().slice(0, 10) });
+  const data = await qboFetch<{ Invoice: Invoice }>('invoice', { method: 'POST', body });
   return data.Invoice;
 }
 

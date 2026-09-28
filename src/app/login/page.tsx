@@ -5,6 +5,7 @@ export default function LoginPage({
 }) {
   const next = searchParams.next ?? '/dashboard';
   const hasError = searchParams.error === '1';
+  const isRateLimited = searchParams.error === 'rate_limited';
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4">
@@ -30,7 +31,11 @@ export default function LoginPage({
               className="w-full rounded-lg border border-slate-300 bg-surface-muted px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
           </div>
-          {hasError ? (
+          {isRateLimited ? (
+            <p className="text-sm text-red-600">
+              Too many attempts. Wait a few minutes before trying again.
+            </p>
+          ) : hasError ? (
             <p className="text-sm text-red-600">That passphrase isn&apos;t right. Try again.</p>
           ) : null}
           <button

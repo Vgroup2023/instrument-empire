@@ -3,6 +3,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { getLoans, getPeerLendingBenchmarks } from '@/lib/quickbooks/capital';
 import { formatCurrency, formatDate, formatPercent } from '@/lib/format';
 
@@ -17,6 +18,21 @@ export default async function CapitalPage() {
     .map((l) => l.nextPaymentDate)
     .filter((d): d is string => Boolean(d))
     .sort()[0];
+
+  if (loans.length === 0) {
+    return (
+      <div>
+        <PageHeader
+          title="QuickBooks Capital"
+          description="Your loans and how your borrowing terms compare to similar businesses."
+        />
+        <EmptyState
+          title="QuickBooks Capital isn't connected"
+          description="Loan and peer-lending data comes from a separate Intuit lending product beyond standard QuickBooks Online access. Once that's provisioned and CAPITAL_PROVIDER=live is set (see Settings), your real loans will show up here."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -73,35 +89,37 @@ export default async function CapitalPage() {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Peer lending benchmarks</CardTitle>
-            <CardDescription>How your borrowing terms compare to similar businesses.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardBody className="space-y-4">
-          {benchmarks.map((metric) => (
-            <div key={metric.metric} className="flex items-center justify-between text-sm">
-              <span className="w-52 shrink-0 font-medium text-slate-700">{metric.metric}</span>
-              <div className="flex flex-1 items-center gap-6">
-                <span className="text-brand-700">
-                  You:{' '}
-                  <span className="font-semibold">
-                    {metric.unit === 'percent' ? formatPercent(metric.yourValue) : formatCurrency(metric.yourValue)}
-                  </span>
-                </span>
-                <span className="text-slate-400">
-                  Peer median:{' '}
-                  <span className="font-medium text-slate-600">
-                    {metric.unit === 'percent' ? formatPercent(metric.peerMedian) : formatCurrency(metric.peerMedian)}
-                  </span>
-                </span>
-              </div>
+      {benchmarks.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Peer lending benchmarks</CardTitle>
+              <CardDescription>How your borrowing terms compare to similar businesses.</CardDescription>
             </div>
-          ))}
-        </CardBody>
-      </Card>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            {benchmarks.map((metric) => (
+              <div key={metric.metric} className="flex items-center justify-between text-sm">
+                <span className="w-52 shrink-0 font-medium text-slate-700">{metric.metric}</span>
+                <div className="flex flex-1 items-center gap-6">
+                  <span className="text-brand-700">
+                    You:{' '}
+                    <span className="font-semibold">
+                      {metric.unit === 'percent' ? formatPercent(metric.yourValue) : formatCurrency(metric.yourValue)}
+                    </span>
+                  </span>
+                  <span className="text-slate-400">
+                    Peer median:{' '}
+                    <span className="font-medium text-slate-600">
+                      {metric.unit === 'percent' ? formatPercent(metric.peerMedian) : formatCurrency(metric.peerMedian)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
   );
 }

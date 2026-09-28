@@ -2,6 +2,7 @@ import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
 import { isQboConnected } from '@/lib/quickbooks/client';
@@ -129,10 +130,14 @@ async function InsightsBody() {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>How you compare</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                How you compare
+                {benchmark.isEstimate ? <Badge tone="warning">Estimated</Badge> : null}
+              </CardTitle>
               <CardDescription>
-                {benchmark.industry} · {benchmark.region} · {benchmark.peerCompanyCount} similar
-                businesses
+                {benchmark.isEstimate
+                  ? `Illustrative peer figures for ${benchmark.region} — connect real industry benchmarking (see Settings) for actual peer data.`
+                  : `${benchmark.industry} · ${benchmark.region} · ${benchmark.peerCompanyCount} similar businesses`}
               </CardDescription>
             </div>
           </CardHeader>

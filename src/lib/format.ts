@@ -1,4 +1,4 @@
-export function formatCurrency(value: number | string | undefined, currency = 'USD'): string {
+export function formatCurrency(value: number | string | undefined | null, currency = 'USD'): string {
   const num = typeof value === 'string' ? Number(value) : value ?? 0;
   if (Number.isNaN(num)) return '—';
   return new Intl.NumberFormat('en-US', {
@@ -23,7 +23,7 @@ export function formatPercent(value: number | undefined, digits = 1): string {
   return `${value.toFixed(digits)}%`;
 }
 
-export function formatDate(value: string | Date | undefined): string {
+export function formatDate(value: string | Date | undefined | null): string {
   if (!value) return '—';
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return '—';

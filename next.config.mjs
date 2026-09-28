@@ -36,6 +36,20 @@ const nextConfig = {
       },
     ];
   },
+  // A config-level redirect (compiled into routes-manifest.json) rather than
+  // a page-level `redirect()` call in app/page.tsx — the latter renders "/"
+  // as a static page with no HTML output (nothing to render, only redirect
+  // metadata), which 404's when served from Vercel's Edge Network even
+  // though `next start` serves it fine locally via Next's own Node runtime.
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/dashboard',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

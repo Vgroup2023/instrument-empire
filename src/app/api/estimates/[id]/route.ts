@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEstimate, updateEstimate, type UpdateEstimateInput } from '@/lib/quickbooks/estimates';
+import { deleteEstimate, getEstimate, updateEstimate, type UpdateEstimateInput } from '@/lib/quickbooks/estimates';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -21,6 +21,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = (await request.json()) as Omit<UpdateEstimateInput, 'id'>;
     const estimate = await updateEstimate({ id, ...body });
     return NextResponse.json({ estimate });
+  } catch (err) {
+    return apiErrorResponse(err);
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    if (!body.syncToken) {
+      return NextResponse.json({ error: 'A syncToken is required to delete an estimate.' }, { status: 400 });
+    }
+    await deleteEstimate(id, body.syncToken);
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);
   }

@@ -60,6 +60,11 @@ export interface UpdateExpenseInput {
   syncToken: string;
   txnDate?: string;
   lines?: ExpenseLineInput[];
+  paymentAccountId?: string;
+  paymentAccountName?: string;
+  paymentType?: PaymentType;
+  vendorId?: string;
+  vendorName?: string;
 }
 
 export async function updateExpense(input: UpdateExpenseInput): Promise<Expense> {
@@ -71,6 +76,11 @@ export async function updateExpense(input: UpdateExpenseInput): Promise<Expense>
       sparse: true,
       TxnDate: input.txnDate,
       Line: input.lines ? toQboExpenseLines(input.lines) : undefined,
+      AccountRef: input.paymentAccountId
+        ? { value: input.paymentAccountId, name: input.paymentAccountName }
+        : undefined,
+      PaymentType: input.paymentType,
+      EntityRef: input.vendorId ? { value: input.vendorId, name: input.vendorName, type: 'Vendor' } : undefined,
     },
   });
   return data.Purchase;

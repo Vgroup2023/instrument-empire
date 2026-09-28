@@ -9,6 +9,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { BillFormDialog } from '@/components/bills/BillFormDialog';
 import { PayBillDialog } from '@/components/bills/PayBillDialog';
+import { DeleteBillDialog } from '@/components/bills/DeleteBillDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Vendor } from '@/lib/quickbooks/vendors';
@@ -33,6 +34,7 @@ export function BillsPageClient({
   const [formOpen, setFormOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | undefined>(undefined);
   const [payTarget, setPayTarget] = useState<Bill | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Bill | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/bills', { cache: 'no-store' });
@@ -134,6 +136,9 @@ export function BillsPageClient({
                           <Button size="sm" variant="ghost" onClick={() => handleDuplicate(bill)}>
                             Duplicate
                           </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(bill)}>
+                            Delete
+                          </Button>
                         </div>
                       </Td>
                     </Tr>
@@ -156,6 +161,10 @@ export function BillsPageClient({
 
       {payTarget ? (
         <PayBillDialog bill={payTarget} bankAccounts={bankAccounts} onClose={() => setPayTarget(null)} onPaid={refresh} />
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteBillDialog bill={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />
       ) : null}
     </div>
   );

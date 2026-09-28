@@ -9,7 +9,7 @@ import { BillLineItemsEditor } from '@/components/bills/BillLineItemsEditor';
 import { useToast } from '@/components/ui/Toast';
 import type { Vendor } from '@/lib/quickbooks/vendors';
 import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { ExpenseLineInput, PaymentType } from '@/lib/quickbooks/expenses';
+import type { Expense, ExpenseLineInput, PaymentType } from '@/lib/quickbooks/expenses';
 
 export function ExpenseFormDialog({
   open,
@@ -17,6 +17,7 @@ export function ExpenseFormDialog({
   vendors,
   expenseAccounts,
   paymentAccounts,
+  expense,
   onSaved,
 }: {
   open: boolean;
@@ -24,16 +25,27 @@ export function ExpenseFormDialog({
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   paymentAccounts: GlAccount[];
+  expense?: Expense;
   onSaved: () => void;
 }) {
   const { notify } = useToast();
+  const isEdit = Boolean(expense);
 
-  const [paymentAccountId, setPaymentAccountId] = useState(paymentAccounts[0]?.Id ?? '');
-  const [paymentType, setPaymentType] = useState<PaymentType>('CreditCard');
-  const [vendorId, setVendorId] = useState('');
-  const [vendorName, setVendorName] = useState('');
-  const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
-  const [lines, setLines] = useState<ExpenseLineInput[]>([{ accountId: '', description: '', amount: 0 }]);
+  const [paymentAccountId, setPaymentAccountId] = useState(
+    expense?.AccountRef.value ?? paymentAccounts[0]?.Id ?? '',
+  );
+  const [paymentType, setPaymentType] = useState<PaymentType>(expense?.PaymentType ?? 'CreditCard');
+  const [vendorId, setVendorId] = useState(expense?.EntityRef?.value ?? '');
+  const [vendorName, setVendorName] = useState(expense?.EntityRef?.name ?? '');
+  const [txnDate, setTxnDate] = useState(expense?.TxnDate ?? new Date().toISOString().slice(0, 10));
+  const [lines, setLines] = useState<ExpenseLineInput[]>(
+    expense?.Line.map((l) => ({
+      accountId: l.AccountBasedExpenseLineDetail.AccountRef.value,
+      accountName: l.AccountBasedExpenseLineDetail.AccountRef.name,
+      description: l.Description,
+      amount: l.Amount,
+    })) ?? [{ accountId: '', description: '', amount: 0 }],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,10 +59,11 @@ export function ExpenseFormDialog({
       if (!paymentAccountId) throw new Error('Choose which account this was paid from.');
 
       const paymentAccount = paymentAccounts.find((a) => a.Id === paymentAccountId);
-      const res = await fetch('/api/expenses', {
-        method: 'POST',
+      const res = await fetch(isEdit ? `/api/expenses/${expense!.Id}` : '/api/expenses', {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(isEdit ? { syncToken: expense!.SyncToken } : {}),
           paymentAccountId,
           paymentAccountName: paymentAccount?.Name,
           paymentType,
@@ -62,9 +75,9 @@ export function ExpenseFormDialog({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Failed to record expense.');
+        throw new Error(data.error ?? 'Failed to save expense.');
       }
-      notify('Expense recorded.');
+      notify(isEdit ? 'Expense updated.' : 'Expense recorded.');
       onSaved();
       onClose();
     } catch (err) {
@@ -75,7 +88,7 @@ export function ExpenseFormDialog({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Record an expense" size="lg">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit expense' : 'Record an expense'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
@@ -132,7 +145,7 @@ export function ExpenseFormDialog({
             Cancel
           </Button>
           <Button type="submit" loading={loading} disabled={paymentAccounts.length === 0}>
-            Record expense
+            {isEdit ? 'Save changes' : 'Record expense'}
           </Button>
         </div>
       </form>

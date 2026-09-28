@@ -109,6 +109,14 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
   return data.Invoice;
 }
 
+export async function deleteInvoice(id: string, syncToken: string): Promise<void> {
+  await qboFetch('invoice', {
+    method: 'POST',
+    query: { operation: 'delete' },
+    body: { Id: id, SyncToken: syncToken },
+  });
+}
+
 export async function voidInvoice(id: string, syncToken: string): Promise<Invoice> {
   const data = await qboFetch<{ Invoice: Invoice }>('invoice', {
     method: 'POST',

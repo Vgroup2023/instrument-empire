@@ -23,7 +23,10 @@ export default async function SettingsPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Settings & connection" description="Manage your QuickBooks Online connection." />
+      <PageHeader
+        title="Settings & connection"
+        description="This app runs on its own database — nothing here is required for daily use. QuickBooks is an optional, separate connection for the one feature below that still uses it."
+      />
 
       {params.qbo_connected ? (
         <div className="rounded-xl2 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -40,9 +43,14 @@ export default async function SettingsPage({
         <CardHeader>
           <div>
             <CardTitle>QuickBooks Online</CardTitle>
-            <CardDescription>Business banking, accounting, invoicing, and reporting.</CardDescription>
+            <CardDescription>
+              Fully optional. Every feature in this app — Chart of accounts, Invoices, Bills, Expenses,
+              Payroll, Payment links, Insights, and everything else — already runs on this app&apos;s own
+              database, connected or not. Nothing here changes what you can do; connecting or disconnecting
+              is safe at any time.
+            </CardDescription>
           </div>
-          {tokens ? <Badge tone="success">Connected</Badge> : <Badge tone="warning">Not connected</Badge>}
+          {tokens ? <Badge tone="success">Connected</Badge> : <Badge tone="neutral">Not connected</Badge>}
         </CardHeader>
         <CardBody>
           {tokens ? (
@@ -55,8 +63,10 @@ export default async function SettingsPage({
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-600">
-                Connect your QuickBooks Online company to pull in your real bank feed activity, invoices,
-                customers, and reports. You&apos;ll be redirected to Intuit to sign in and grant access.
+                There&apos;s no need to connect this for day-to-day use — it exists only as a foundation for
+                a future live QuickBooks Capital or industry-benchmarking integration (see below), which
+                aren&apos;t built yet either. If you&apos;d still like to connect a company, you&apos;ll be
+                redirected to Intuit to sign in and grant access.
               </p>
               <a
                 href="/api/auth/connect"
@@ -72,16 +82,34 @@ export default async function SettingsPage({
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Extended product access</CardTitle>
+            <CardTitle>Payment links & Payroll</CardTitle>
             <CardDescription>
-              These features use separate Intuit products beyond standard accounting access. They run on
-              realistic demo data until wired up to live credentials — see the README for how.
+              Fully real and stored in this app&apos;s own database either way — sending a payment link or
+              running payroll for real money movement additionally requires QuickBooks Payments/Payroll
+              product access, which is separate from the connection above and not required for the rest of
+              these features to work.
             </CardDescription>
           </div>
         </CardHeader>
         <CardBody className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <ProviderRow name="Payment links" mode={providers.payments} />
-          <ProviderRow name="Payroll" mode={providers.payroll} />
+          <ProviderRow name="Payment links" mode={providers.payments} mockLabel="Local database" />
+          <ProviderRow name="Payroll" mode={providers.payroll} mockLabel="Local database" />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Illustrative only</CardTitle>
+            <CardDescription>
+              These two require separate Intuit product access that this app doesn&apos;t have, and the
+              live API calls haven&apos;t been implemented yet — connecting QuickBooks above doesn&apos;t
+              change that. They show clearly-labeled illustrative data instead of fabricating real figures.
+              See the README for what wiring up real access would take.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardBody className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <ProviderRow name="QuickBooks Capital" mode={providers.capital} />
           <ProviderRow name="Industry benchmarking" mode={providers.benchmark} />
         </CardBody>
@@ -90,11 +118,19 @@ export default async function SettingsPage({
   );
 }
 
-function ProviderRow({ name, mode }: { name: string; mode: 'mock' | 'live' }) {
+function ProviderRow({
+  name,
+  mode,
+  mockLabel = 'Demo data',
+}: {
+  name: string;
+  mode: 'mock' | 'live';
+  mockLabel?: string;
+}) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
       <span className="text-sm font-medium text-slate-700">{name}</span>
-      <Badge tone={mode === 'live' ? 'success' : 'neutral'}>{mode === 'live' ? 'Live' : 'Demo data'}</Badge>
+      <Badge tone={mode === 'live' ? 'success' : 'neutral'}>{mode === 'live' ? 'Live' : mockLabel}</Badge>
     </div>
   );
 }

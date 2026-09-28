@@ -6,12 +6,10 @@ UI/chart libraries — everything is hand-rolled so the dependency footprint sta
 auditable. This is not a product for resale or multi-customer use — it's meant to be run by
 one business, for that business's own books.
 
-**Standalone by default, QuickBooks optional.** This app owns its own database (Postgres —
-see `src/db/schema.ts`) and is fully usable on its own, with no QuickBooks account required.
-QuickBooks integration (`src/lib/quickbooks/*`) remains available as a separate, optional
-connection in Settings for the features that still use it, and is being progressively phased
-out as more of the app moves onto the local database — see **What's on the local database vs.
-still QuickBooks-backed** below for the current split.
+**Standalone by default, QuickBooks fully optional.** This app owns its own database (Postgres
+— see `src/db/schema.ts`) and every feature runs on it. No QuickBooks account is required for
+anything currently built, and connecting one in Settings doesn't unlock anything either — see
+**What's on the local database vs. still QuickBooks-backed** below for the full picture.
 
 ## Before you rely on this for real, daily bookkeeping
 
@@ -21,9 +19,10 @@ still QuickBooks-backed** below for the current split.
   (`/dashboard`, `/dashboard/ar-ap`, `/dashboard/sales`) all run on this app's own database.
   P&L, cash flow, balance sheet, A/R & A/P aging, and sales breakdown are all computed directly
   from your local ledger — no QuickBooks account required for anything in this app anymore.
-  QuickBooks remains available as a separate, optional connection in Settings (for its own
-  Payments/Payroll/Capital/benchmarking products, if you have access to them — see **What's
-  live vs. demo data** below).
+  QuickBooks remains available as a separate, optional connection in Settings, but connecting
+  it doesn't currently do anything by itself — QuickBooks Payments/Payroll/Capital/benchmarking
+  would each additionally need real product access *and* their live API call implemented (see
+  **What's live vs. demo data** below).
 - **Set real `SMTP_*` env vars to actually email invoices, estimates, and reminders** — see
   **Environment variables** below. Without them, clicking Send/Remind fails with a clear
   "email isn't configured" error rather than silently doing nothing.
@@ -87,7 +86,8 @@ still QuickBooks-backed** below for the current split.
   (bank, income, expense, and everything between), edit its name/number/description, and
   deactivate or reactivate one. Type/category can't be changed after creation (same rule
   QuickBooks itself follows), so deactivating is the real "delete" here. Each account's
-  balance is computed live from its posted journal-entry lines.
+  balance is computed live from everything posted to it — journal entries, invoices, bills,
+  expenses, transfers, and payments (`src/lib/accounting/chartOfAccounts.ts`).
 - Journal entries (`/dashboard/journal-entries`): manual double-entry adjustments — accruals,
   corrections, depreciation, and the like. The line editor shows a running debit/credit total
   and won't let you save an out-of-balance entry.
@@ -148,7 +148,7 @@ so they don't have a real data source by default:
 | Feature | Env var | Why | Until then |
 |---|---|---|---|
 | QuickBooks Capital | `CAPITAL_PROVIDER` | Loan/lending data is a separate Intuit lending product. | The page stays empty rather than inventing loans. |
-| Industry benchmarking | `BENCHMARK_PROVIDER` | Requires Intuit's benchmarking product for your industry code/region. | "Your" figures are computed from your real connected P&L/balance sheet; the peer-side numbers are illustrative and clearly labeled "Estimated." |
+| Industry benchmarking | `BENCHMARK_PROVIDER` | Requires Intuit's benchmarking product for your industry code/region. | "Your" figures are computed from your real local P&L/balance sheet (`src/lib/accounting/reports.ts`); the peer-side numbers are illustrative and clearly labeled "Estimated." |
 
 Each defaults to `mock`. The UI is fully functional either way — only the underlying data
 source changes, and nothing fabricated is ever presented as real. Each corresponding module
@@ -172,7 +172,11 @@ for how to run that on a timer.
 
 ## Setup
 
-### 1. Create an Intuit developer app
+### 1. Create an Intuit developer app (optional — skip to step 2 if you don't need QuickBooks)
+
+This step is only needed if you plan to use the optional **Connect QuickBooks** button in
+Settings, which doesn't unlock anything in this app today (see **What's live vs. demo data**)
+— most setups can skip straight to step 2.
 
 1. Go to <https://developer.intuit.com/app/developer/myapps> and create an app with
    **QuickBooks Online and Payments** access.
@@ -191,7 +195,7 @@ DATABASE_URL=            # Postgres connection string (Supabase, Neon, etc.) —
 APP_PASSWORD=            # shared passphrase that gates this internal tool
 SESSION_SECRET=          # long random string (openssl rand -hex 32)
 APP_BASE_URL=            # e.g. http://localhost:3000
-QBO_CLIENT_ID=           # optional — only needed for QuickBooks-backed features
+QBO_CLIENT_ID=           # entirely optional — nothing currently built requires this
 QBO_CLIENT_SECRET=
 QBO_ENVIRONMENT=sandbox  # or "production"
 QBO_REDIRECT_URI=        # must exactly match the Intuit app's redirect URI
@@ -231,10 +235,12 @@ npm run dev
 Open the app and sign in with `APP_PASSWORD`. Everything — Chart of accounts, Journal entries,
 Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers,
 Payroll, Payment links, recurring schedules, and Insights — works immediately against your
-database (add `SMTP_*` env vars too if you want Send/Remind to actually email customers). A
-QuickBooks connection (**Settings & connection** → **Connect QuickBooks**) is only needed if
-you separately have access to QuickBooks Payments, Payroll, Capital, or industry benchmarking
-and want to wire those specific products up (see **What's live vs. demo data**).
+database (add `SMTP_*` env vars too if you want Send/Remind to actually email customers). There's
+no need to visit **Settings & connection** at all for daily use — QuickBooks is not required for
+anything currently built. Connecting it there does nothing on its own today; it would only
+matter once you both have separate QuickBooks Payments/Payroll/Capital/benchmarking product
+access *and* someone implements the corresponding live API call (each has a clearly-commented
+spot to do so — see **What's live vs. demo data**).
 
 ## Deploying to Netlify
 
@@ -248,16 +254,18 @@ point-and-click:
    runtime; no build settings need to change.
 2. Before the first deploy (or right after, then redeploy), add these under **Site
    configuration → Environment variables**: `DATABASE_URL`, `APP_PASSWORD`, `SESSION_SECRET`,
-   `QBO_CLIENT_ID`, `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, `CRON_SECRET`, and optionally the
-   four `*_PROVIDER` flags (they default to `mock` if omitted). `QBO_*` vars are only needed if
-   you're using the QuickBooks-backed features; `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
-   `SMTP_PASSWORD`, and `SMTP_FROM` are only needed to actually send invoice/estimate emails.
-3. Once Netlify gives you a domain (`https://your-app.netlify.app`, or a custom one), set
-   `APP_BASE_URL` to it and `QBO_REDIRECT_URI` to `https://<that domain>/api/auth/callback`
-   — then add that exact same redirect URI to the Intuit app (Setup step 1), and redeploy so
-   the new env vars take effect.
-4. Sign in with `APP_PASSWORD` and connect QuickBooks from **Settings & connection**, same as
-   local dev.
+   `CRON_SECRET`, and optionally the four `*_PROVIDER` flags (they default to `mock` if
+   omitted). `QBO_CLIENT_ID`, `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, and `QBO_REDIRECT_URI`
+   are entirely optional — only add them if you plan to use the **Connect QuickBooks** button in
+   Settings at all; `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` are
+   only needed to actually send invoice/estimate emails.
+3. If you did add the `QBO_*` vars, once Netlify gives you a domain
+   (`https://your-app.netlify.app`, or a custom one), set `APP_BASE_URL` to it and
+   `QBO_REDIRECT_URI` to `https://<that domain>/api/auth/callback` — then add that exact same
+   redirect URI to the Intuit app (Setup step 1), and redeploy so the new env vars take effect.
+4. Sign in with `APP_PASSWORD` — the app is fully usable from here. Connecting QuickBooks from
+   **Settings & connection** is optional and not required for anything currently built (see
+   **What's live vs. demo data**).
 
 **Recurring schedules cron:** Netlify's Scheduled Functions work differently from Vercel's
 `vercel.json` cron, so instead of a platform-specific cron config, point any external

@@ -13,14 +13,10 @@ export async function TopBar() {
       <div className="flex items-center gap-3">
         {tokens ? (
           <Link href="/dashboard/settings" className="flex items-center gap-2">
-            <Badge tone="success">● Connected</Badge>
+            <Badge tone="success">● QuickBooks connected</Badge>
             <span className="hidden text-sm text-slate-300 sm:inline">{tokens.companyName}</span>
           </Link>
-        ) : (
-          <Link href="/dashboard/settings">
-            <Badge tone="warning">QuickBooks not connected</Badge>
-          </Link>
-        )}
+        ) : null}
         <form action="/api/logout" method="POST">
           <button
             type="submit"

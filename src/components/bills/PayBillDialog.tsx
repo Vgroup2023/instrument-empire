@@ -63,7 +63,7 @@ export function PayBillDialog({
       open
       onClose={loading ? () => {} : onClose}
       title={`Pay bill from ${bill.VendorRef.name ?? 'vendor'}`}
-      description="This records a real bill payment in QuickBooks against the account you choose below."
+      description="This records a real bill payment against the account you choose below."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>
@@ -104,7 +104,7 @@ export function PayBillDialog({
               ))}
             </Select>
           ) : (
-            <p className="text-sm text-red-600">No bank accounts found in QuickBooks — add one there first.</p>
+            <p className="text-sm text-red-600">No bank accounts found — add one in your Chart of Accounts first.</p>
           )}
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}

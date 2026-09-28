@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCustomer, updateCustomer, type UpdateCustomerInput } from '@/lib/quickbooks/customers';
+import { getCustomer, updateCustomer, type UpdateCustomerInput } from '@/lib/accounting/customers';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -19,9 +19,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const { id } = await params;
     const body = (await request.json()) as Omit<UpdateCustomerInput, 'id'>;
-    if (!body.syncToken) {
-      return NextResponse.json({ error: 'A syncToken is required to update a customer.' }, { status: 400 });
-    }
     const customer = await updateCustomer({ id, ...body });
     return NextResponse.json({ customer });
   } catch (err) {

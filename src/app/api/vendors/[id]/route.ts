@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVendor, updateVendor, type UpdateVendorInput } from '@/lib/quickbooks/vendors';
+import { getVendor, updateVendor, type UpdateVendorInput } from '@/lib/accounting/vendors';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -19,9 +19,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const { id } = await params;
     const body = (await request.json()) as Omit<UpdateVendorInput, 'id'>;
-    if (!body.syncToken) {
-      return NextResponse.json({ error: 'A syncToken is required to update a vendor.' }, { status: 400 });
-    }
     const vendor = await updateVendor({ id, ...body });
     return NextResponse.json({ vendor });
   } catch (err) {

@@ -1,25 +1,31 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { listProducts, listIncomeAccounts } from '@/lib/quickbooks/items';
+import { listProducts, listIncomeAccounts } from '@/lib/accounting/products';
 import { ProductsPageClient } from '@/components/products/ProductsPageClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
-  const connected = await isQboConnected();
+  let data: { products: Awaited<ReturnType<typeof listProducts>>; incomeAccounts: Awaited<ReturnType<typeof listIncomeAccounts>> } | null = null;
+  let loadError: unknown = null;
+  try {
+    const [products, incomeAccounts] = await Promise.all([listProducts(), listIncomeAccounts()]);
+    data = { products, incomeAccounts };
+  } catch (err) {
+    loadError = err;
+  }
 
-  if (!connected) {
+  if (!data) {
     return (
       <div>
         <PageHeader title="Products & services" description="What you sell — used as line items on invoices and estimates." />
-        <ConnectBanner />
-        <EmptyState title="Connect QuickBooks to manage products & services" />
+        <EmptyState
+          title="Couldn't load products & services"
+          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+        />
       </div>
     );
   }
 
-  const [products, incomeAccounts] = await Promise.all([listProducts(), listIncomeAccounts()]);
-  return <ProductsPageClient initialProducts={products} incomeAccounts={incomeAccounts} />;
+  return <ProductsPageClient initialProducts={data.products} incomeAccounts={data.incomeAccounts} />;
 }

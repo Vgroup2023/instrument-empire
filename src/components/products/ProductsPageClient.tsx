@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ProductFormDialog } from '@/components/products/ProductFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Product, IncomeAccount } from '@/lib/quickbooks/items';
+import type { Product, IncomeAccount } from '@/lib/accounting/products';
 
 export function ProductsPageClient({
   initialProducts,

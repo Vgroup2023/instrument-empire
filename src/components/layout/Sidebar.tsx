@@ -44,6 +44,13 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'Banking',
+    items: [
+      { href: '/dashboard/expenses', label: 'Expenses', icon: '💳' },
+      { href: '/dashboard/transfers', label: 'Transfers', icon: '🔁' },
+    ],
+  },
+  {
     title: 'People & money',
     items: [
       { href: '/dashboard/payroll', label: 'Payroll', icon: '💼' },

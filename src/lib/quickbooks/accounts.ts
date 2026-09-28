@@ -26,3 +26,14 @@ export async function listBankAccounts(): Promise<GlAccount[]> {
     "SELECT * FROM Account WHERE AccountType = 'Bank' AND Active = true ORDERBY Name MAXRESULTS 100",
   );
 }
+
+/**
+ * Lists Bank and Credit Card accounts — the accounts real money can move
+ * out of or between. Used for "record an expense" (paid from either kind
+ * of account) and bank transfers (between two of either kind).
+ */
+export async function listPaymentAccounts(): Promise<GlAccount[]> {
+  return qboQuery<GlAccount>(
+    "SELECT * FROM Account WHERE AccountType IN ('Bank', 'Credit Card') AND Active = true ORDERBY Name MAXRESULTS 100",
+  );
+}

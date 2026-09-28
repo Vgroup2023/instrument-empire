@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/recurring/run-due",
-      "schedule": "0 8 * * *"
-    }
-  ]
-}

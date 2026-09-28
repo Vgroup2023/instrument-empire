@@ -7,8 +7,8 @@ import { Label, Input, Textarea } from '@/components/ui/Field';
 import { JournalLinesEditor } from '@/components/journal-entries/JournalLinesEditor';
 import { useToast } from '@/components/ui/Toast';
 import { balanceOf, type JournalLineInput } from '@/lib/quickbooks/journalEntryTypes';
-import type { JournalEntry } from '@/lib/quickbooks/journalEntries';
-import type { Account } from '@/lib/quickbooks/chartOfAccounts';
+import type { JournalEntry } from '@/lib/accounting/journalEntries';
+import type { Account } from '@/lib/accounting/chartOfAccounts';
 
 interface JournalEntryFormDialogProps {
   open: boolean;
@@ -53,11 +53,7 @@ export function JournalEntryFormDialog({ open, onClose, accounts, journalEntry, 
       const res = await fetch(isEdit ? `/api/journal-entries/${journalEntry!.Id}` : '/api/journal-entries', {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          isEdit
-            ? { syncToken: journalEntry!.SyncToken, txnDate, memo: memo || undefined, lines: validLines }
-            : { txnDate, memo: memo || undefined, lines: validLines },
-        ),
+        body: JSON.stringify({ txnDate, memo: memo || undefined, lines: validLines }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

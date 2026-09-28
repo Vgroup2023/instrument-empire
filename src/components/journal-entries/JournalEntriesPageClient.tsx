@@ -9,8 +9,8 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { JournalEntryFormDialog } from '@/components/journal-entries/JournalEntryFormDialog';
 import { DeleteJournalEntryDialog } from '@/components/journal-entries/DeleteJournalEntryDialog';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Account } from '@/lib/quickbooks/chartOfAccounts';
-import type { JournalEntry } from '@/lib/quickbooks/journalEntries';
+import type { Account } from '@/lib/accounting/chartOfAccounts';
+import type { JournalEntry } from '@/lib/accounting/journalEntries';
 
 export function JournalEntriesPageClient({
   initialJournalEntries,

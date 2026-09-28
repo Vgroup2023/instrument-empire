@@ -26,8 +26,9 @@ yarn-error.log*
 .env
 .env*.local
 
-# vercel
-.vercel
+# netlify
+.netlify
+deno.lock
 
 # app-owned local data store (recurring schedules, demo payment links/payroll)
 /data

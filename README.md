@@ -22,7 +22,7 @@ multi-customer use — it's meant to be run by one business, for that business's
   passphrase is still the only thing standing between the internet and your financials.
 - **Pick hosting with a persistent filesystem** (a small VM, Docker container, Railway,
   Render, Fly.io, or your own machine) if you want recurring schedules, payment links, or
-  payroll edits to actually stick — see the **Deploying to Vercel** filesystem caveat
+  payroll edits to actually stick — see the **Deploying to Netlify** filesystem caveat
   below. Everything QuickBooks-backed (reports, invoices, estimates, customers, products)
   is unaffected either way.
 - **Back up the `data/` directory** if you're self-hosting — it's the only place
@@ -127,44 +127,51 @@ npm run dev
 Open the app, sign in with `APP_PASSWORD`, then go to **Settings & connection** and click
 **Connect QuickBooks** to authorize against your sandbox or real company.
 
-## Deploying to Vercel
+## Deploying to Netlify
 
-The repo includes a `vercel.json` (daily cron for recurring schedules — see below), so
-deploying is mostly point-and-click:
+The repo includes a `netlify.toml` that pins the Next.js runtime plugin
+(`@netlify/plugin-nextjs`, also listed in `devDependencies`), so deploying is mostly
+point-and-click:
 
 1. Push this repo to GitHub if it isn't already, then in the
-   [Vercel dashboard](https://vercel.com/new) choose **Add New → Project** and import it.
-   Vercel auto-detects Next.js; no build settings need to change.
-2. Before the first deploy (or right after, then redeploy), add these under **Project
-   Settings → Environment Variables**: `APP_PASSWORD`, `SESSION_SECRET`, `QBO_CLIENT_ID`,
+   [Netlify dashboard](https://app.netlify.com) choose **Add new site → Import an existing
+   project** and pick this repo. Netlify reads `netlify.toml` and auto-detects the Next.js
+   runtime; no build settings need to change.
+2. Before the first deploy (or right after, then redeploy), add these under **Site
+   configuration → Environment variables**: `APP_PASSWORD`, `SESSION_SECRET`, `QBO_CLIENT_ID`,
    `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, `CRON_SECRET`, and optionally the four
    `*_PROVIDER` flags (they default to `mock` if omitted).
-3. Once Vercel gives you a domain (`https://your-app.vercel.app`, or a custom one), set
+3. Once Netlify gives you a domain (`https://your-app.netlify.app`, or a custom one), set
    `APP_BASE_URL` to it and `QBO_REDIRECT_URI` to `https://<that domain>/api/auth/callback`
    — then add that exact same redirect URI to the Intuit app (Setup step 1), and redeploy so
    the new env vars take effect.
 4. Sign in with `APP_PASSWORD` and connect QuickBooks from **Settings & connection**, same as
    local dev.
 
-**Filesystem caveat:** Vercel's serverless functions don't have a persistent filesystem — each
-invocation can start from a clean slate. That's fine for everything backed by QuickBooks
-(Insights, Invoices, Estimates, Customers, Products, the login/connect flow) or by the
-signed-cookie session, but the JSON-file store behind **recurring schedules**, **demo payment
-links**, and **demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist
-there — a schedule or employee you add may disappear on the next request. Those three features
-work correctly on a host with a persistent filesystem (a small VM, Docker container, Railway,
-Render, Fly.io, etc.); on Vercel, treat them as a UI preview rather than durable storage until
-that store is swapped for a real database or KV service.
+**Recurring schedules cron:** Netlify's Scheduled Functions work differently from Vercel's
+`vercel.json` cron, so instead of a platform-specific cron config, point any external
+scheduler (a GitHub Actions workflow on a `schedule:` trigger, cron-job.org, etc.) at
+`POST https://<your domain>/api/recurring/run-due` once a day with an
+`Authorization: Bearer <CRON_SECRET>` header. This is host-agnostic — it'll keep working if
+you ever move hosts again.
+
+**Filesystem caveat:** Netlify Functions don't have a persistent filesystem — each invocation
+can start from a clean slate. That's fine for everything backed by QuickBooks (Insights,
+Invoices, Estimates, Customers, Products, the login/connect flow) or by the signed-cookie
+session, but the JSON-file store behind **recurring schedules**, **demo payment links**, and
+**demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist there — a
+schedule or employee you add may disappear on the next request. Those three features work
+correctly on a host with a persistent filesystem (a small VM, Docker container, Railway,
+Render, Fly.io, etc.); on Netlify, treat them as a UI preview rather than durable storage
+until that store is swapped for a real database or KV service.
 
 ## Recurring schedules
 
 `POST /api/recurring/run-due` finds every active schedule whose next run date has arrived,
 creates the invoice/estimate through QuickBooks, optionally emails it, and advances the
-schedule. On Vercel this already runs once a day via the cron entry in `vercel.json` — Vercel
-signs the request with `Authorization: Bearer $CRON_SECRET` automatically as long as
-`CRON_SECRET` is set in your environment variables, and the route (in
-`src/app/api/recurring/run-due/route.ts`) checks it. Elsewhere, trigger it yourself from
-whatever scheduler you have, e.g.:
+schedule. The route (in `src/app/api/recurring/run-due/route.ts`) checks the
+`Authorization: Bearer $CRON_SECRET` header, so point any external scheduler at it once a day
+— a GitHub Actions workflow on a `schedule:` trigger, cron-job.org, or similar — e.g.:
 
 ```
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app.example.com/api/recurring/run-due

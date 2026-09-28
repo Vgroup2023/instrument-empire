@@ -30,9 +30,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(settingsUrl);
   }
 
-  const stateCookie = cookies().get(STATE_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const stateCookie = cookieStore.get(STATE_COOKIE)?.value;
   const statePayload = await verifyPayload<{ state: string }>(stateCookie, getSessionSecret());
-  cookies().delete(STATE_COOKIE);
+  cookieStore.delete(STATE_COOKIE);
 
   if (!statePayload || statePayload.state !== state) {
     settingsUrl.searchParams.set('qbo_error', 'state_mismatch');

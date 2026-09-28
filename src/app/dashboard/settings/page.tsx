@@ -17,22 +17,22 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: { qbo_connected?: string; qbo_error?: string };
+  searchParams: Promise<{ qbo_connected?: string; qbo_error?: string }>;
 }) {
-  const tokens = await getQboTokens();
+  const [tokens, params] = await Promise.all([getQboTokens(), searchParams]);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Settings & connection" description="Manage your QuickBooks Online connection." />
 
-      {searchParams.qbo_connected ? (
+      {params.qbo_connected ? (
         <div className="rounded-xl2 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           QuickBooks connected successfully.
         </div>
       ) : null}
-      {searchParams.qbo_error ? (
+      {params.qbo_error ? (
         <div className="rounded-xl2 border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {ERROR_MESSAGES[searchParams.qbo_error] ?? 'Something went wrong connecting to QuickBooks.'}
+          {ERROR_MESSAGES[params.qbo_error] ?? 'Something went wrong connecting to QuickBooks.'}
         </div>
       ) : null}
 

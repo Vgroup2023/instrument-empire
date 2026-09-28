@@ -5,6 +5,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  clearAppSessionCookie();
+  await clearAppSessionCookie();
   return NextResponse.redirect(new URL('/login', request.url), { status: 303 });
 }

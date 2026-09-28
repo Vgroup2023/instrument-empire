@@ -23,6 +23,7 @@ const sizeClasses = {
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- portal can only mount client-side, after hydration
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {

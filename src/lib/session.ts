@@ -19,7 +19,8 @@ const NINETY_DAYS = 60 * 60 * 24 * 90;
 
 export async function createAppSessionCookie(): Promise<void> {
   const token = await signPayload({ ok: true, ts: Date.now() }, getSessionSecret());
-  cookies().set(APP_SESSION_COOKIE, token, {
+  const store = await cookies();
+  store.set(APP_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -28,12 +29,14 @@ export async function createAppSessionCookie(): Promise<void> {
   });
 }
 
-export function clearAppSessionCookie(): void {
-  cookies().delete(APP_SESSION_COOKIE);
+export async function clearAppSessionCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(APP_SESSION_COOKIE);
 }
 
 export async function isAppAuthenticated(): Promise<boolean> {
-  const token = cookies().get(APP_SESSION_COOKIE)?.value;
+  const store = await cookies();
+  const token = store.get(APP_SESSION_COOKIE)?.value;
   const payload = await verifyPayload<{ ok: boolean }>(token, getSessionSecret());
   return Boolean(payload?.ok);
 }
@@ -48,7 +51,8 @@ export async function saveQboTokens(tokens: QboTokens): Promise<void> {
     // the current request, and it will be persisted on the next request
     // that goes through a route handler (Intuit's rotated refresh token
     // stays valid for a grace period, so this doesn't break auth).
-    cookies().set(QBO_SESSION_COOKIE, token, {
+    const store = await cookies();
+    store.set(QBO_SESSION_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -61,10 +65,12 @@ export async function saveQboTokens(tokens: QboTokens): Promise<void> {
 }
 
 export async function getQboTokens(): Promise<QboTokens | null> {
-  const token = cookies().get(QBO_SESSION_COOKIE)?.value;
+  const store = await cookies();
+  const token = store.get(QBO_SESSION_COOKIE)?.value;
   return verifyPayload<QboTokens>(token, getSessionSecret());
 }
 
-export function clearQboTokens(): void {
-  cookies().delete(QBO_SESSION_COOKIE);
+export async function clearQboTokens(): Promise<void> {
+  const store = await cookies();
+  store.delete(QBO_SESSION_COOKIE);
 }

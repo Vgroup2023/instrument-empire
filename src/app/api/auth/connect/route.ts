@@ -13,7 +13,8 @@ export async function GET() {
   const state = crypto.randomUUID();
   const signedState = await signPayload({ state }, getSessionSecret());
 
-  cookies().set(STATE_COOKIE, signedState, {
+  const store = await cookies();
+  store.set(STATE_COOKIE, signedState, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

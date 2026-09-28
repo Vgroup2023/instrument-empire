@@ -1,4 +1,4 @@
-// Split out from lib/session.ts so middleware (which runs on the Edge
+// Split out from lib/session.ts so src/proxy.ts (which runs on the Edge
 // runtime and must not pull in next/headers) can reference the cookie name
 // without importing anything that touches cookies()/next/headers directly.
 export const APP_SESSION_COOKIE = 'ac_app_session';

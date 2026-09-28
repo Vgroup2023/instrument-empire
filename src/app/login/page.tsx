@@ -1,11 +1,12 @@
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { next?: string; error?: string };
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const next = searchParams.next ?? '/dashboard';
-  const hasError = searchParams.error === '1';
-  const isRateLimited = searchParams.error === 'rate_limited';
+  const params = await searchParams;
+  const next = params.next ?? '/dashboard';
+  const hasError = params.error === '1';
+  const isRateLimited = params.error === 'rate_limited';
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4">

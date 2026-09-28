@@ -22,6 +22,7 @@ export function RecurringSchedulesList({ docType }: { docType: 'invoice' | 'esti
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, no external state to sync from
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

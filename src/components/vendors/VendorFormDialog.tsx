@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input, Select } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import type { Vendor } from '@/lib/quickbooks/vendors';
+import type { Vendor } from '@/lib/accounting/vendors';
 import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function VendorFormDialog({

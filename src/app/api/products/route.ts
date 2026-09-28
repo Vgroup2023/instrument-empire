@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createProduct, listProducts, type CreateProductInput } from '@/lib/quickbooks/items';
+import { createProduct, listProducts, type CreateProductInput } from '@/lib/accounting/products';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

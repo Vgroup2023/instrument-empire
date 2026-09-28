@@ -15,10 +15,11 @@ still QuickBooks-backed** below for the current split.
 
 ## Before you rely on this for real, daily bookkeeping
 
-- **Chart of accounts and Journal entries work immediately** — no QuickBooks connection
-  needed, since they run on this app's own database. **Connect your real QuickBooks company**
-  (Settings & connection) to use everything else — until then, those screens show an explicit
-  "not connected" state rather than fabricated numbers.
+- **Chart of accounts, Journal entries, Customers, Vendors, and Products & services work
+  immediately** — no QuickBooks connection needed, since they run on this app's own database.
+  **Connect your real QuickBooks company** (Settings & connection) to use everything else —
+  until then, those screens show an explicit "not connected" state rather than fabricated
+  numbers.
 - **Payment links, Payroll, and QuickBooks Capital start empty and stay demo-mode**
   (`PAYMENTS_PROVIDER`, `PAYROLL_PROVIDER`, `CAPITAL_PROVIDER` in `.env`) until you have
   the corresponding Intuit product access and wire it up — see **What's live vs. demo
@@ -30,8 +31,8 @@ still QuickBooks-backed** below for the current split.
 - **Pick hosting with a persistent filesystem** (a small VM, Docker container, Railway,
   Render, Fly.io, or your own machine) if you want recurring schedules, payment links, or
   payroll edits to actually stick — see the **Deploying to Netlify** filesystem caveat
-  below. Everything QuickBooks-backed (reports, invoices, estimates, customers, products)
-  is unaffected either way.
+  below. Everything backed by QuickBooks or this app's own database (reports, invoices,
+  estimates, customers, vendors, products) is unaffected either way.
 - **Back up the `data/` directory** if you're self-hosting — it's the only place
   recurring-schedule and payroll/payment-link records live outside of QuickBooks itself.
 
@@ -47,12 +48,13 @@ still QuickBooks-backed** below for the current split.
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): create, edit,
   duplicate, delete, and email — plus scheduling them to recur (weekly/monthly/quarterly/yearly).
-- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): add, edit,
-  and deactivate/reactivate. QuickBooks doesn't allow hard-deleting either once created, so
-  deactivating is the real "delete" here, same as in QuickBooks itself — same pattern as the
-  Chart of Accounts. A deactivated one drops out of the picker on new invoices/estimates, but
-  stays visible (and editable/reactivatable) on its own management page and on any older
-  document that already references it.
+- Customers and products/services (`/dashboard/customers`, `/dashboard/products`): runs on
+  this app's own database — add, edit, and deactivate/reactivate. There's no hard-delete, so
+  deactivating is the real "delete" here — same pattern as the Chart of Accounts. A
+  deactivated one drops out of the picker on new invoices/estimates, but stays visible (and
+  editable/reactivatable) on its own management page and on any older document that already
+  references it. **Not yet wired up**: Invoices and Estimates still pick customers/products
+  from QuickBooks, not this list, until they're migrated too (see the table below).
 - Payment links and payment reminders (`/dashboard/payments`): create a link, edit it while
   it's still unsent, email it, cancel it, or nudge a customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
@@ -60,12 +62,13 @@ still QuickBooks-backed** below for the current split.
   explicit click on the exact content that will go out.
 
 **Payables**
-- Vendors and bills (`/dashboard/vendors`, `/dashboard/bills`): the Accounts Payable
-  counterpart to Invoices/Customers — add, edit, and deactivate/reactivate vendors (QuickBooks
-  has no hard-delete for them either), record bills against an expense/COGS category, edit,
-  duplicate, or delete a bill, and pay one from a real bank account. Everything here runs
-  against the same real QuickBooks Accounting API as Invoices — no separate product
-  or demo mode.
+- Vendors (`/dashboard/vendors`): the Accounts Payable counterpart to Customers — runs on
+  this app's own database. Add, edit, and deactivate/reactivate; no hard-delete, same as
+  Customers and the Chart of Accounts.
+- Bills (`/dashboard/bills`): record a bill against an expense/COGS category, edit,
+  duplicate, or delete it, and pay one from a real bank account. Still runs against the real
+  QuickBooks Accounting API — **not yet wired up** to the local Vendors list above (its
+  vendor picker still comes from QuickBooks until Bills are migrated too).
 
 **Accounting** — runs on this app's own database, no QuickBooks connection required:
 - Chart of accounts (`/dashboard/accounts`): every account in your books — add a new one
@@ -96,15 +99,14 @@ still QuickBooks-backed** below for the current split.
 
 **Multi-currency** — only relevant if your QuickBooks company has it enabled (Settings →
 Advanced → Currency; it's a one-way company setting that can't be turned off once on):
-- Assign a currency to a customer or vendor when you add them (`/dashboard/customers`,
-  `/dashboard/vendors`) — QuickBooks locks this in permanently once they have a transaction,
-  so this app makes the choice explicit up front rather than silently defaulting.
 - Invoices and bills for a foreign-currency customer/vendor show an exchange-rate field (with
   a one-click "use today's rate" lookup against QuickBooks' own rate service, or type in the
   rate you already know), and list views display amounts in each document's own currency.
-- **Not yet wired up**: Estimates, Expenses, and Journal Entries don't have currency pickers
-  yet — they'll default to the company's home currency even for a foreign-currency
-  customer/vendor. Extending them follows the identical pattern used for Invoices/Bills.
+- **Not yet wired up**: now that Customers and Vendors run on this app's own database
+  (see above), the currency picker on adding one is gone for the moment — every local
+  customer/vendor defaults to USD. Estimates, Expenses, and Journal Entries also don't have
+  currency pickers. Multi-currency support returns once the invoicing/billing phases land on
+  the local database too.
 
 **Bank connections** live inside QuickBooks Online itself — once you connect your company
 (below), any bank feeds you've linked in QuickBooks show up automatically in the Banking
@@ -118,16 +120,16 @@ own Postgres database (see `src/db/schema.ts` for the full schema). Currently:
 
 | Area | Backed by |
 |---|---|
-| Chart of accounts, Journal entries | This app's own database — no QuickBooks connection needed |
-| Everything else (Invoices, Estimates, Customers, Products, Vendors, Bills, Expenses, Transfers, Insights, Payroll, Payment links, Capital) | Still QuickBooks-backed for now — being migrated in upcoming phases |
+| Chart of accounts, Journal entries, Customers, Vendors, Products & services | This app's own database — no QuickBooks connection needed |
+| Everything else (Invoices, Estimates, Bills, Expenses, Transfers, Insights, Payroll, Payment links, Capital) | Still QuickBooks-backed for now — being migrated in upcoming phases |
 
 ## What's live vs. demo data (for QuickBooks-backed features)
 
 Everything under **Insights**, the core of **Actions** (invoices, estimates, recurring
-schedules, customers, products), all of **Payables** (vendors, bills, bill payments), and all of
-**Banking** (expenses, transfers) runs against your real QuickBooks Online company through the
-public Accounting API once you connect it. **Accounting** (chart of accounts, journal entries)
-no longer depends on QuickBooks at all — see the table above.
+schedules), **Bills** and bill payments, and all of **Banking** (expenses, transfers) runs
+against your real QuickBooks Online company through the public Accounting API once you
+connect it. **Accounting** (chart of accounts, journal entries) and **Customers, Vendors, and
+Products & services** no longer depend on QuickBooks at all — see the table above.
 
 Four areas use a separate Intuit product that isn't part of the standard Accounting API scope,
 so they don't have a real data source by default:
@@ -202,9 +204,10 @@ npm install
 npm run dev
 ```
 
-Open the app and sign in with `APP_PASSWORD`. Chart of accounts and Journal entries work
-immediately against your database. To use the QuickBooks-backed features too, go to
-**Settings & connection** and click **Connect QuickBooks**.
+Open the app and sign in with `APP_PASSWORD`. Chart of accounts, Journal entries, Customers,
+Vendors, and Products & services work immediately against your database. To use the
+QuickBooks-backed features too, go to **Settings & connection** and click **Connect
+QuickBooks**.
 
 ## Deploying to Netlify
 
@@ -236,9 +239,10 @@ scheduler (a GitHub Actions workflow on a `schedule:` trigger, cron-job.org, etc
 you ever move hosts again.
 
 **Filesystem caveat:** Netlify Functions don't have a persistent filesystem — each invocation
-can start from a clean slate. That's fine for everything backed by QuickBooks (Insights,
-Invoices, Estimates, Customers, Products, the login/connect flow) or by the signed-cookie
-session, but the JSON-file store behind **recurring schedules**, **demo payment links**, and
+can start from a clean slate. That's fine for everything backed by QuickBooks or this app's
+own database (Insights, Invoices, Estimates, Chart of accounts, Journal entries, Customers,
+Vendors, Products & services, the login/connect flow) or by the signed-cookie session, but the
+JSON-file store behind **recurring schedules**, **demo payment links**, and
 **demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist there — a
 schedule or employee you add may disappear on the next request. Those three features work
 correctly on a host with a persistent filesystem (a small VM, Docker container, Railway,

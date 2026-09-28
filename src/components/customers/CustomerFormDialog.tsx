@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input, Select } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import type { Customer } from '@/lib/quickbooks/customers';
+import type { Customer } from '@/lib/accounting/customers';
 import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function CustomerFormDialog({

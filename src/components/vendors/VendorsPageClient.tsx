@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { VendorFormDialog } from '@/components/vendors/VendorFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, initials } from '@/lib/format';
-import type { Vendor } from '@/lib/quickbooks/vendors';
+import type { Vendor } from '@/lib/accounting/vendors';
 import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function VendorsPageClient({

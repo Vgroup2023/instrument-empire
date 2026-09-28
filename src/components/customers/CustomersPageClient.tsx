@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { CustomerFormDialog } from '@/components/customers/CustomerFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, initials } from '@/lib/format';
-import type { Customer } from '@/lib/quickbooks/customers';
+import type { Customer } from '@/lib/accounting/customers';
 import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function CustomersPageClient({

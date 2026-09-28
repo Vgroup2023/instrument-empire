@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import type { Product, IncomeAccount } from '@/lib/quickbooks/items';
+import type { Product, IncomeAccount } from '@/lib/accounting/products';
 
 export function ProductFormDialog({
   open,
@@ -120,7 +120,9 @@ export function ProductFormDialog({
               ))}
             </Select>
           ) : (
-            <p className="text-sm text-red-600">No income accounts found in QuickBooks — add one there first.</p>
+            <p className="text-sm text-red-600">
+              No income accounts found — add one on the Chart of accounts page first.
+            </p>
           )}
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}

@@ -38,7 +38,10 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   },
   {
     title: 'Accounting',
-    items: [{ href: '/dashboard/accounts', label: 'Chart of accounts', icon: '📚' }],
+    items: [
+      { href: '/dashboard/accounts', label: 'Chart of accounts', icon: '📚' },
+      { href: '/dashboard/journal-entries', label: 'Journal entries', icon: '📒' },
+    ],
   },
   {
     title: 'People & money',

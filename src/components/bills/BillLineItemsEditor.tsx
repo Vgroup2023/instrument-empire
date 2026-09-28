@@ -3,8 +3,8 @@
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Field';
 import { formatCurrency } from '@/lib/format';
-import type { ExpenseLineInput } from '@/lib/quickbooks/bills';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
+import type { ExpenseLineInput } from '@/lib/accounting/bills';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
 
 export function BillLineItemsEditor({
   expenseAccounts,

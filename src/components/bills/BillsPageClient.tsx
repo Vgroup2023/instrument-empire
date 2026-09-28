@@ -12,9 +12,9 @@ import { PayBillDialog } from '@/components/bills/PayBillDialog';
 import { DeleteBillDialog } from '@/components/bills/DeleteBillDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Vendor } from '@/lib/quickbooks/vendors';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { Bill } from '@/lib/quickbooks/bills';
+import type { Vendor } from '@/lib/accounting/vendors';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { Bill } from '@/lib/accounting/bills';
 
 export function BillsPageClient({
   initialBills,

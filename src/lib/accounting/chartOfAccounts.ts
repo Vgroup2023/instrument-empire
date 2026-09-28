@@ -1,6 +1,6 @@
 import { getDb } from '@/db/client';
 import { accounts, journalLines } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 // This is the standalone, database-backed Chart of Accounts — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/chartOfAccounts.ts
@@ -154,4 +154,29 @@ export async function updateAccount(input: UpdateAccountInput): Promise<Account>
   if (!row) throw new Error('Account not found.');
   const balances = await getAccountBalances();
   return toAccount(row, balances.get(row.id) ?? 0);
+}
+
+export interface GlAccount {
+  Id: string;
+  Name: string;
+}
+
+async function listAccountsByType(types: string[]): Promise<GlAccount[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: accounts.id, name: accounts.name })
+    .from(accounts)
+    .where(and(inArray(accounts.accountType, types), eq(accounts.active, true)))
+    .orderBy(accounts.name);
+  return rows.map((r) => ({ Id: r.id, Name: r.name }));
+}
+
+/** Lists Expense / Cost of Goods Sold / Other Expense accounts, so "record a bill" can let the user pick which one a line posts to. */
+export async function listExpenseAccounts(): Promise<GlAccount[]> {
+  return listAccountsByType(['Expense', 'Cost of Goods Sold', 'Other Expense']);
+}
+
+/** Lists Bank accounts, so "pay bill" can let the user pick which account the payment actually comes out of. */
+export async function listBankAccounts(): Promise<GlAccount[]> {
+  return listAccountsByType(['Bank']);
 }

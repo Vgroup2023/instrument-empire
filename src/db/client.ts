@@ -1,23 +1,26 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from '@/db/schema';
 
 /**
- * Uses Neon's HTTP driver rather than a pooled TCP connection — each
- * serverless function invocation (Netlify Functions) gets a fresh
- * short-lived request instead of holding a socket open, which is what this
- * hosting model needs.
+ * A standard Postgres connection (works with Supabase, Neon, RDS, or any
+ * other Postgres host) rather than a provider-specific driver. Netlify
+ * Functions run in a normal Node.js runtime, so a pooled TCP connection is
+ * fine here — this isn't an edge runtime that would need an HTTP-based driver.
  */
 function createDb() {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
       'DATABASE_URL is not configured on the server. Add it as an environment variable ' +
-        '(a Postgres connection string from Neon, Supabase, or another provider).',
+        '(a Postgres connection string from Supabase, Neon, or another provider).',
     );
   }
-  const sql = neon(url);
-  return drizzle(sql, { schema });
+  // max: 1 keeps each serverless function instance's own connection footprint
+  // small — pair this with your provider's pooled connection string (e.g.
+  // Supabase's "Transaction pooler" on port 6543) rather than a direct one.
+  const client = postgres(url, { max: 1 });
+  return drizzle(client, { schema });
 }
 
 let cached: ReturnType<typeof createDb> | undefined;

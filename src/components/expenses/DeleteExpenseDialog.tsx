@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Expense } from '@/lib/quickbooks/expenses';
+import type { Expense } from '@/lib/accounting/expenses';
 
 export function DeleteExpenseDialog({
   expense,
@@ -48,7 +48,7 @@ export function DeleteExpenseDialog({
       open
       onClose={loading ? () => {} : onClose}
       title="Delete this expense?"
-      description="This permanently removes it from QuickBooks. This can't be undone from here."
+      description="This permanently removes it. This can't be undone."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>

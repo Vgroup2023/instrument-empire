@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/Badge';
 import { ExpenseFormDialog } from '@/components/expenses/ExpenseFormDialog';
 import { DeleteExpenseDialog } from '@/components/expenses/DeleteExpenseDialog';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { Vendor } from '@/lib/quickbooks/vendors';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { Expense } from '@/lib/quickbooks/expenses';
+import type { Vendor } from '@/lib/accounting/vendors';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { Expense } from '@/lib/accounting/expenses';
 
 export function ExpensesPageClient({
   initialExpenses,

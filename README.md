@@ -15,11 +15,13 @@ still QuickBooks-backed** below for the current split.
 
 ## Before you rely on this for real, daily bookkeeping
 
-- **Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices,
-  Estimates, and Bills work immediately** — no QuickBooks connection needed, since they run on
-  this app's own database. **Connect your real QuickBooks company** (Settings & connection) to
-  use everything else — until then, those screens show an explicit "not connected" state
-  rather than fabricated numbers.
+- **Everything under Accounting, Payables, Actions, and Banking works immediately** — no
+  QuickBooks connection needed, since it all runs on this app's own database now (Chart of
+  accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates,
+  Bills, Expenses, and Transfers). **Connect your real QuickBooks company** (Settings &
+  connection) to use Insights, Payroll, Payment links, Capital, and recurring schedules —
+  until then, those screens show an explicit "not connected" state rather than fabricated
+  numbers.
 - **Set real `SMTP_*` env vars to actually email invoices, estimates, and reminders** — see
   **Environment variables** below. Without them, clicking Send/Remind fails with a clear
   "email isn't configured" error rather than silently doing nothing.
@@ -34,8 +36,7 @@ still QuickBooks-backed** below for the current split.
 - **Pick hosting with a persistent filesystem** (a small VM, Docker container, Railway,
   Render, Fly.io, or your own machine) if you want recurring schedules, payment links, or
   payroll edits to actually stick — see the **Deploying to Netlify** filesystem caveat
-  below. Everything backed by QuickBooks or this app's own database (reports, invoices,
-  estimates, customers, vendors, products) is unaffected either way.
+  below. Everything backed by QuickBooks or this app's own database is unaffected either way.
 - **Back up the `data/` directory** if you're self-hosting — it's the only place
   recurring-schedule and payroll/payment-link records live outside of QuickBooks itself.
 
@@ -88,15 +89,16 @@ still QuickBooks-backed** below for the current split.
   corrections, depreciation, and the like. The line editor shows a running debit/credit total
   and won't let you save an out-of-balance entry.
 
-**Banking**
+**Banking** — runs on this app's own database, no QuickBooks connection required:
 - Expenses (`/dashboard/expenses`): money paid immediately — by card, cash, or check — as
-  opposed to a bill owed for later. Categorize each line to an expense/COGS account, same
-  picker as bills. Create, edit, or delete any expense.
+  opposed to a bill owed for later. Categorize each line to an expense/COGS account from your
+  Chart of Accounts, same picker as bills. Create, edit, or delete any expense.
 - Transfers (`/dashboard/transfers`): move money between your own bank/credit card accounts.
-  Create, edit, or delete a transfer. QuickBooks' own bank-reconciliation screen isn't exposed
-  by the public Accounting API, so recording expenses and transfers accurately is as close as
-  an app built on it can get — the actual "Reconcile" workflow still happens inside QuickBooks
-  itself.
+  Create, edit, or delete a transfer.
+- There's no bank-reconciliation workflow here — this app records the transactions, but
+  actually reconciling against a bank statement isn't built (QuickBooks' own reconcile screen
+  was never exposed through its public API either, so this isn't a regression from connecting
+  it).
 
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
@@ -123,18 +125,17 @@ own Postgres database (see `src/db/schema.ts` for the full schema). Currently:
 
 | Area | Backed by |
 |---|---|
-| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills | This app's own database — no QuickBooks connection needed |
-| Everything else (Expenses, Transfers, Insights, Payroll, Payment links, Capital, recurring schedules) | Still QuickBooks-backed for now — being migrated in upcoming phases |
+| Chart of accounts, Journal entries, Customers, Vendors, Products & services, Invoices, Estimates, Bills, Expenses, Transfers | This app's own database — no QuickBooks connection needed |
+| Everything else (Insights, Payroll, Payment links, Capital, recurring schedules) | Still QuickBooks-backed for now — being migrated in upcoming phases |
 
 ## What's live vs. demo data (for QuickBooks-backed features)
 
-Everything under **Insights**, **recurring schedules** (which still create their invoices/
+Everything under **Insights** and **recurring schedules** (which still create their invoices/
 estimates through QuickBooks even though the Invoices/Estimates tabs themselves no longer need
-it — see the note below), and all of **Banking** (expenses, transfers) runs against your real
-QuickBooks Online company through the public Accounting API once you connect it. **Accounting**
-(chart of accounts, journal entries), **Customers, Vendors, Products & services**, **Invoices
-and Estimates**, and **Bills and bill payments** no longer depend on QuickBooks at all — see
-the table above.
+it — see the note below) runs against your real QuickBooks Online company through the public
+Accounting API once you connect it. **Accounting**, **Payables**, **Actions** (Invoices and
+Estimates), and **Banking** (Expenses and Transfers) no longer depend on QuickBooks at all —
+see the table above.
 
 **Recurring schedules caveat:** a recurring invoice/estimate schedule still creates its
 documents through the QuickBooks Accounting API (`src/lib/quickbooks/recurring.ts`), so a
@@ -223,10 +224,11 @@ npm run dev
 ```
 
 Open the app and sign in with `APP_PASSWORD`. Chart of accounts, Journal entries, Customers,
-Vendors, Products & services, Invoices, Estimates, and Bills work immediately against your
-database (add `SMTP_*` env vars too if you want Send/Remind to actually email customers). To
-use the QuickBooks-backed features too, go to **Settings & connection** and click **Connect
-QuickBooks**.
+Vendors, Products & services, Invoices, Estimates, Bills, Expenses, and Transfers all work
+immediately against your database (add `SMTP_*` env vars too if you want Send/Remind to
+actually email customers). To use the QuickBooks-backed features too (Insights, Payroll,
+Payment links, Capital, recurring schedules), go to **Settings & connection** and click
+**Connect QuickBooks**.
 
 ## Deploying to Netlify
 
@@ -260,9 +262,9 @@ you ever move hosts again.
 
 **Filesystem caveat:** Netlify Functions don't have a persistent filesystem — each invocation
 can start from a clean slate. That's fine for everything backed by QuickBooks or this app's
-own database (Insights, Invoices, Estimates, Bills, Chart of accounts, Journal entries,
-Customers, Vendors, Products & services, the login/connect flow) or by the signed-cookie
-session, but the
+own database (Insights, Invoices, Estimates, Bills, Expenses, Transfers, Chart of accounts,
+Journal entries, Customers, Vendors, Products & services, the login/connect flow) or by the
+signed-cookie session, but the
 JSON-file store behind **recurring schedules**, **demo payment links**, and
 **demo payroll edits** (`src/lib/store/jsonStore.ts`) won't reliably persist there — a
 schedule or employee you add may disappear on the next request. Those three features work

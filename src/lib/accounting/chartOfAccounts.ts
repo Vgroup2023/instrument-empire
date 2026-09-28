@@ -180,3 +180,8 @@ export async function listExpenseAccounts(): Promise<GlAccount[]> {
 export async function listBankAccounts(): Promise<GlAccount[]> {
   return listAccountsByType(['Bank']);
 }
+
+/** Lists Bank and Credit Card accounts — the accounts real money can move out of or between. Used for expenses and transfers. */
+export async function listPaymentAccounts(): Promise<GlAccount[]> {
+  return listAccountsByType(['Bank', 'Credit Card']);
+}

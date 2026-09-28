@@ -5,8 +5,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { Transfer } from '@/lib/quickbooks/transfers';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { Transfer } from '@/lib/accounting/transfers';
 
 export function TransferFormDialog({
   open,
@@ -78,7 +78,7 @@ export function TransferFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         {accounts.length < 2 ? (
           <p className="text-sm text-red-600">
-            You need at least two bank or credit card accounts in QuickBooks to record a transfer.
+            You need at least two bank or credit card accounts in your Chart of Accounts to record a transfer.
           </p>
         ) : (
           <>

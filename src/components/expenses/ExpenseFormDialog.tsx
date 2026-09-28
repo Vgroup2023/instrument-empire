@@ -7,9 +7,9 @@ import { Label, Input, Select } from '@/components/ui/Field';
 import { VendorSelect } from '@/components/bills/VendorSelect';
 import { BillLineItemsEditor } from '@/components/bills/BillLineItemsEditor';
 import { useToast } from '@/components/ui/Toast';
-import type { Vendor } from '@/lib/quickbooks/vendors';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { Expense, ExpenseLineInput, PaymentType } from '@/lib/quickbooks/expenses';
+import type { Vendor } from '@/lib/accounting/vendors';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { Expense, ExpenseLineInput, PaymentType } from '@/lib/accounting/expenses';
 
 export function ExpenseFormDialog({
   open,

@@ -1,30 +1,13 @@
-import { ConnectBanner } from '@/components/ConnectBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { isQboConnected } from '@/lib/quickbooks/client';
-import { listExpenses } from '@/lib/quickbooks/expenses';
-import { listVendors } from '@/lib/quickbooks/vendors';
-import { listExpenseAccounts, listPaymentAccounts } from '@/lib/quickbooks/accounts';
+import { listExpenses } from '@/lib/accounting/expenses';
+import { listVendors } from '@/lib/accounting/vendors';
+import { listExpenseAccounts, listPaymentAccounts } from '@/lib/accounting/chartOfAccounts';
 import { ExpensesPageClient } from '@/components/expenses/ExpensesPageClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ExpensesPage() {
-  const connected = await isQboConnected();
-
-  if (!connected) {
-    return (
-      <div>
-        <PageHeader
-          title="Expenses"
-          description="Money paid immediately — by card, cash, or check — as opposed to a bill owed for later."
-        />
-        <ConnectBanner />
-        <EmptyState title="Connect QuickBooks to manage expenses" />
-      </div>
-    );
-  }
-
   let data: Awaited<ReturnType<typeof loadExpensesData>> | null = null;
   let loadError: unknown = null;
   try {
@@ -36,8 +19,10 @@ export default async function ExpensesPage() {
   if (!data) {
     return (
       <div>
-        <PageHeader title="Expenses" />
-        <ConnectBanner />
+        <PageHeader
+          title="Expenses"
+          description="Money paid immediately — by card, cash, or check — as opposed to a bill owed for later."
+        />
         <EmptyState
           title="Couldn't load expenses"
           description={loadError instanceof Error ? loadError.message : 'Please try again.'}

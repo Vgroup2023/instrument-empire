@@ -9,8 +9,8 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { TransferFormDialog } from '@/components/transfers/TransferFormDialog';
 import { DeleteTransferDialog } from '@/components/transfers/DeleteTransferDialog';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { GlAccount } from '@/lib/quickbooks/accounts';
-import type { Transfer } from '@/lib/quickbooks/transfers';
+import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
+import type { Transfer } from '@/lib/accounting/transfers';
 
 export function TransfersPageClient({
   initialTransfers,

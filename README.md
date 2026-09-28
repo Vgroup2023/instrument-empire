@@ -46,8 +46,8 @@ multi-customer use — it's meant to be run by one business, for that business's
   Chart of Accounts. A deactivated one drops out of the picker on new invoices/estimates, but
   stays visible (and editable/reactivatable) on its own management page and on any older
   document that already references it.
-- Payment links and payment reminders (`/dashboard/payments`): create a link, email it, or
-  nudge a customer with an overdue balance.
+- Payment links and payment reminders (`/dashboard/payments`): create a link, edit it while
+  it's still unsent, email it, cancel it, or nudge a customer with an overdue balance.
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
   link — goes through a preview-and-confirm dialog first.** Nothing is emailed without an
   explicit click on the exact content that will go out.
@@ -82,8 +82,8 @@ multi-customer use — it's meant to be run by one business, for that business's
 
 **People & money**
 - Payroll (`/dashboard/payroll`): read-only answers (headcount, last/next payroll run),
-  an employee directory with hire/employment status, and the ability to add an employee or
-  set someone's base pay.
+  an employee directory with hire/employment status, and the ability to add an employee, edit
+  their profile (name, job title, department, email), set base pay, and terminate/reactivate them.
 - QuickBooks Capital (`/dashboard/capital`): your loans and how your borrowing terms compare
   to peer businesses (read-only, as requested).
 

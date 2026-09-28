@@ -1,6 +1,6 @@
 import { readJsonFile, writeJsonFile } from '@/lib/store/jsonStore';
 import { getAppBaseUrl } from '@/lib/config';
-import type { PaymentLink, CreatePaymentLinkInput } from '@/lib/quickbooks/payments';
+import type { PaymentLink, CreatePaymentLinkInput, UpdatePaymentLinkInput } from '@/lib/quickbooks/payments';
 
 const FILE_NAME = 'payment-links.json';
 
@@ -43,6 +43,28 @@ export async function mockSendPaymentLink(id: string, email?: string): Promise<P
   link.status = 'sent';
   link.sentAt = new Date().toISOString();
   if (email) link.email = email;
+  await saveAll(links);
+  return link;
+}
+
+export async function mockUpdatePaymentLink(id: string, input: UpdatePaymentLinkInput): Promise<PaymentLink> {
+  const links = await loadAll();
+  const link = links.find((l) => l.id === id);
+  if (!link) throw new Error('Payment link not found.');
+  if (link.status !== 'active') throw new Error('Only a link that hasn’t been sent yet can be edited.');
+  if (input.amount !== undefined) link.amount = input.amount;
+  if (input.description !== undefined) link.description = input.description;
+  if (input.email !== undefined) link.email = input.email;
+  await saveAll(links);
+  return link;
+}
+
+export async function mockCancelPaymentLink(id: string): Promise<PaymentLink> {
+  const links = await loadAll();
+  const link = links.find((l) => l.id === id);
+  if (!link) throw new Error('Payment link not found.');
+  if (link.status === 'paid') throw new Error('A paid link can’t be cancelled.');
+  link.status = 'cancelled';
   await saveAll(links);
   return link;
 }

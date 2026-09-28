@@ -22,6 +22,7 @@ const statusTone: Record<PaymentLink['status'], 'neutral' | 'success' | 'warning
   sent: 'brand',
   paid: 'success',
   expired: 'danger',
+  cancelled: 'neutral',
 };
 
 export function PaymentsPageClient({
@@ -47,6 +48,8 @@ export function PaymentsPageClient({
   const [error, setError] = useState<string | null>(null);
   const [sendTarget, setSendTarget] = useState<PaymentLink | null>(null);
   const [reminderTarget, setReminderTarget] = useState<Invoice | null>(null);
+  const [editTarget, setEditTarget] = useState<PaymentLink | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<PaymentLink | null>(null);
 
   async function refreshLinks() {
     const res = await fetch('/api/payments/links', { cache: 'no-store' });
@@ -134,9 +137,23 @@ export function PaymentsPageClient({
                     </Td>
                     <Td className="max-w-[220px] truncate text-xs text-slate-500">{link.url}</Td>
                     <Td className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setSendTarget(link)}>
-                        Send
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        {link.status === 'active' ? (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => setEditTarget(link)}>
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setSendTarget(link)}>
+                              Send
+                            </Button>
+                          </>
+                        ) : null}
+                        {link.status === 'active' || link.status === 'sent' ? (
+                          <Button size="sm" variant="ghost" onClick={() => setCancelTarget(link)}>
+                            Cancel
+                          </Button>
+                        ) : null}
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -303,6 +320,126 @@ export function PaymentsPageClient({
           </p>
         </ConfirmSendDialog>
       ) : null}
+
+      {editTarget ? (
+        <EditPaymentLinkModal
+          link={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => {
+            notify('Payment link updated.');
+            refreshLinks();
+          }}
+        />
+      ) : null}
+
+      {cancelTarget ? (
+        <ConfirmSendDialog
+          open={Boolean(cancelTarget)}
+          onClose={() => setCancelTarget(null)}
+          title="Cancel this payment link?"
+          description="It will no longer be payable. This can't be undone from here."
+          confirmLabel="Cancel link"
+          onConfirm={async () => {
+            const res = await fetch(`/api/payments/links/${cancelTarget.id}/cancel`, { method: 'POST' });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error ?? 'Failed to cancel payment link.');
+            }
+          }}
+          onSuccess={() => {
+            notify('Payment link cancelled.');
+            refreshLinks();
+          }}
+        >
+          <p>
+            <strong>Customer:</strong> {cancelTarget.customerName}
+          </p>
+          <p>
+            <strong>Amount:</strong> {formatCurrency(cancelTarget.amount)}
+          </p>
+        </ConfirmSendDialog>
+      ) : null}
     </div>
+  );
+}
+
+function EditPaymentLinkModal({
+  link,
+  onClose,
+  onSaved,
+}: {
+  link: PaymentLink;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [amount, setAmount] = useState(String(link.amount));
+  const [email, setEmail] = useState(link.email ?? '');
+  const [description, setDescription] = useState(link.description ?? '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/payments/links/${link.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Number(amount),
+          email: email || undefined,
+          description: description || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Failed to update payment link.');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Edit payment link for ${link.customerName}`}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="editAmount">Amount</Label>
+            <Input
+              id="editAmount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="editEmail">Email</Label>
+            <Input id="editEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="editDescription">What&apos;s it for? (optional)</Label>
+          <Input id="editDescription" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={loading}>
+            Save changes
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

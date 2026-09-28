@@ -1,5 +1,11 @@
 import { readJsonFile, writeJsonFile } from '@/lib/store/jsonStore';
-import type { Employee, CreateEmployeeInput, PayrollSummary } from '@/lib/quickbooks/payroll';
+import type {
+  Employee,
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+  EmploymentStatus,
+  PayrollSummary,
+} from '@/lib/quickbooks/payroll';
 
 const FILE_NAME = 'payroll-employees.json';
 
@@ -43,6 +49,27 @@ export async function mockSetBasePay(id: string, basePay: Employee['basePay']): 
   const employee = employees.find((e) => e.id === id);
   if (!employee) throw new Error('Employee not found.');
   employee.basePay = basePay;
+  await saveAll(employees);
+  return employee;
+}
+
+export async function mockUpdateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
+  const employees = await loadAll();
+  const employee = employees.find((e) => e.id === id);
+  if (!employee) throw new Error('Employee not found.');
+  if (input.displayName !== undefined) employee.displayName = input.displayName;
+  if (input.email !== undefined) employee.email = input.email;
+  if (input.jobTitle !== undefined) employee.jobTitle = input.jobTitle;
+  if (input.department !== undefined) employee.department = input.department;
+  await saveAll(employees);
+  return employee;
+}
+
+export async function mockSetEmployeeStatus(id: string, status: EmploymentStatus): Promise<Employee> {
+  const employees = await loadAll();
+  const employee = employees.find((e) => e.id === id);
+  if (!employee) throw new Error('Employee not found.');
+  employee.status = status;
   await saveAll(employees);
   return employee;
 }

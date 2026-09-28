@@ -5,6 +5,8 @@ import {
   mockGetPayrollSummary,
   mockListEmployees,
   mockSetBasePay,
+  mockSetEmployeeStatus,
+  mockUpdateEmployee,
 } from '@/lib/quickbooks/mock/payroll';
 
 export type EmploymentStatus = 'active' | 'terminated' | 'pending';
@@ -79,6 +81,24 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
 export async function setEmployeeBasePay(id: string, basePay: BasePay): Promise<Employee> {
   assertMock("setting an employee's base pay");
   return mockSetBasePay(id, basePay);
+}
+
+export interface UpdateEmployeeInput {
+  displayName?: string;
+  email?: string;
+  jobTitle?: string;
+  department?: string;
+}
+
+export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
+  assertMock("updating an employee's profile");
+  return mockUpdateEmployee(id, input);
+}
+
+/** Terminating/reactivating is this app's own status field — there's no hard-delete for an employee record. */
+export async function setEmployeeStatus(id: string, status: EmploymentStatus): Promise<Employee> {
+  assertMock("updating an employee's status");
+  return mockSetEmployeeStatus(id, status);
 }
 
 export async function getPayrollSummary(): Promise<PayrollSummary> {

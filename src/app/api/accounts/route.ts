@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAccount, listAccounts, type CreateAccountInput } from '@/lib/quickbooks/chartOfAccounts';
+import { createAccount, listAccounts, type CreateAccountInput } from '@/lib/accounting/chartOfAccounts';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';

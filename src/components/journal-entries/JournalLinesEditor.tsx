@@ -5,7 +5,7 @@ import { Input, Select } from '@/components/ui/Field';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency } from '@/lib/format';
 import { balanceOf, type JournalLineInput } from '@/lib/quickbooks/journalEntryTypes';
-import type { Account } from '@/lib/quickbooks/chartOfAccounts';
+import type { Account } from '@/lib/accounting/chartOfAccounts';
 
 export function JournalLinesEditor({
   accounts,

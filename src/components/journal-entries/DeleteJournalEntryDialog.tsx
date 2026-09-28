@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { JournalEntry } from '@/lib/quickbooks/journalEntries';
+import type { JournalEntry } from '@/lib/accounting/journalEntries';
 
 export function DeleteJournalEntryDialog({
   journalEntry,
@@ -29,11 +29,7 @@ export function DeleteJournalEntryDialog({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/journal-entries/${journalEntry.Id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ syncToken: journalEntry.SyncToken }),
-      });
+      const res = await fetch(`/api/journal-entries/${journalEntry.Id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? 'Failed to delete journal entry.');
@@ -53,7 +49,7 @@ export function DeleteJournalEntryDialog({
       open
       onClose={loading ? () => {} : onClose}
       title="Delete this journal entry?"
-      description="This permanently removes it from QuickBooks. This can't be undone from here."
+      description="This permanently removes it from your books. This can't be undone."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>

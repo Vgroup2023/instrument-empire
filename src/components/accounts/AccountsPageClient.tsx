@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { AccountFormDialog } from '@/components/accounts/AccountFormDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
-import type { Account } from '@/lib/quickbooks/chartOfAccounts';
+import type { Account } from '@/lib/accounting/chartOfAccounts';
 
 export function AccountsPageClient({ initialAccounts }: { initialAccounts: Account[] }) {
   const { notify } = useToast();
@@ -33,7 +33,7 @@ export function AccountsPageClient({ initialAccounts }: { initialAccounts: Accou
       const res = await fetch(`/api/accounts/${account.Id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ syncToken: account.SyncToken, active: !account.Active }),
+        body: JSON.stringify({ active: !account.Active }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

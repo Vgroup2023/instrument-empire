@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createJournalEntry, listJournalEntries, type CreateJournalEntryInput } from '@/lib/quickbooks/journalEntries';
+import { createJournalEntry, listJournalEntries, type CreateJournalEntryInput } from '@/lib/accounting/journalEntries';
 import { balanceOf } from '@/lib/quickbooks/journalEntryTypes';
 import { apiErrorResponse } from '@/lib/apiError';
 

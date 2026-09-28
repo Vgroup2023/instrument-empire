@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Label, Input, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { ACCOUNT_TYPES, ACCOUNT_SUBTYPES, type AccountType } from '@/lib/quickbooks/accountTypes';
-import type { Account } from '@/lib/quickbooks/chartOfAccounts';
+import type { Account } from '@/lib/accounting/chartOfAccounts';
 
 interface AccountFormDialogProps {
   open: boolean;
@@ -26,9 +26,9 @@ export function AccountFormDialog({ open, onClose, account, onSaved }: AccountFo
   const [accountSubType, setAccountSubType] = useState(
     account?.AccountSubType ?? ACCOUNT_SUBTYPES[ACCOUNT_TYPES[0]][0].value,
   );
-  // Falls back to an empty list for an existing account whose real
-  // AccountType/SubType (set directly in QuickBooks) isn't one of the
-  // curated options above — the selects stay disabled in edit mode either way.
+  // Falls back to an empty list for an existing account whose AccountType/
+  // SubType isn't one of the curated options above — the selects stay
+  // disabled in edit mode either way.
   const subTypeOptions = ACCOUNT_SUBTYPES[accountType] ?? [];
   const [acctNum, setAcctNum] = useState(account?.AcctNum ?? '');
   const [description, setDescription] = useState(account?.Description ?? '');
@@ -45,7 +45,7 @@ export function AccountFormDialog({ open, onClose, account, onSaved }: AccountFo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           isEdit
-            ? { syncToken: account!.SyncToken, name, acctNum: acctNum || undefined, description: description || undefined }
+            ? { name, acctNum: acctNum || undefined, description: description || undefined }
             : { name, accountType, accountSubType, acctNum: acctNum || undefined, description: description || undefined },
         ),
       });

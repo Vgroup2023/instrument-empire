@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { isQboConnected } from '@/lib/quickbooks/client';
 import { listVendors } from '@/lib/quickbooks/vendors';
+import { loadCurrencies } from '@/lib/quickbooks/currencies';
 import { VendorsPageClient } from '@/components/vendors/VendorsPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,6 @@ export default async function VendorsPage() {
     );
   }
 
-  const vendors = await listVendors();
-  return <VendorsPageClient initialVendors={vendors} />;
+  const [vendors, { currencies, homeCurrency }] = await Promise.all([listVendors(), loadCurrencies()]);
+  return <VendorsPageClient initialVendors={vendors} currencies={currencies} homeCurrency={homeCurrency} />;
 }

@@ -21,10 +21,12 @@ export function InvoicesPageClient({
   initialInvoices,
   customers,
   products,
+  homeCurrencyCode,
 }: {
   initialInvoices: Invoice[];
   customers: Customer[];
   products: Product[];
+  homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -104,8 +106,8 @@ export function InvoicesPageClient({
                       <Td>{invoice.CustomerRef.name}</Td>
                       <Td>{formatDate(invoice.TxnDate)}</Td>
                       <Td>{formatDate(invoice.DueDate)}</Td>
-                      <Td className="text-right">{formatCurrency(invoice.TotalAmt)}</Td>
-                      <Td className="text-right">{formatCurrency(invoice.Balance)}</Td>
+                      <Td className="text-right">{formatCurrency(invoice.TotalAmt, invoice.CurrencyRef?.value)}</Td>
+                      <Td className="text-right">{formatCurrency(invoice.Balance, invoice.CurrencyRef?.value)}</Td>
                       <Td>
                         {isPaid ? (
                           <Badge tone="success">Paid</Badge>
@@ -158,6 +160,7 @@ export function InvoicesPageClient({
         customers={customers}
         products={products}
         invoice={editingInvoice}
+        homeCurrencyCode={homeCurrencyCode}
         onSaved={refresh}
       />
 
@@ -187,7 +190,7 @@ export function InvoicesPageClient({
             <strong>To:</strong> {sendTarget.BillEmail?.Address ?? sendTarget.CustomerRef.name}
           </p>
           <p>
-            <strong>Amount due:</strong> {formatCurrency(sendTarget.Balance)}
+            <strong>Amount due:</strong> {formatCurrency(sendTarget.Balance, sendTarget.CurrencyRef?.value)}
           </p>
           <p>
             <strong>Due date:</strong> {formatDate(sendTarget.DueDate)}
@@ -218,7 +221,7 @@ export function InvoicesPageClient({
             <strong>To:</strong> {reminderTarget.BillEmail?.Address ?? reminderTarget.CustomerRef.name}
           </p>
           <p>
-            <strong>Balance due:</strong> {formatCurrency(reminderTarget.Balance)}
+            <strong>Balance due:</strong> {formatCurrency(reminderTarget.Balance, reminderTarget.CurrencyRef?.value)}
           </p>
         </ConfirmSendDialog>
       ) : null}

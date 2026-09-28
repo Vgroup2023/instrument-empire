@@ -14,6 +14,9 @@ export interface Bill {
   Line: AccountExpenseLine[];
   TotalAmt: number;
   Balance: number;
+  /** Only present when this vendor bills in a currency other than the company's home currency. */
+  CurrencyRef?: { value: string; name?: string };
+  ExchangeRate?: number;
 }
 
 export async function listBills(): Promise<Bill[]> {
@@ -31,6 +34,9 @@ export interface CreateBillInput {
   txnDate?: string;
   dueDate?: string;
   lines: ExpenseLineInput[];
+  /** Required when the vendor bills in a non-home currency; QuickBooks rejects the create otherwise. */
+  currencyCode?: string;
+  exchangeRate?: number;
 }
 
 export async function createBill(input: CreateBillInput): Promise<Bill> {
@@ -41,6 +47,8 @@ export async function createBill(input: CreateBillInput): Promise<Bill> {
       TxnDate: input.txnDate,
       DueDate: input.dueDate,
       Line: toQboExpenseLines(input.lines),
+      CurrencyRef: input.currencyCode ? { value: input.currencyCode } : undefined,
+      ExchangeRate: input.exchangeRate,
     },
   });
   return data.Bill;

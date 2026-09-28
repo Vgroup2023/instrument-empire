@@ -20,11 +20,13 @@ export function BillsPageClient({
   vendors,
   expenseAccounts,
   bankAccounts,
+  homeCurrencyCode,
 }: {
   initialBills: Bill[];
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   bankAccounts: GlAccount[];
+  homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
   const [bills, setBills] = useState(initialBills);
@@ -101,8 +103,8 @@ export function BillsPageClient({
                       <Td>{bill.VendorRef.name}</Td>
                       <Td>{formatDate(bill.TxnDate)}</Td>
                       <Td>{formatDate(bill.DueDate)}</Td>
-                      <Td className="text-right">{formatCurrency(bill.TotalAmt)}</Td>
-                      <Td className="text-right">{formatCurrency(bill.Balance)}</Td>
+                      <Td className="text-right">{formatCurrency(bill.TotalAmt, bill.CurrencyRef?.value)}</Td>
+                      <Td className="text-right">{formatCurrency(bill.Balance, bill.CurrencyRef?.value)}</Td>
                       <Td>
                         {isPaid ? (
                           <Badge tone="success">Paid</Badge>

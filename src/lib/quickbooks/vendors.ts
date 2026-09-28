@@ -9,6 +9,8 @@ export interface Vendor {
   PrimaryPhone?: { FreeFormNumber: string };
   Balance?: number;
   Active?: boolean;
+  /** Locked in once this vendor has any transaction — QuickBooks doesn't allow changing it after that. */
+  CurrencyRef?: { value: string; name?: string };
 }
 
 export async function listVendors(): Promise<Vendor[]> {
@@ -25,6 +27,8 @@ export interface CreateVendorInput {
   companyName?: string;
   email?: string;
   phone?: string;
+  /** Omit for the company's home currency. */
+  currencyCode?: string;
 }
 
 export async function createVendor(input: CreateVendorInput): Promise<Vendor> {
@@ -35,6 +39,7 @@ export async function createVendor(input: CreateVendorInput): Promise<Vendor> {
       CompanyName: input.companyName || undefined,
       PrimaryEmailAddr: input.email ? { Address: input.email } : undefined,
       PrimaryPhone: input.phone ? { FreeFormNumber: input.phone } : undefined,
+      CurrencyRef: input.currencyCode ? { value: input.currencyCode } : undefined,
     },
   });
   return data.Vendor;

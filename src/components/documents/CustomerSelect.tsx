@@ -10,14 +10,24 @@ export function CustomerSelect({
 }: {
   customers: Customer[];
   value: string;
-  onChange: (customerId: string, customerName: string, email?: string) => void;
+  onChange: (
+    customerId: string,
+    customerName: string,
+    email?: string,
+    currencyRef?: { value: string; name?: string },
+  ) => void;
 }) {
   return (
     <Select
       value={value}
       onChange={(e) => {
         const customer = customers.find((c) => c.Id === e.target.value);
-        onChange(e.target.value, customer?.DisplayName ?? '', customer?.PrimaryEmailAddr?.Address);
+        onChange(
+          e.target.value,
+          customer?.DisplayName ?? '',
+          customer?.PrimaryEmailAddr?.Address,
+          customer?.CurrencyRef,
+        );
       }}
       required
     >

@@ -5,6 +5,7 @@ import { isQboConnected } from '@/lib/quickbooks/client';
 import { listInvoices } from '@/lib/quickbooks/invoices';
 import { listCustomers } from '@/lib/quickbooks/customers';
 import { listProducts } from '@/lib/quickbooks/items';
+import { loadCurrencies } from '@/lib/quickbooks/currencies';
 import { InvoicesPageClient } from '@/components/invoices/InvoicesPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -48,11 +49,17 @@ export default async function InvoicesPage() {
       initialInvoices={data.invoices}
       customers={data.customers}
       products={data.products}
+      homeCurrencyCode={data.homeCurrency?.code}
     />
   );
 }
 
 async function loadInvoicesData() {
-  const [invoices, customers, products] = await Promise.all([listInvoices(), listCustomers(), listProducts()]);
-  return { invoices, customers, products };
+  const [invoices, customers, products, { homeCurrency }] = await Promise.all([
+    listInvoices(),
+    listCustomers(),
+    listProducts(),
+    loadCurrencies(),
+  ]);
+  return { invoices, customers, products, homeCurrency };
 }

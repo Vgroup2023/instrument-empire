@@ -22,6 +22,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       amount: Number(body.amount),
       bankAccountId: body.bankAccountId,
       bankAccountName: body.bankAccountName,
+      currencyCode: body.currencyCode,
+      exchangeRate: body.exchangeRate,
     });
     return NextResponse.json({ payment });
   } catch (err) {

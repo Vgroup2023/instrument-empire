@@ -9,6 +9,8 @@ export interface Customer {
   PrimaryPhone?: { FreeFormNumber: string };
   Balance?: number;
   Active?: boolean;
+  /** Locked in once this customer has any transaction — QuickBooks doesn't allow changing it after that. */
+  CurrencyRef?: { value: string; name?: string };
 }
 
 export async function listCustomers(): Promise<Customer[]> {
@@ -25,6 +27,8 @@ export interface CreateCustomerInput {
   companyName?: string;
   email?: string;
   phone?: string;
+  /** Omit for the company's home currency. */
+  currencyCode?: string;
 }
 
 export async function createCustomer(input: CreateCustomerInput): Promise<Customer> {
@@ -35,6 +39,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
       CompanyName: input.companyName || undefined,
       PrimaryEmailAddr: input.email ? { Address: input.email } : undefined,
       PrimaryPhone: input.phone ? { FreeFormNumber: input.phone } : undefined,
+      CurrencyRef: input.currencyCode ? { value: input.currencyCode } : undefined,
     },
   });
   return data.Customer;

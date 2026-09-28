@@ -18,6 +18,9 @@ export interface PayBillInput {
   /** The Bank account the payment comes out of. */
   bankAccountId: string;
   bankAccountName?: string;
+  /** Required when the bill is in a non-home currency — must match the bill's own currency. */
+  currencyCode?: string;
+  exchangeRate?: number;
 }
 
 /**
@@ -33,6 +36,8 @@ export async function payBill(input: PayBillInput): Promise<BillPayment> {
     body: {
       VendorRef: { value: input.vendorId, name: input.vendorName },
       TotalAmt: input.amount,
+      CurrencyRef: input.currencyCode ? { value: input.currencyCode } : undefined,
+      ExchangeRate: input.exchangeRate,
       PayType: 'Check',
       CheckPayment: {
         BankAccountRef: { value: input.bankAccountId, name: input.bankAccountName },

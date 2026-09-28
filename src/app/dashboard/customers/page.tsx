@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { isQboConnected } from '@/lib/quickbooks/client';
 import { listCustomers } from '@/lib/quickbooks/customers';
+import { loadCurrencies } from '@/lib/quickbooks/currencies';
 import { CustomersPageClient } from '@/components/customers/CustomersPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,6 @@ export default async function CustomersPage() {
     );
   }
 
-  const customers = await listCustomers();
-  return <CustomersPageClient initialCustomers={customers} />;
+  const [customers, { currencies, homeCurrency }] = await Promise.all([listCustomers(), loadCurrencies()]);
+  return <CustomersPageClient initialCustomers={customers} currencies={currencies} homeCurrency={homeCurrency} />;
 }

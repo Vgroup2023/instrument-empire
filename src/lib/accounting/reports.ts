@@ -32,10 +32,7 @@ export interface ProfitabilitySummary {
   endDate: string;
 }
 
-export async function getProfitAndLoss(period: PeriodKey = 'this-year'): Promise<ProfitabilitySummary> {
-  const range = resolvePeriod(period);
-  const typeTotals = await sumBalancesByAccountType(range);
-
+function computeProfitAndLoss(typeTotals: Map<string, number>, range: DateRange): ProfitabilitySummary {
   const totalIncome = round2(typeTotals.get('Income') ?? 0);
   const costOfGoodsSold = round2(typeTotals.get('Cost of Goods Sold') ?? 0);
   const totalExpenses = round2(sumTypes(typeTotals, ['Expense', 'Other Expense']));
@@ -43,6 +40,12 @@ export async function getProfitAndLoss(period: PeriodKey = 'this-year'): Promise
   const netIncome = round2(grossProfit - totalExpenses);
 
   return { totalIncome, costOfGoodsSold, grossProfit, totalExpenses, netIncome, startDate: range.startDate, endDate: range.endDate };
+}
+
+export async function getProfitAndLoss(period: PeriodKey = 'this-year'): Promise<ProfitabilitySummary> {
+  const range = resolvePeriod(period);
+  const typeTotals = await sumBalancesByAccountType(range);
+  return computeProfitAndLoss(typeTotals, range);
 }
 
 export interface CashFlowSummary {
@@ -62,10 +65,7 @@ export interface CashFlowSummary {
 const INVESTING_TYPES = ['Fixed Asset', 'Other Asset'];
 const FINANCING_TYPES = ['Equity', 'Long Term Liability'];
 
-export async function getCashFlow(period: PeriodKey = 'this-year'): Promise<CashFlowSummary> {
-  const range = resolvePeriod(period);
-  const typeTotals = await sumBalancesByAccountType(range);
-
+function computeCashFlow(typeTotals: Map<string, number>, range: DateRange): CashFlowSummary {
   const netCashIncrease = round2(typeTotals.get('Bank') ?? 0);
   // A rise in Fixed/Other Asset balances is a use of cash (investing outflow).
   const investingCashFlow = round2(-sumTypes(typeTotals, INVESTING_TYPES));
@@ -74,6 +74,27 @@ export async function getCashFlow(period: PeriodKey = 'this-year'): Promise<Cash
   const operatingCashFlow = round2(netCashIncrease - investingCashFlow - financingCashFlow);
 
   return { operatingCashFlow, investingCashFlow, financingCashFlow, netCashIncrease, startDate: range.startDate, endDate: range.endDate };
+}
+
+export async function getCashFlow(period: PeriodKey = 'this-year'): Promise<CashFlowSummary> {
+  const range = resolvePeriod(period);
+  const typeTotals = await sumBalancesByAccountType(range);
+  return computeCashFlow(typeTotals, range);
+}
+
+/**
+ * P&L and Cash Flow for the same period are both derived from the same
+ * underlying account-balance totals. Fetching those totals once here —
+ * instead of via separate getProfitAndLoss()/getCashFlow() calls, each of
+ * which re-fetches accounts and re-collects postings — halves the DB round
+ * trips for pages (like the Dashboard) that show both together.
+ */
+export async function getProfitAndLossAndCashFlow(
+  period: PeriodKey = 'this-year',
+): Promise<{ profitability: ProfitabilitySummary; cashFlow: CashFlowSummary }> {
+  const range = resolvePeriod(period);
+  const typeTotals = await sumBalancesByAccountType(range);
+  return { profitability: computeProfitAndLoss(typeTotals, range), cashFlow: computeCashFlow(typeTotals, range) };
 }
 
 export interface BalanceSheetSummary {

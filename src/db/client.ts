@@ -22,8 +22,12 @@ function createDb() {
   // prepare: false is required for that pooler: PgBouncer's transaction mode
   // can route each query to a different backend connection, which breaks
   // session-scoped prepared statements (postgres-js's default) — every
-  // query fails without this.
-  const client = postgres(url, { max: 1, prepare: false });
+  // query fails without this. ssl: 'require' is needed because Supabase (and
+  // most managed Postgres hosts) rejects unencrypted connections outright —
+  // postgres-js doesn't enable TLS on its own unless the connection string
+  // itself has a `sslmode` query param, which a copy-pasted Supabase
+  // connection string won't have.
+  const client = postgres(url, { max: 1, prepare: false, ssl: 'require' });
   return drizzle(client, { schema });
 }
 

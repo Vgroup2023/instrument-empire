@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { CustomerFormDialog } from '@/components/customers/CustomerFormDialog';
+import { DocumentsDialog } from '@/components/documents/DocumentsDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, initials } from '@/lib/format';
 import type { Customer } from '@/lib/accounting/customers';
@@ -27,6 +28,7 @@ export function CustomersPageClient({
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [documentsTarget, setDocumentsTarget] = useState<Customer | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/customers', { cache: 'no-store' });
@@ -141,6 +143,9 @@ export function CustomersPageClient({
                           >
                             {customer.Active ? 'Deactivate' : 'Reactivate'}
                           </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(customer)}>
+                            Documents
+                          </Button>
                         </div>
                       </Td>
                     </Tr>
@@ -160,6 +165,15 @@ export function CustomersPageClient({
         homeCurrency={homeCurrency}
         onSaved={refresh}
       />
+
+      {documentsTarget ? (
+        <DocumentsDialog
+          entityType="customer"
+          entityId={documentsTarget.Id}
+          title={documentsTarget.DisplayName}
+          onClose={() => setDocumentsTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

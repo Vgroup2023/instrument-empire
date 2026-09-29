@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { ProductFormDialog } from '@/components/products/ProductFormDialog';
+import { DocumentsDialog } from '@/components/documents/DocumentsDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/format';
 import type { Product, IncomeAccount } from '@/lib/accounting/products';
@@ -24,6 +25,7 @@ export function ProductsPageClient({
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [documentsTarget, setDocumentsTarget] = useState<Product | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/products', { cache: 'no-store' });
@@ -124,6 +126,9 @@ export function ProductsPageClient({
                         >
                           {product.Active ? 'Deactivate' : 'Reactivate'}
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(product)}>
+                          Documents
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -141,6 +146,15 @@ export function ProductsPageClient({
         incomeAccounts={incomeAccounts}
         onSaved={refresh}
       />
+
+      {documentsTarget ? (
+        <DocumentsDialog
+          entityType="product"
+          entityId={documentsTarget.Id}
+          title={documentsTarget.Name}
+          onClose={() => setDocumentsTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

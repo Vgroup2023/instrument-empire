@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listInvoices, listDepositAccounts } from '@/lib/accounting/invoices';
 import { listCustomers } from '@/lib/accounting/customers';
 import { listProducts } from '@/lib/accounting/products';
@@ -22,7 +23,7 @@ export default async function InvoicesPage() {
         <PageHeader title="Invoices" description="Create, send, duplicate, and schedule customer invoices." />
         <EmptyState
           title="Couldn't load invoices"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

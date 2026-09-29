@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listEmployees, getPayrollSummary } from '@/lib/quickbooks/payroll';
 import { PayrollPageClient } from '@/components/payroll/PayrollPageClient';
 
@@ -20,7 +21,7 @@ export default async function PayrollPage() {
         <PageHeader title="Payroll" description="Your employee directory and payroll status." />
         <EmptyState
           title="Couldn't load payroll"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

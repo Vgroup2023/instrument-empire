@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listProducts, listIncomeAccounts } from '@/lib/accounting/products';
 import { ProductsPageClient } from '@/components/products/ProductsPageClient';
 
@@ -21,7 +22,7 @@ export default async function ProductsPage() {
         <PageHeader title="Products & services" description="What you sell — used as line items on invoices and estimates." />
         <EmptyState
           title="Couldn't load products & services"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

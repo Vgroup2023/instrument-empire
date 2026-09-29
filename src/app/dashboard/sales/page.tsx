@@ -1,6 +1,7 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { BarList } from '@/components/charts/BarList';
 import { getSalesByCustomer, getSalesByProduct, type SalesBreakdownRow } from '@/lib/accounting/reports';
 
@@ -26,7 +27,7 @@ async function SalesBody() {
   try {
     [byCustomer, byProduct] = await Promise.all([getSalesByCustomer('this-year'), getSalesByProduct('this-year')]);
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load sales reports.';
+    error = describeError(err, 'Failed to load sales reports.');
   }
 
   if (error) {

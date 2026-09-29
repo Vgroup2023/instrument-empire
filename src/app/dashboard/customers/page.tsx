@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listCustomers } from '@/lib/accounting/customers';
 import { CustomersPageClient } from '@/components/customers/CustomersPageClient';
 
@@ -22,7 +23,7 @@ export default async function CustomersPage() {
         <PageHeader title="Customers" description="Everyone you bill, all in one place." />
         <EmptyState
           title="Couldn't load customers"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

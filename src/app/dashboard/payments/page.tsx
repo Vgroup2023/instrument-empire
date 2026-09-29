@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listCustomers } from '@/lib/accounting/customers';
 import { listInvoices } from '@/lib/accounting/invoices';
 import { listPaymentLinks } from '@/lib/quickbooks/payments';
@@ -26,7 +27,7 @@ export default async function PaymentsPage() {
         />
         <EmptyState
           title="Couldn't load payments"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

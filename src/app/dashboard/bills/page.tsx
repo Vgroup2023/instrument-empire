@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listBills } from '@/lib/accounting/bills';
 import { listVendors } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listBankAccounts } from '@/lib/accounting/chartOfAccounts';
@@ -22,7 +23,7 @@ export default async function BillsPage() {
         <PageHeader title="Bills" description="Record what you owe vendors and pay them from here." />
         <EmptyState
           title="Couldn't load bills"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

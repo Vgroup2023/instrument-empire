@@ -26,6 +26,7 @@ export function ProductsPageClient({
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<Product | null>(null);
+  const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
     const res = await fetch('/api/products', { cache: 'no-store' });
@@ -62,14 +63,19 @@ export function ProductsPageClient({
         title="Products & services"
         description="What you sell — used as line items on invoices and estimates."
         actions={
-          <Button
-            onClick={() => {
-              setEditingProduct(undefined);
-              setFormOpen(true);
-            }}
-          >
-            + Add product/service
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
+              Documents
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingProduct(undefined);
+                setFormOpen(true);
+              }}
+            >
+              + Add product/service
+            </Button>
+          </div>
         }
       />
 
@@ -154,6 +160,10 @@ export function ProductsPageClient({
           title={documentsTarget.Name}
           onClose={() => setDocumentsTarget(null)}
         />
+      ) : null}
+
+      {generalDocumentsOpen ? (
+        <DocumentsDialog entityType="product" title="General" onClose={() => setGeneralDocumentsOpen(false)} />
       ) : null}
     </div>
   );

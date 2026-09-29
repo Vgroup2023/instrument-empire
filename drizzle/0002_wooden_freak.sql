@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ALTER COLUMN "entity_id" DROP NOT NULL;

@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
   try {
     const entityType = request.nextUrl.searchParams.get('entityType') as DocumentEntityType | null;
     const entityId = request.nextUrl.searchParams.get('entityId');
-    if (!entityType || !VALID_ENTITY_TYPES.includes(entityType) || !entityId) {
-      return NextResponse.json({ error: 'entityType and entityId are required.' }, { status: 400 });
+    if (!entityType || !VALID_ENTITY_TYPES.includes(entityType)) {
+      return NextResponse.json({ error: 'entityType is required.' }, { status: 400 });
     }
-    const documents = await listDocuments(entityType, entityId);
+    const documents = await listDocuments(entityType, entityId ?? undefined);
     return NextResponse.json({ documents });
   } catch (err) {
     return apiErrorResponse(err);
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as UploadDocumentInput;
-    if (!body.entityType || !VALID_ENTITY_TYPES.includes(body.entityType) || !body.entityId) {
-      return NextResponse.json({ error: 'entityType and entityId are required.' }, { status: 400 });
+    if (!body.entityType || !VALID_ENTITY_TYPES.includes(body.entityType)) {
+      return NextResponse.json({ error: 'entityType is required.' }, { status: 400 });
     }
     if (!body.fileName || !body.contentBase64) {
       return NextResponse.json({ error: 'A file is required.' }, { status: 400 });

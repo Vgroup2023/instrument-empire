@@ -44,6 +44,7 @@ export function InvoicesPageClient({
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<Invoice | null>(null);
+  const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
@@ -82,14 +83,19 @@ export function InvoicesPageClient({
         title="Invoices"
         description="Create, send, duplicate, and schedule customer invoices."
         actions={
-          <Button
-            onClick={() => {
-              setEditingInvoice(undefined);
-              setFormOpen(true);
-            }}
-          >
-            + New invoice
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
+              Documents
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingInvoice(undefined);
+                setFormOpen(true);
+              }}
+            >
+              + New invoice
+            </Button>
+          </div>
         }
       />
 
@@ -292,6 +298,10 @@ export function InvoicesPageClient({
           title={documentsTarget.DocNumber ?? documentsTarget.Id}
           onClose={() => setDocumentsTarget(null)}
         />
+      ) : null}
+
+      {generalDocumentsOpen ? (
+        <DocumentsDialog entityType="invoice" title="General" onClose={() => setGeneralDocumentsOpen(false)} />
       ) : null}
     </div>
   );

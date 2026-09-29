@@ -19,7 +19,11 @@ function createDb() {
   // max: 1 keeps each serverless function instance's own connection footprint
   // small — pair this with your provider's pooled connection string (e.g.
   // Supabase's "Transaction pooler" on port 6543) rather than a direct one.
-  const client = postgres(url, { max: 1 });
+  // prepare: false is required for that pooler: PgBouncer's transaction mode
+  // can route each query to a different backend connection, which breaks
+  // session-scoped prepared statements (postgres-js's default) — every
+  // query fails without this.
+  const client = postgres(url, { max: 1, prepare: false });
   return drizzle(client, { schema });
 }
 

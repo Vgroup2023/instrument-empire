@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
-import { getProfitAndLoss, getCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
+import { getProfitAndLossAndCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
 import { formatCurrency, formatPercent } from '@/lib/format';
 
@@ -30,16 +30,18 @@ export default async function DashboardHomePage() {
 
 async function InsightsBody() {
   let error: string | null = null;
-  let profitability: Awaited<ReturnType<typeof getProfitAndLoss>> | null = null;
-  let cashFlow: Awaited<ReturnType<typeof getCashFlow>> | null = null;
+  let profitability: Awaited<ReturnType<typeof getProfitAndLossAndCashFlow>>['profitability'] | null = null;
+  let cashFlow: Awaited<ReturnType<typeof getProfitAndLossAndCashFlow>>['cashFlow'] | null = null;
   let balanceSheet: Awaited<ReturnType<typeof getBalanceSheet>> | null = null;
 
   try {
-    [profitability, cashFlow, balanceSheet] = await Promise.all([
-      getProfitAndLoss('this-year'),
-      getCashFlow('this-year'),
+    const [plAndCashFlow, balanceSheetResult] = await Promise.all([
+      getProfitAndLossAndCashFlow('this-year'),
       getBalanceSheet('this-year'),
     ]);
+    profitability = plAndCashFlow.profitability;
+    cashFlow = plAndCashFlow.cashFlow;
+    balanceSheet = balanceSheetResult;
   } catch (err) {
     error = describeError(err, 'Failed to load reports.');
   }

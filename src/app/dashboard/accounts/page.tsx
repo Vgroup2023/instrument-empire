@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listAccounts } from '@/lib/accounting/chartOfAccounts';
 import { AccountsPageClient } from '@/components/accounts/AccountsPageClient';
 
@@ -23,7 +24,7 @@ export default async function AccountsPage() {
         />
         <EmptyState
           title="Couldn't load accounts"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

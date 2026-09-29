@@ -3,6 +3,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
 import { getProfitAndLoss, getCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
@@ -40,7 +41,7 @@ async function InsightsBody() {
       getBalanceSheet('this-year'),
     ]);
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load reports.';
+    error = describeError(err, 'Failed to load reports.');
   }
 
   if (error || !profitability || !cashFlow || !balanceSheet) {

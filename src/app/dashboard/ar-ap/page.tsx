@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { getApAgingSummary, getArAgingSummary, type AgingBucketRow } from '@/lib/accounting/reports';
@@ -29,7 +30,7 @@ async function ArApBody() {
   try {
     [receivables, payables] = await Promise.all([getArAgingSummary(), getApAgingSummary()]);
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load aging reports.';
+    error = describeError(err, 'Failed to load aging reports.');
   }
 
   if (error) {

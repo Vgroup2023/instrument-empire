@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listVendors } from '@/lib/accounting/vendors';
 import { VendorsPageClient } from '@/components/vendors/VendorsPageClient';
 
@@ -22,7 +23,7 @@ export default async function VendorsPage() {
         <PageHeader title="Vendors" description="Everyone you owe money to, all in one place." />
         <EmptyState
           title="Couldn't load vendors"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

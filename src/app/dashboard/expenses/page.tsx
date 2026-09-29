@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listExpenses } from '@/lib/accounting/expenses';
 import { listVendors } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listPaymentAccounts } from '@/lib/accounting/chartOfAccounts';
@@ -25,7 +26,7 @@ export default async function ExpensesPage() {
         />
         <EmptyState
           title="Couldn't load expenses"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { describeError } from '@/lib/errors';
 import { listJournalEntries } from '@/lib/accounting/journalEntries';
 import { listAccounts } from '@/lib/accounting/chartOfAccounts';
 import { JournalEntriesPageClient } from '@/components/journal-entries/JournalEntriesPageClient';
@@ -24,7 +25,7 @@ export default async function JournalEntriesPage() {
         />
         <EmptyState
           title="Couldn't load journal entries"
-          description={loadError instanceof Error ? loadError.message : 'Please try again.'}
+          description={describeError(loadError, 'Please try again.')}
         />
       </div>
     );

@@ -50,7 +50,7 @@ export function DocumentsDialog({
   onClose,
 }: {
   entityType: DocumentEntityType;
-  entityId: string;
+  entityId?: string;
   title: string;
   onClose: () => void;
 }) {
@@ -64,7 +64,9 @@ export function DocumentsDialog({
   async function refresh() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/documents?entityType=${entityType}&entityId=${entityId}`, { cache: 'no-store' });
+      const params = new URLSearchParams({ entityType });
+      if (entityId) params.set('entityId', entityId);
+      const res = await fetch(`/api/documents?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.documents);

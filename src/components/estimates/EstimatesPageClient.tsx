@@ -44,6 +44,7 @@ export function EstimatesPageClient({
   const [scheduleListKey, setScheduleListKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Estimate | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<Estimate | null>(null);
+  const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
     const res = await fetch('/api/estimates', { cache: 'no-store' });
@@ -73,14 +74,19 @@ export function EstimatesPageClient({
         title="Estimates"
         description="Create, send, duplicate, and schedule customer estimates."
         actions={
-          <Button
-            onClick={() => {
-              setEditingEstimate(undefined);
-              setFormOpen(true);
-            }}
-          >
-            + New estimate
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
+              Documents
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingEstimate(undefined);
+                setFormOpen(true);
+              }}
+            >
+              + New estimate
+            </Button>
+          </div>
         }
       />
 
@@ -227,6 +233,10 @@ export function EstimatesPageClient({
           title={documentsTarget.DocNumber ?? documentsTarget.Id}
           onClose={() => setDocumentsTarget(null)}
         />
+      ) : null}
+
+      {generalDocumentsOpen ? (
+        <DocumentsDialog entityType="estimate" title="General" onClose={() => setGeneralDocumentsOpen(false)} />
       ) : null}
     </div>
   );

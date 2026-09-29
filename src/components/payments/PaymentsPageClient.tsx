@@ -52,6 +52,7 @@ export function PaymentsPageClient({
   const [editTarget, setEditTarget] = useState<PaymentLink | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PaymentLink | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<PaymentLink | null>(null);
+  const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refreshLinks() {
     const res = await fetch('/api/payments/links', { cache: 'no-store' });
@@ -93,7 +94,14 @@ export function PaymentsPageClient({
       <PageHeader
         title="Payment links & reminders"
         description="Get paid faster — send a payment link, or nudge customers with overdue balances."
-        actions={<Button onClick={() => setCreateOpen(true)}>+ New payment link</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
+              Documents
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>+ New payment link</Button>
+          </div>
+        }
       />
 
       <Card>
@@ -372,6 +380,10 @@ export function PaymentsPageClient({
           title={documentsTarget.customerName}
           onClose={() => setDocumentsTarget(null)}
         />
+      ) : null}
+
+      {generalDocumentsOpen ? (
+        <DocumentsDialog entityType="payment_link" title="General" onClose={() => setGeneralDocumentsOpen(false)} />
       ) : null}
     </div>
   );

@@ -1,11 +1,13 @@
 import { getDb } from '@/db/client';
 import { documents } from '@/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
-// Files attached to a specific record — an invoice, estimate, customer,
-// product, or payment link. Stored directly in this app's own database
-// (base64-encoded), so no separate object-storage service or extra
-// credentials are needed beyond DATABASE_URL.
+// Files attached to a record — an invoice, estimate, customer, product, or
+// payment link — or, when entityId is omitted, general documents filed under
+// that tab rather than one specific record (e.g. before any rows exist yet).
+// Stored directly in this app's own database (base64-encoded), so no
+// separate object-storage service or extra credentials are needed beyond
+// DATABASE_URL.
 
 export type DocumentEntityType = 'invoice' | 'estimate' | 'customer' | 'product' | 'payment_link';
 
@@ -24,8 +26,8 @@ export interface DocumentContent extends DocumentMeta {
   ContentBase64: string;
 }
 
-/** Lists documents attached to one record — metadata only, so this stays fast even with several large attachments. */
-export async function listDocuments(entityType: DocumentEntityType, entityId: string): Promise<DocumentMeta[]> {
+/** Lists documents attached to one record, or general documents for a tab when entityId is omitted — metadata only, so this stays fast even with several large attachments. */
+export async function listDocuments(entityType: DocumentEntityType, entityId?: string): Promise<DocumentMeta[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -36,7 +38,12 @@ export async function listDocuments(entityType: DocumentEntityType, entityId: st
       uploadedAt: documents.uploadedAt,
     })
     .from(documents)
-    .where(and(eq(documents.entityType, entityType), eq(documents.entityId, entityId)))
+    .where(
+      and(
+        eq(documents.entityType, entityType),
+        entityId ? eq(documents.entityId, entityId) : isNull(documents.entityId),
+      ),
+    )
     .orderBy(desc(documents.uploadedAt));
   return rows.map((row) => ({
     Id: row.id,
@@ -49,7 +56,7 @@ export async function listDocuments(entityType: DocumentEntityType, entityId: st
 
 export interface UploadDocumentInput {
   entityType: DocumentEntityType;
-  entityId: string;
+  entityId?: string;
   fileName: string;
   contentType: string;
   contentBase64: string;
@@ -67,7 +74,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Docume
     .insert(documents)
     .values({
       entityType: input.entityType,
-      entityId: input.entityId,
+      entityId: input.entityId ?? null,
       fileName: input.fileName,
       contentType: input.contentType || 'application/octet-stream',
       fileSize,

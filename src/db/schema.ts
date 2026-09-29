@@ -357,7 +357,9 @@ export const recurringTemplates = pgTable('recurring_templates', {
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   entityType: documentEntityTypeEnum('entity_type').notNull(),
-  entityId: uuid('entity_id').notNull(),
+  // Null means a general document for this entity type, not tied to one record —
+  // lets the Documents button work from the tab itself even before any rows exist.
+  entityId: uuid('entity_id'),
   fileName: text('file_name').notNull(),
   contentType: text('content_type').notNull(),
   fileSize: integer('file_size').notNull(),

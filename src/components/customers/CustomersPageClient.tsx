@@ -29,6 +29,7 @@ export function CustomersPageClient({
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<Customer | null>(null);
+  const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
     const res = await fetch('/api/customers', { cache: 'no-store' });
@@ -65,14 +66,19 @@ export function CustomersPageClient({
         title="Customers"
         description="Everyone you bill, all in one place."
         actions={
-          <Button
-            onClick={() => {
-              setEditingCustomer(undefined);
-              setFormOpen(true);
-            }}
-          >
-            + Add customer
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
+              Documents
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingCustomer(undefined);
+                setFormOpen(true);
+              }}
+            >
+              + Add customer
+            </Button>
+          </div>
         }
       />
 
@@ -173,6 +179,10 @@ export function CustomersPageClient({
           title={documentsTarget.DisplayName}
           onClose={() => setDocumentsTarget(null)}
         />
+      ) : null}
+
+      {generalDocumentsOpen ? (
+        <DocumentsDialog entityType="customer" title="General" onClose={() => setGeneralDocumentsOpen(false)} />
       ) : null}
     </div>
   );

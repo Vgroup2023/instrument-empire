@@ -13,6 +13,7 @@ import { DeleteInvoiceDialog } from '@/components/invoices/DeleteInvoiceDialog';
 import { RecordInvoicePaymentDialog } from '@/components/invoices/RecordInvoicePaymentDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
+import { DocumentsDialog } from '@/components/documents/DocumentsDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Customer } from '@/lib/accounting/customers';
@@ -42,6 +43,7 @@ export function InvoicesPageClient({
   const [scheduleListKey, setScheduleListKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
+  const [documentsTarget, setDocumentsTarget] = useState<Invoice | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
@@ -161,6 +163,9 @@ export function InvoicesPageClient({
                           <Button size="sm" variant="ghost" onClick={() => setScheduleTarget(invoice)}>
                             Schedule
                           </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(invoice)}>
+                            Documents
+                          </Button>
                           <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(invoice)}>
                             Delete
                           </Button>
@@ -277,6 +282,15 @@ export function InvoicesPageClient({
           depositAccounts={depositAccounts}
           onClose={() => setPaymentTarget(null)}
           onChanged={handlePaymentsChanged}
+        />
+      ) : null}
+
+      {documentsTarget ? (
+        <DocumentsDialog
+          entityType="invoice"
+          entityId={documentsTarget.Id}
+          title={documentsTarget.DocNumber ?? documentsTarget.Id}
+          onClose={() => setDocumentsTarget(null)}
         />
       ) : null}
     </div>

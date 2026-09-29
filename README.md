@@ -71,6 +71,12 @@ anything currently built, and connecting one in Settings doesn't unlock anything
 - **Every outbound action — sending an invoice/estimate, a reminder, or a payment
   link — goes through a preview-and-confirm dialog first.** Nothing is emailed without an
   explicit click on the exact content that will go out.
+- **Documents** — every tab above (Invoices, Estimates, Customers, Products & services,
+  Payment links) has a **Documents** button per row for attaching supporting files (a signed
+  contract, a receipt, a spec sheet) to that specific record. Upload, download, and delete —
+  files are stored directly in this app's own database, so no separate storage service or
+  extra credentials are needed. Capped at 4MB per file, meant for typical documents rather
+  than large media.
 
 **Payables** — runs on this app's own database, no QuickBooks connection required:
 - Vendors (`/dashboard/vendors`): the Accounts Payable counterpart to Customers. Add, edit,

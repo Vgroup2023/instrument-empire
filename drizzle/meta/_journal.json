@@ -8,6 +8,13 @@
       "when": 1790609616965,
       "tag": "0000_slow_sunspot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790697250976,
+      "tag": "0001_greedy_shen",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Label, Input } from '@/components/ui/Field';
 import { CustomerSelect } from '@/components/documents/CustomerSelect';
+import { DocumentsDialog } from '@/components/documents/DocumentsDialog';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -50,6 +51,7 @@ export function PaymentsPageClient({
   const [reminderTarget, setReminderTarget] = useState<Invoice | null>(null);
   const [editTarget, setEditTarget] = useState<PaymentLink | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PaymentLink | null>(null);
+  const [documentsTarget, setDocumentsTarget] = useState<PaymentLink | null>(null);
 
   async function refreshLinks() {
     const res = await fetch('/api/payments/links', { cache: 'no-store' });
@@ -153,6 +155,9 @@ export function PaymentsPageClient({
                             Cancel
                           </Button>
                         ) : null}
+                        <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(link)}>
+                          Documents
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -358,6 +363,15 @@ export function PaymentsPageClient({
             <strong>Amount:</strong> {formatCurrency(cancelTarget.amount)}
           </p>
         </ConfirmSendDialog>
+      ) : null}
+
+      {documentsTarget ? (
+        <DocumentsDialog
+          entityType="payment_link"
+          entityId={documentsTarget.id}
+          title={documentsTarget.customerName}
+          onClose={() => setDocumentsTarget(null)}
+        />
       ) : null}
     </div>
   );

@@ -12,6 +12,7 @@ import { EstimateFormDialog } from '@/components/estimates/EstimateFormDialog';
 import { DeleteEstimateDialog } from '@/components/estimates/DeleteEstimateDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
 import { RecurringSchedulesList } from '@/components/documents/RecurringSchedulesList';
+import { DocumentsDialog } from '@/components/documents/DocumentsDialog';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Customer } from '@/lib/accounting/customers';
@@ -42,6 +43,7 @@ export function EstimatesPageClient({
   const [scheduleTarget, setScheduleTarget] = useState<Estimate | null>(null);
   const [scheduleListKey, setScheduleListKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Estimate | null>(null);
+  const [documentsTarget, setDocumentsTarget] = useState<Estimate | null>(null);
 
   async function refresh() {
     const res = await fetch('/api/estimates', { cache: 'no-store' });
@@ -135,6 +137,9 @@ export function EstimatesPageClient({
                         <Button size="sm" variant="ghost" onClick={() => setScheduleTarget(estimate)}>
                           Schedule
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(estimate)}>
+                          Documents
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(estimate)}>
                           Delete
                         </Button>
@@ -213,6 +218,15 @@ export function EstimatesPageClient({
 
       {deleteTarget ? (
         <DeleteEstimateDialog estimate={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={refresh} />
+      ) : null}
+
+      {documentsTarget ? (
+        <DocumentsDialog
+          entityType="estimate"
+          entityId={documentsTarget.Id}
+          title={documentsTarget.DocNumber ?? documentsTarget.Id}
+          onClose={() => setDocumentsTarget(null)}
+        />
       ) : null}
     </div>
   );

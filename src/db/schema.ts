@@ -30,6 +30,13 @@ export const paymentLinkStatusEnum = pgEnum('payment_link_status', [
 ]);
 export const recurringDocTypeEnum = pgEnum('recurring_doc_type', ['invoice', 'estimate']);
 export const recurringFrequencyEnum = pgEnum('recurring_frequency', ['weekly', 'monthly', 'quarterly', 'yearly']);
+export const documentEntityTypeEnum = pgEnum('document_entity_type', [
+  'invoice',
+  'estimate',
+  'customer',
+  'product',
+  'payment_link',
+]);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -337,4 +344,23 @@ export const recurringTemplates = pgTable('recurring_templates', {
   lastRunDate: date('last_run_date'),
   lastCreatedDocId: uuid('last_created_doc_id'),
   lastError: text('last_error'),
+});
+
+// ---------------------------------------------------------------------------
+// Documents — files uploaded and attached to a specific record (an invoice,
+// estimate, customer, product, or payment link). Stored directly in this
+// app's own database (base64-encoded) rather than a separate object-storage
+// service, so no extra credentials/setup are needed beyond DATABASE_URL.
+// Meant for typical supporting documents (contracts, receipts, spec sheets),
+// not large media files — see the file-size cap in src/lib/accounting/documents.ts.
+// ---------------------------------------------------------------------------
+export const documents = pgTable('documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: documentEntityTypeEnum('entity_type').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type').notNull(),
+  fileSize: integer('file_size').notNull(),
+  contentBase64: text('content_base64').notNull(),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
 });

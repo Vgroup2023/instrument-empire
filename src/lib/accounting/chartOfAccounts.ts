@@ -1,21 +1,6 @@
 import { getDb } from '@/db/client';
-import {
-  accounts,
-  journalLines,
-  journalEntries,
-  invoiceLines,
-  invoices,
-  products,
-  billLines,
-  bills,
-  expenseLines,
-  expenses,
-  invoicePayments,
-  billPayments,
-  transfers,
-} from '@/db/schema';
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import { accounts } from '@/db/schema';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DateRange } from '@/lib/dateRanges';
 
 // This is the standalone, database-backed Chart of Accounts — the app's own
@@ -97,88 +82,99 @@ interface Posting {
  */
 async function collectPostings(range?: DateRange): Promise<Posting[]> {
   const db = getDb();
-  const inRange = (col: AnyPgColumn<{ data: string }>) =>
-    range ? and(gte(col, range.startDate), lte(col, range.endDate)) : undefined;
+  const start = range?.startDate ?? null;
+  const end = range?.endDate ?? null;
 
-  const [journalRows, invoiceLineRows, billLineRows, expenseLineRows, invoicePaymentRows, billPaymentRows, transferRows] =
-    await Promise.all([
-      db
-        .select({ accountId: journalLines.accountId, postingType: journalLines.postingType, amount: journalLines.amount })
-        .from(journalLines)
-        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
-        .where(inRange(journalEntries.txnDate)),
-      db
-        .select({ incomeAccountId: products.incomeAccountId, amount: invoiceLines.amount })
-        .from(invoiceLines)
-        .innerJoin(invoices, eq(invoiceLines.invoiceId, invoices.id))
-        .leftJoin(products, eq(invoiceLines.productId, products.id))
-        .where(inRange(invoices.txnDate)),
-      db
-        .select({ accountId: billLines.accountId, amount: billLines.amount })
-        .from(billLines)
-        .innerJoin(bills, eq(billLines.billId, bills.id))
-        .where(inRange(bills.txnDate)),
-      db
-        .select({
-          accountId: expenseLines.accountId,
-          amount: expenseLines.amount,
-          paymentAccountId: expenses.paymentAccountId,
-        })
-        .from(expenseLines)
-        .innerJoin(expenses, eq(expenseLines.expenseId, expenses.id))
-        .where(inRange(expenses.txnDate)),
-      db
-        .select({ depositAccountId: invoicePayments.depositAccountId, amount: invoicePayments.amount })
-        .from(invoicePayments)
-        .where(inRange(invoicePayments.paymentDate)),
-      db
-        .select({ bankAccountId: billPayments.bankAccountId, amount: billPayments.amount })
-        .from(billPayments)
-        .where(inRange(billPayments.paymentDate)),
-      db
-        .select({ fromAccountId: transfers.fromAccountId, toAccountId: transfers.toAccountId, amount: transfers.amount })
-        .from(transfers)
-        .where(inRange(transfers.txnDate)),
-    ]);
+  // One round trip instead of seven: each branch below already projects
+  // (account_id, posting_type, amount) directly, matching Posting exactly,
+  // so no per-row post-processing is needed either. Combining these was a
+  // deliberate fix for request latency — issuing this fan-out as separate
+  // sequential queries per report (and this gets called 2-3x per Insights
+  // page load) was slow enough over the network to trip Postgres's own
+  // statement_timeout, even against an otherwise-empty database.
+  const rows = await db.execute<{ account_id: string; posting_type: 'Debit' | 'Credit'; amount: string }>(sql`
+    SELECT account_id, posting_type, amount FROM (
+      SELECT jl.account_id AS account_id, jl.posting_type AS posting_type, jl.amount AS amount
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      WHERE (${start}::date IS NULL OR je.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR je.txn_date <= ${end}::date)
 
-  const postings: Posting[] = [];
+      UNION ALL
 
-  for (const row of journalRows) {
-    postings.push({ accountId: row.accountId, postingType: row.postingType, amount: Number(row.amount) });
-  }
-  for (const row of invoiceLineRows) {
-    if (!row.incomeAccountId) continue;
-    postings.push({ accountId: row.incomeAccountId, postingType: 'Credit', amount: Number(row.amount) });
-  }
-  for (const row of billLineRows) {
-    postings.push({ accountId: row.accountId, postingType: 'Debit', amount: Number(row.amount) });
-  }
-  for (const row of expenseLineRows) {
-    postings.push({ accountId: row.accountId, postingType: 'Debit', amount: Number(row.amount) });
-    postings.push({ accountId: row.paymentAccountId, postingType: 'Credit', amount: Number(row.amount) });
-  }
-  for (const row of invoicePaymentRows) {
-    postings.push({ accountId: row.depositAccountId, postingType: 'Debit', amount: Number(row.amount) });
-  }
-  for (const row of billPaymentRows) {
-    postings.push({ accountId: row.bankAccountId, postingType: 'Credit', amount: Number(row.amount) });
-  }
-  for (const row of transferRows) {
-    postings.push({ accountId: row.fromAccountId, postingType: 'Credit', amount: Number(row.amount) });
-    postings.push({ accountId: row.toAccountId, postingType: 'Debit', amount: Number(row.amount) });
-  }
+      SELECT p.income_account_id AS account_id, 'Credit'::posting_type AS posting_type, il.amount AS amount
+      FROM invoice_lines il
+      JOIN invoices i ON il.invoice_id = i.id
+      LEFT JOIN products p ON il.product_id = p.id
+      WHERE p.income_account_id IS NOT NULL
+        AND (${start}::date IS NULL OR i.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR i.txn_date <= ${end}::date)
 
-  return postings;
+      UNION ALL
+
+      SELECT bl.account_id AS account_id, 'Debit'::posting_type AS posting_type, bl.amount AS amount
+      FROM bill_lines bl
+      JOIN bills b ON bl.bill_id = b.id
+      WHERE (${start}::date IS NULL OR b.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR b.txn_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT el.account_id AS account_id, 'Debit'::posting_type AS posting_type, el.amount AS amount
+      FROM expense_lines el
+      JOIN expenses e ON el.expense_id = e.id
+      WHERE (${start}::date IS NULL OR e.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR e.txn_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT e.payment_account_id AS account_id, 'Credit'::posting_type AS posting_type, el.amount AS amount
+      FROM expense_lines el
+      JOIN expenses e ON el.expense_id = e.id
+      WHERE (${start}::date IS NULL OR e.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR e.txn_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT ip.deposit_account_id AS account_id, 'Debit'::posting_type AS posting_type, ip.amount AS amount
+      FROM invoice_payments ip
+      WHERE (${start}::date IS NULL OR ip.payment_date >= ${start}::date)
+        AND (${end}::date IS NULL OR ip.payment_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT bp.bank_account_id AS account_id, 'Credit'::posting_type AS posting_type, bp.amount AS amount
+      FROM bill_payments bp
+      WHERE (${start}::date IS NULL OR bp.payment_date >= ${start}::date)
+        AND (${end}::date IS NULL OR bp.payment_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT t.from_account_id AS account_id, 'Credit'::posting_type AS posting_type, t.amount AS amount
+      FROM transfers t
+      WHERE (${start}::date IS NULL OR t.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR t.txn_date <= ${end}::date)
+
+      UNION ALL
+
+      SELECT t.to_account_id AS account_id, 'Debit'::posting_type AS posting_type, t.amount AS amount
+      FROM transfers t
+      WHERE (${start}::date IS NULL OR t.txn_date >= ${start}::date)
+        AND (${end}::date IS NULL OR t.txn_date <= ${end}::date)
+    ) postings
+    WHERE account_id IS NOT NULL
+  `);
+
+  return rows.map((row) => ({
+    accountId: row.account_id,
+    postingType: row.posting_type,
+    amount: Number(row.amount),
+  }));
 }
 
-/** Sums every posting per account (all-time, or within `range` if given), signed so each balance reads naturally for its classification. */
-async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
-  const db = getDb();
-  const [accountRows, postings] = await Promise.all([
-    db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
-    collectPostings(range),
-  ]);
+type AccountTypeRow = { id: string; accountType: string };
 
+function balancesFromPostings(accountRows: AccountTypeRow[], postings: Posting[]): Map<string, number> {
   const classificationById = new Map(accountRows.map((a) => [a.id, CLASSIFICATION_BY_TYPE[a.accountType]]));
   const balances = new Map<string, number>();
   for (const posting of postings) {
@@ -191,6 +187,16 @@ async function getAccountBalances(range?: DateRange): Promise<Map<string, number
   return balances;
 }
 
+/** Sums every posting per account (all-time, or within `range` if given), signed so each balance reads naturally for its classification. */
+async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
+  const db = getDb();
+  const [accountRows, postings] = await Promise.all([
+    db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
+    collectPostings(range),
+  ]);
+  return balancesFromPostings(accountRows, postings);
+}
+
 /**
  * Sums account balances by their raw account type (e.g. distinguishing
  * "Cost of Goods Sold" from "Expense"), for reports that need finer-grained
@@ -199,10 +205,11 @@ async function getAccountBalances(range?: DateRange): Promise<Map<string, number
  */
 export async function sumBalancesByAccountType(range?: DateRange): Promise<Map<string, number>> {
   const db = getDb();
-  const [accountRows, balances] = await Promise.all([
+  const [accountRows, postings] = await Promise.all([
     db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
-    getAccountBalances(range),
+    collectPostings(range),
   ]);
+  const balances = balancesFromPostings(accountRows, postings);
 
   const totals = new Map<string, number>();
   for (const account of accountRows) {

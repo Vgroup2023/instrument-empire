@@ -16,9 +16,15 @@ function createDb() {
         '(a Postgres connection string from Supabase, Neon, or another provider).',
     );
   }
-  // max: 1 keeps each serverless function instance's own connection footprint
-  // small — pair this with your provider's pooled connection string (e.g.
-  // Supabase's "Transaction pooler" on port 6543) rather than a direct one.
+  // max: 5 keeps each serverless function instance's connection footprint
+  // small while still letting a handful of queries run concurrently — pages
+  // like Insights and Chart of Accounts fire off many independent queries
+  // per request (each report recomputes account balances from several
+  // tables), and with max: 1 every one of those was forced through a single
+  // connection one at a time, so their combined round-trip latency could add
+  // up enough to trip Postgres's own statement_timeout. Pair this with your
+  // provider's pooled connection string (e.g. Supabase's "Transaction
+  // pooler" on port 6543) rather than a direct one.
   // prepare: false is required for that pooler: PgBouncer's transaction mode
   // can route each query to a different backend connection, which breaks
   // session-scoped prepared statements (postgres-js's default) — every
@@ -26,8 +32,9 @@ function createDb() {
   // most managed Postgres hosts) rejects unencrypted connections outright —
   // postgres-js doesn't enable TLS on its own unless the connection string
   // itself has a `sslmode` query param, which a copy-pasted Supabase
-  // connection string won't have.
-  const client = postgres(url, { max: 1, prepare: false, ssl: 'require' });
+  // connection string won't have. connect_timeout fails fast on a stuck
+  // connection attempt instead of hanging indefinitely.
+  const client = postgres(url, { max: 5, prepare: false, ssl: 'require', connect_timeout: 10 });
   return drizzle(client, { schema });
 }
 

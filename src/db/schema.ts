@@ -184,6 +184,11 @@ export const bills = pgTable('bills', {
   dueDate: date('due_date'),
   currencyCode: text('currency_code').notNull().default('USD'),
   exchangeRate: numeric('exchange_rate', { precision: 14, scale: 6 }).notNull().default('1'),
+  // AP approval queue: a bill must be approved before it can be paid — a
+  // human still clicks Pay when it's actually due, this just adds a
+  // deliberate sign-off step and an optional planned pay date ahead of that.
+  approved: boolean('approved').notNull().default(false),
+  scheduledPaymentDate: date('scheduled_payment_date'),
   ...timestamps,
 });
 

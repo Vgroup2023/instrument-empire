@@ -97,6 +97,11 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   same protection QuickBooks provided), and pay one from a real bank account — also from your
   Chart of Accounts. Balance is computed live from recorded payments, same pattern as invoice
   payments.
+- **AP approval queue** — a bill must be **Approve**d before it can be paid, optionally with a
+  planned pay date. This is a deliberate sign-off step recorded in this app's own database, not
+  autonomous payment execution — there's no payment-processor connection here, so nothing ever
+  moves money on its own; a person still clicks Pay when a bill is actually due. Approval can be
+  revoked (back to "Pending approval") at any time before it's paid.
 
 **Accounting** — runs on this app's own database, no QuickBooks connection required:
 - Chart of accounts (`/dashboard/accounts`): every account in your books — add a new one

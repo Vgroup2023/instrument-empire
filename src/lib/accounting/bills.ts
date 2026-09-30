@@ -23,6 +23,8 @@ export interface Bill {
   Balance: number;
   CurrencyRef?: { value: string };
   ExchangeRate?: number;
+  Approved: boolean;
+  ScheduledPaymentDate?: string;
 }
 
 type BillRow = typeof bills.$inferSelect;
@@ -90,6 +92,8 @@ async function attachDetails(rows: BillRow[]): Promise<Bill[]> {
       Balance: round2(totalAmt - paid),
       CurrencyRef: { value: row.currencyCode },
       ExchangeRate: Number(row.exchangeRate),
+      Approved: row.approved,
+      ScheduledPaymentDate: row.scheduledPaymentDate ?? undefined,
     };
   });
 }
@@ -229,6 +233,42 @@ export async function duplicateBill(id: string): Promise<Bill> {
 }
 
 // ---------------------------------------------------------------------------
+// AP approval queue — a bill must be approved (optionally with a planned pay
+// date) before it can be paid. This never moves money on its own: approving
+// just unlocks the existing Pay action, which still records a payment only
+// when a person clicks it.
+// ---------------------------------------------------------------------------
+
+export interface ApproveBillInput {
+  id: string;
+  scheduledPaymentDate?: string;
+}
+
+export async function approveBill(input: ApproveBillInput): Promise<Bill> {
+  const db = getDb();
+  const [row] = await db
+    .update(bills)
+    .set({ approved: true, scheduledPaymentDate: input.scheduledPaymentDate || null, updatedAt: new Date() })
+    .where(eq(bills.id, input.id))
+    .returning();
+  if (!row) throw new Error('Bill not found.');
+  const [bill] = await attachDetails([row]);
+  return bill;
+}
+
+export async function unapproveBill(id: string): Promise<Bill> {
+  const db = getDb();
+  const [row] = await db
+    .update(bills)
+    .set({ approved: false, scheduledPaymentDate: null, updatedAt: new Date() })
+    .where(eq(bills.id, id))
+    .returning();
+  if (!row) throw new Error('Bill not found.');
+  const [bill] = await attachDetails([row]);
+  return bill;
+}
+
+// ---------------------------------------------------------------------------
 // Bill payments — paying a bill from a real bank account.
 // ---------------------------------------------------------------------------
 
@@ -244,6 +284,9 @@ export interface PayBillInput {
 export async function payBill(input: PayBillInput): Promise<Bill> {
   if (input.amount <= 0) throw new Error('Payment amount must be greater than zero.');
   const bill = await getBill(input.billId);
+  if (!bill.Approved) {
+    throw new Error('This bill must be approved before it can be paid.');
+  }
   if (input.amount > bill.Balance + 0.005) {
     throw new Error(`Payment can't exceed the balance due (${formatCurrency(bill.Balance)}).`);
   }

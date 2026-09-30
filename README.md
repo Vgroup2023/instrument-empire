@@ -349,6 +349,22 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app.example.co
 If `CRON_SECRET` is unset, the route accepts any caller — fine for local testing, not for
 production.
 
+## Installing it as an app on your phone or tablet
+
+The site is an installable PWA (`public/manifest.json`, a minimal `public/sw.js`, and
+home-screen icons in `public/icons/`):
+
+- **Android/Chrome**: open the site, then use the browser menu → "Install app" (or "Add to
+  Home screen"). It launches full-screen with its own icon, no browser chrome.
+- **iOS/iPadOS Safari**: open the site, tap the Share icon, then "Add to Home Screen".
+- The service worker exists only to satisfy browsers' installability check — it deliberately
+  caches nothing, since this app shows live financial data and a stale cached page would be
+  actively wrong, not just inconvenient. There's no offline mode.
+- The whole layout was also audited for phones/tablets down to a 360px-wide screen: a
+  flex/grid sizing bug in the Sidebar and login logo (a fixed-position `<img>` that ignored
+  its `max-width` and forced the whole page to scroll horizontally) has been fixed, and
+  safe-area padding was added for notched devices when running installed full-screen.
+
 ## Security notes
 
 - The whole app sits behind a single shared passphrase (`APP_PASSWORD`), checked in

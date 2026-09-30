@@ -49,11 +49,11 @@ const config: Config = {
           950: '#101113',
         },
         surface: {
-          // Light theme: off-white page background, white card surfaces.
+          // Light theme: white page background and card surfaces.
           // The sidebar/top bar use a dark blue gradient (below) so the
           // metallic logo mark stays legible.
           DEFAULT: '#ffffff',
-          muted: '#f7f6f2',
+          muted: '#ffffff',
           dark: '#1a1c1f',
         },
       },

@@ -59,6 +59,11 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   you make and improves its own accuracy over time — would need real training data, a model
   registry, and ongoing retraining infrastructure; this is the practical alternative that ships
   today and gets more useful simply as your ledger grows.
+- Flux analysis (`/dashboard/flux-analysis`, `src/lib/accounting/fluxAnalysis.ts`) — period-over-
+  period variance, account by account: this month to date against the full prior calendar month,
+  sorted by the largest dollar swing. Purely quantitative — no written narrative commentary
+  (that would need an LLM call, which needs an Anthropic API key this app doesn't have
+  configured) and no connection to a third-party close-automation tool like Numeric.
 
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): runs on this app's

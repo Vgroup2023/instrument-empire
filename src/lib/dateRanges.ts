@@ -9,6 +9,18 @@ export interface DateRange {
   endDate: string;
 }
 
+/** This calendar month to date, plus the full immediately preceding calendar month — the classic month-end flux/variance comparison. */
+export function currentAndPriorMonth(): { current: DateRange; prior: DateRange } {
+  const now = new Date();
+  const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const priorStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const priorEnd = new Date(now.getFullYear(), now.getMonth(), 0); // day 0 of this month = last day of the prior month
+  return {
+    current: { startDate: toISODate(currentStart), endDate: toISODate(now) },
+    prior: { startDate: toISODate(priorStart), endDate: toISODate(priorEnd) },
+  };
+}
+
 export function resolvePeriod(period: PeriodKey = 'this-year'): DateRange {
   const now = new Date();
   const end = toISODate(now);

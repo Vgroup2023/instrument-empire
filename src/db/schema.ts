@@ -8,6 +8,7 @@ import {
   boolean,
   date,
   timestamp,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 // This schema is this app's own ledger — the source of truth when running
@@ -37,6 +38,8 @@ export const documentEntityTypeEnum = pgEnum('document_entity_type', [
   'product',
   'payment_link',
 ]);
+export const auditLogEntityTypeEnum = pgEnum('audit_log_entity_type', ['journal_entry', 'account']);
+export const auditLogActionEnum = pgEnum('audit_log_action', ['create', 'update', 'delete']);
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -377,4 +380,21 @@ export const documents = pgTable('documents', {
   fileSize: integer('file_size').notNull(),
   contentBase64: text('content_base64').notNull(),
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Audit log — a change-history trail for month-end/audit review: what
+// changed, the before/after snapshot, and when. There's a single shared
+// login for this app (no individual user accounts), so this deliberately
+// doesn't try to record "who" — only "what" and "when", which is still real
+// value for reviewing what happened to the ledger before period close.
+// ---------------------------------------------------------------------------
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: auditLogEntityTypeEnum('entity_type').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  action: auditLogActionEnum('action').notNull(),
+  before: jsonb('before'),
+  after: jsonb('after'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

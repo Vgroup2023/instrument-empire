@@ -126,6 +126,13 @@ anything currently built, and connecting one in Settings doesn't unlock anything
 - Journal entries (`/dashboard/journal-entries`): manual double-entry adjustments — accruals,
   corrections, depreciation, and the like. The line editor shows a running debit/credit total
   and won't let you save an out-of-balance entry.
+- **Audit log** (`/dashboard/audit-log`) — a change-history trail: every journal entry and
+  chart-of-accounts create/edit/delete is recorded with a before/after snapshot and a timestamp
+  (`src/lib/accounting/auditLog.ts`). This app has a single shared login rather than individual
+  user accounts, so entries record *what* changed and *when*, not *who* — real value for
+  reviewing what happened to the ledger before period close, without overclaiming attribution
+  the app has no way to track. Extending this same pattern to other entities (bills, invoices,
+  expenses) is straightforward but not done yet.
 
 **Banking** — runs on this app's own database, no QuickBooks connection required:
 - Expenses (`/dashboard/expenses`): money paid immediately — by card, cash, or check — as

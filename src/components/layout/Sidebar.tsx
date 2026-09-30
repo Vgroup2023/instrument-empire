@@ -51,6 +51,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard/expenses', label: 'Expenses', icon: '💳' },
       { href: '/dashboard/transfers', label: 'Transfers', icon: '🔁' },
+      { href: '/dashboard/reconciliation', label: 'Reconciliation', icon: '🧾' },
     ],
   },
   {

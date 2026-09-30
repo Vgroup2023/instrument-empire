@@ -9,9 +9,9 @@ export default async function LoginPage({
   const isRateLimited = params.error === 'rate_limited';
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4">
+    <div className="safe-top safe-bottom flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-6 w-full max-w-xs" />
+      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-6 w-full min-w-0 max-w-xs" />
       <div className="w-full max-w-sm rounded-xl2 border border-slate-200 bg-surface p-8 shadow-card">
         <div className="mb-6 text-center">
           <h1 className="text-lg font-semibold text-slate-900">Accounts Copilot</h1>

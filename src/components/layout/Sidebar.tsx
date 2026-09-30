@@ -71,8 +71,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-steel-700 bg-steel-900 md:flex">
-      <div className="flex flex-col items-center gap-1 border-b border-steel-700 px-4 py-4">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-white/10 bg-header-gradient md:flex">
+      <div className="flex flex-col items-center gap-1 border-b border-white/10 px-4 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="w-full max-w-[180px]" />
         <span className="text-xs font-medium uppercase tracking-wide text-steel-400">Accounts Copilot</span>
@@ -96,8 +96,8 @@ export function Sidebar() {
                     className={cn(
                       'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition',
                       active
-                        ? 'bg-brand-500/15 text-brand-300'
-                        : 'text-slate-300 hover:bg-steel-700 hover:text-slate-50',
+                        ? 'bg-white/15 text-white'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-slate-50',
                     )}
                   >
                     <span aria-hidden>{item.icon}</span>

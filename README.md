@@ -151,10 +151,12 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   it needs no extra credentials, and it gets more useful simply as more expenses get recorded.
 - Transfers (`/dashboard/transfers`): move money between your own bank/credit card accounts.
   Create, edit, or delete a transfer.
-- There's no bank-reconciliation workflow here — this app records the transactions, but
-  actually reconciling against a bank statement isn't built (QuickBooks' own reconcile screen
-  was never exposed through its public API either, so this isn't a regression from connecting
-  it).
+- **Reconciliation** (`/dashboard/reconciliation`, `src/lib/accounting/reconciliation.ts`) —
+  upload a bank/credit card statement (CSV export) and match it against the invoice payments,
+  bill payments, expenses, and transfers already recorded against that account. This app has no
+  live bank feed, so a statement export is the way in; matching is a straightforward amount +
+  nearby-date heuristic, not an AI model, and nothing is saved — each upload is a one-time
+  comparison rather than a persisted reconciliation session.
 
 **People & money**
 - Payroll (`/dashboard/payroll`): runs on this app's own database — read-only answers

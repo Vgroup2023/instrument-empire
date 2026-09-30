@@ -192,3 +192,34 @@ export async function deleteExpense(id: string): Promise<void> {
   const deleted = await db.delete(expenses).where(eq(expenses.id, id)).returning({ id: expenses.id });
   if (deleted.length === 0) throw new Error('Expense not found.');
 }
+
+// ---------------------------------------------------------------------------
+// Category (account) suggestions — a simple, no-training-needed heuristic:
+// whichever expense/COGS account has been used most often for past expenses
+// from this vendor. Not a trained ML classifier or a third-party policy
+// engine (Expensify/Ramp) — just a frequency count over this app's own data,
+// recomputed on every request, so it improves automatically as more expenses
+// get recorded. The form only ever suggests; applying it is a manual click.
+// ---------------------------------------------------------------------------
+
+export interface ExpenseAccountSuggestion {
+  accountId: string;
+  accountName: string;
+  /** How many past expenses from this vendor used this account — shown so the suggestion is transparent, not a black box. */
+  count: number;
+}
+
+export async function suggestExpenseAccountsForVendor(vendorId: string): Promise<ExpenseAccountSuggestion[]> {
+  const db = getDb();
+  const rows = await db.execute<{ account_id: string; account_name: string; uses: string }>(sql`
+    SELECT el.account_id, a.name AS account_name, COUNT(*) AS uses
+    FROM expense_lines el
+    JOIN expenses e ON el.expense_id = e.id
+    JOIN accounts a ON a.id = el.account_id
+    WHERE e.vendor_id = ${vendorId}
+    GROUP BY el.account_id, a.name
+    ORDER BY uses DESC
+    LIMIT 3
+  `);
+  return rows.map((row) => ({ accountId: row.account_id, accountName: row.account_name, count: Number(row.uses) }));
+}

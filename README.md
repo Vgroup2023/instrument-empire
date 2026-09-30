@@ -131,6 +131,12 @@ anything currently built, and connecting one in Settings doesn't unlock anything
 - Expenses (`/dashboard/expenses`): money paid immediately — by card, cash, or check — as
   opposed to a bill owed for later. Categorize each line to an expense/COGS account from your
   Chart of Accounts, same picker as bills. Create, edit, or delete any expense.
+- **Category suggestions** — pick a vendor on a new expense and, if you've categorized past
+  expenses from them before, the form suggests the account used most often (with how many times,
+  so it's not a black box) and a one-click **Apply** button to fill it in
+  (`suggestExpenseAccountsForVendor()` in `src/lib/accounting/expenses.ts`). This is a frequency
+  count over this app's own data, not a connection to Expensify/Ramp or a trained classifier —
+  it needs no extra credentials, and it gets more useful simply as more expenses get recorded.
 - Transfers (`/dashboard/transfers`): move money between your own bank/credit card accounts.
   Create, edit, or delete a transfer.
 - There's no bank-reconciliation workflow here — this app records the transactions, but

@@ -49,13 +49,17 @@ const config: Config = {
           950: '#101113',
         },
         surface: {
-          // Light theme: egg-white page background, white card surfaces.
-          // The sidebar/top bar keep the dark steel look (hardcoded to the
-          // steel-* scale directly) so the metallic logo mark stays legible.
+          // Light theme: off-white page background, white card surfaces.
+          // The sidebar/top bar use a dark blue gradient (below) so the
+          // metallic logo mark stays legible.
           DEFAULT: '#ffffff',
-          muted: '#f0ead6',
+          muted: '#f7f6f2',
           dark: '#1a1c1f',
         },
+      },
+      backgroundImage: {
+        // Dark gradient blue used for the sidebar, top bar, and mobile nav.
+        'header-gradient': 'linear-gradient(180deg, #0a1a35 0%, #1e3a6e 100%)',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 6px -1px rgb(0 0 0 / 0.06)',

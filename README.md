@@ -48,6 +48,17 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   by days overdue against each invoice/bill's due date.
 - Sales breakdown by customer and by product/service (`/dashboard/sales`), from invoices dated
   within the selected period.
+- Anomaly detection (`/dashboard/anomalies`, `src/lib/accounting/anomalies.ts`) — flags
+  unbalanced journal entries, possible duplicate invoices/bills/expenses (same party, same
+  amount, dated within a few days of each other), unusually large or small amounts compared to
+  a vendor/customer's own history, and weekend-dated entries. This is computed live from
+  statistics over your own ledger each time you load the page (per-party averages, balance
+  checks) rather than a trained machine-learning model, so it always reflects the latest
+  activity with no separate training step, no model-hosting infrastructure, and no extra
+  credentials or ongoing API cost. A genuine ML-based version — one that trains on corrections
+  you make and improves its own accuracy over time — would need real training data, a model
+  registry, and ongoing retraining infrastructure; this is the practical alternative that ships
+  today and gets more useful simply as your ledger grows.
 
 **Actions**
 - Invoices and estimates (`/dashboard/invoices`, `/dashboard/estimates`): runs on this app's

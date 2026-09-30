@@ -19,6 +19,13 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import type { Customer } from '@/lib/accounting/customers';
 import type { Product } from '@/lib/accounting/products';
 import type { Invoice, DepositAccount } from '@/lib/accounting/invoices';
+import { suggestReminderAction, type ReminderTone } from '@/lib/accounting/reminderSuggestions';
+
+const REMINDER_TONE_TEXT: Record<ReminderTone, string> = {
+  neutral: 'text-slate-600',
+  warning: 'text-gold-800',
+  danger: 'text-red-600',
+};
 
 export function InvoicesPageClient({
   initialInvoices,
@@ -123,6 +130,7 @@ export function InvoicesPageClient({
                 {invoices.map((invoice) => {
                   const isPaid = invoice.Balance === 0;
                   const isOverdue = !isPaid && invoice.DueDate && new Date(invoice.DueDate) < new Date();
+                  const reminderSuggestion = suggestReminderAction(invoice);
                   return (
                     <Tr key={invoice.Id}>
                       <Td className="font-medium text-slate-900">{invoice.DocNumber ?? invoice.Id}</Td>
@@ -139,6 +147,17 @@ export function InvoicesPageClient({
                         ) : (
                           <Badge tone="neutral">Open</Badge>
                         )}
+                        {reminderSuggestion ? (
+                          <p
+                            className={`mt-1 text-xs ${
+                              reminderSuggestion.recommended
+                                ? `font-medium ${REMINDER_TONE_TEXT[reminderSuggestion.tone]}`
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            {reminderSuggestion.label}
+                          </p>
+                        ) : null}
                       </Td>
                       <Td className="text-right">
                         <div className="flex justify-end gap-1">
@@ -247,7 +266,10 @@ export function InvoicesPageClient({
               throw new Error(data.error ?? 'Failed to send reminder.');
             }
           }}
-          onSuccess={() => notify('Reminder sent.')}
+          onSuccess={() => {
+            notify('Reminder sent.');
+            refresh();
+          }}
         >
           <p>
             <strong>To:</strong> {reminderTarget.BillEmail?.Address ?? reminderTarget.CustomerRef.name}
@@ -255,6 +277,15 @@ export function InvoicesPageClient({
           <p>
             <strong>Balance due:</strong> {formatCurrency(reminderTarget.Balance, reminderTarget.CurrencyRef?.value)}
           </p>
+          {(() => {
+            const suggestion = suggestReminderAction(reminderTarget);
+            if (!suggestion) return null;
+            return (
+              <p className={suggestion.recommended ? `font-medium ${REMINDER_TONE_TEXT[suggestion.tone]}` : 'text-slate-500'}>
+                {suggestion.label}
+              </p>
+            );
+          })()}
         </ConfirmSendDialog>
       ) : null}
 

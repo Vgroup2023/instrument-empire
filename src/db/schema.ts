@@ -113,6 +113,11 @@ export const invoices = pgTable('invoices', {
   exchangeRate: numeric('exchange_rate', { precision: 14, scale: 6 }).notNull().default('1'),
   // Tracked so reminder suggestions can avoid nagging right after one went out.
   lastReminderSentAt: timestamp('last_reminder_sent_at', { withTimezone: true }),
+  // Milestone/progress invoicing: a group of invoices created together from
+  // one contract value, split by percentage (e.g. "50% deposit", "50% on
+  // completion"). Null on an ordinary, one-off invoice.
+  milestoneGroupId: uuid('milestone_group_id'),
+  milestoneLabel: text('milestone_label'),
   ...timestamps,
 });
 

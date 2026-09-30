@@ -9,6 +9,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog';
+import { MilestonePlanDialog } from '@/components/invoices/MilestonePlanDialog';
 import { DeleteInvoiceDialog } from '@/components/invoices/DeleteInvoiceDialog';
 import { RecordInvoicePaymentDialog } from '@/components/invoices/RecordInvoicePaymentDialog';
 import { ScheduleDialog } from '@/components/documents/ScheduleDialog';
@@ -52,6 +53,7 @@ export function InvoicesPageClient({
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
   const [documentsTarget, setDocumentsTarget] = useState<Invoice | null>(null);
   const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
+  const [milestonePlanOpen, setMilestonePlanOpen] = useState(false);
 
   async function refresh() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
@@ -94,6 +96,9 @@ export function InvoicesPageClient({
             <Button variant="secondary" onClick={() => setGeneralDocumentsOpen(true)}>
               Documents
             </Button>
+            <Button variant="secondary" onClick={() => setMilestonePlanOpen(true)}>
+              + Milestone plan
+            </Button>
             <Button
               onClick={() => {
                 setEditingInvoice(undefined);
@@ -133,7 +138,12 @@ export function InvoicesPageClient({
                   const reminderSuggestion = suggestReminderAction(invoice);
                   return (
                     <Tr key={invoice.Id}>
-                      <Td className="font-medium text-slate-900">{invoice.DocNumber ?? invoice.Id}</Td>
+                      <Td className="font-medium text-slate-900">
+                        {invoice.DocNumber ?? invoice.Id}
+                        {invoice.MilestoneLabel ? (
+                          <p className="mt-0.5 text-xs font-normal text-slate-500">Milestone: {invoice.MilestoneLabel}</p>
+                        ) : null}
+                      </Td>
                       <Td>{invoice.CustomerRef.name}</Td>
                       <Td>{formatDate(invoice.TxnDate)}</Td>
                       <Td>{formatDate(invoice.DueDate)}</Td>
@@ -213,6 +223,14 @@ export function InvoicesPageClient({
         invoice={editingInvoice}
         homeCurrencyCode={homeCurrencyCode}
         onSaved={refresh}
+      />
+
+      <MilestonePlanDialog
+        open={milestonePlanOpen}
+        onClose={() => setMilestonePlanOpen(false)}
+        customers={customers}
+        products={products}
+        onCreated={refresh}
       />
 
       {sendTarget ? (

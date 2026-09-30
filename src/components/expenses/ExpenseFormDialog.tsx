@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input, Select } from '@/components/ui/Field';
@@ -9,7 +9,7 @@ import { BillLineItemsEditor } from '@/components/bills/BillLineItemsEditor';
 import { useToast } from '@/components/ui/Toast';
 import type { Vendor } from '@/lib/accounting/vendors';
 import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
-import type { Expense, ExpenseLineInput, PaymentType } from '@/lib/accounting/expenses';
+import type { Expense, ExpenseAccountSuggestion, ExpenseLineInput, PaymentType } from '@/lib/accounting/expenses';
 
 export function ExpenseFormDialog({
   open,
@@ -48,6 +48,37 @@ export function ExpenseFormDialog({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<ExpenseAccountSuggestion[]>([]);
+
+  useEffect(() => {
+    if (isEdit || !vendorId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing a stale suggestion when the vendor changes, not a derived-state sync
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/expenses/suggest-account?vendorId=${vendorId}`)
+      .then((res) => (res.ok ? res.json() : { suggestions: [] }))
+      .then((data) => {
+        if (!cancelled) setSuggestions(data.suggestions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorId, isEdit]);
+
+  function applySuggestion(suggestion: ExpenseAccountSuggestion) {
+    const emptyIndex = lines.findIndex((l) => !l.accountId);
+    if (emptyIndex === -1) return;
+    const next = lines.slice();
+    next[emptyIndex] = { ...next[emptyIndex], accountId: suggestion.accountId, accountName: suggestion.accountName };
+    setLines(next);
+  }
+
+  const firstEmptyLineIndex = lines.findIndex((l) => !l.accountId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -135,6 +166,23 @@ export function ExpenseFormDialog({
             }}
           />
         </div>
+        {suggestions.length > 0 && firstEmptyLineIndex !== -1 ? (
+          <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+            <p>
+              Suggested category: <strong>{suggestions[0].accountName}</strong> — used for {suggestions[0].count}{' '}
+              previous expense{suggestions[0].count === 1 ? '' : 's'} from this vendor.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="mt-1"
+              onClick={() => applySuggestion(suggestions[0])}
+            >
+              Apply to line {firstEmptyLineIndex + 1}
+            </Button>
+          </div>
+        ) : null}
         <div>
           <Label>Expense lines</Label>
           <BillLineItemsEditor expenseAccounts={expenseAccounts} lines={lines} onChange={setLines} />

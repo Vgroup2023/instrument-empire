@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { getDb } from '@/db/client';
 import { invoices, invoiceLines, invoicePayments, customers, products, accounts } from '@/db/schema';
 import { eq, inArray, desc, sql } from 'drizzle-orm';
@@ -27,6 +28,8 @@ export interface Invoice {
   CurrencyRef?: { value: string };
   ExchangeRate?: number;
   LastReminderSentAt?: string;
+  MilestoneGroupId?: string;
+  MilestoneLabel?: string;
 }
 
 type InvoiceRow = typeof invoices.$inferSelect;
@@ -92,6 +95,8 @@ async function attachDetails(rows: InvoiceRow[]): Promise<Invoice[]> {
       CurrencyRef: { value: row.currencyCode },
       ExchangeRate: Number(row.exchangeRate),
       LastReminderSentAt: row.lastReminderSentAt?.toISOString(),
+      MilestoneGroupId: row.milestoneGroupId ?? undefined,
+      MilestoneLabel: row.milestoneLabel ?? undefined,
     };
   });
 }
@@ -144,6 +149,71 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice>
       .values(toLineInsertRows(input.lines).map((line) => ({ ...line, invoiceId: row.id })));
     const [invoice] = await attachDetails([row]);
     return invoice;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Milestone/progress invoicing — one contract value split into several
+// invoices by percentage (e.g. "50% deposit", "50% on completion"), created
+// together and linked by a shared milestoneGroupId. Each is an ordinary
+// invoice afterward — edit, send, remind, and pay it exactly like any other.
+// ---------------------------------------------------------------------------
+
+export interface MilestoneInput {
+  label: string;
+  /** 0-100; every milestone's percent across the plan must add up to 100. */
+  percent: number;
+  dueDate?: string;
+}
+
+export interface CreateMilestonePlanInput {
+  customerId: string;
+  customerName?: string;
+  email?: string;
+  /** The full contract's line items — each milestone invoice gets these same lines, scaled by its percent. */
+  lines: LineItemInput[];
+  milestones: MilestoneInput[];
+}
+
+export async function createMilestoneInvoicePlan(input: CreateMilestonePlanInput): Promise<Invoice[]> {
+  validateLines(input.lines);
+  if (input.milestones.length < 2) {
+    throw new Error('Add at least two milestones — for a single invoice, use New invoice instead.');
+  }
+  const totalPercent = round2(input.milestones.reduce((sum, m) => sum + m.percent, 0));
+  if (Math.abs(totalPercent - 100) > 0.5) {
+    throw new Error(`Milestone percentages must add up to 100% (currently ${totalPercent}%).`);
+  }
+
+  const db = getDb();
+  const baseDocNumber = await nextDocNumber('INV');
+  const groupId = randomUUID();
+
+  return db.transaction(async (tx) => {
+    const created: Invoice[] = [];
+    for (let i = 0; i < input.milestones.length; i++) {
+      const milestone = input.milestones[i];
+      const scaledLines: LineItemInput[] = input.lines.map((line) => ({
+        ...line,
+        unitPrice: round2(line.unitPrice * (milestone.percent / 100)),
+      }));
+      const [row] = await tx
+        .insert(invoices)
+        .values({
+          docNumber: `${baseDocNumber}-M${i + 1}`,
+          customerId: input.customerId,
+          txnDate: new Date().toISOString().slice(0, 10),
+          dueDate: milestone.dueDate || null,
+          billEmail: input.email || null,
+          milestoneGroupId: groupId,
+          milestoneLabel: milestone.label,
+        })
+        .returning();
+      await tx.insert(invoiceLines).values(toLineInsertRows(scaledLines).map((line) => ({ ...line, invoiceId: row.id })));
+      const [invoice] = await attachDetails([row]);
+      created.push(invoice);
+    }
+    return created;
   });
 }
 

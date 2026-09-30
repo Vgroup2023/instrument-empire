@@ -72,11 +72,17 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   Accounts.
 - **Smart reminder suggestions** — each unpaid invoice shows a suggestion (not an automatic
   send) for whether a reminder is worth sending right now, based on how overdue it is and when
-  one was last sent (`suggestReminderAction()` in `src/lib/accounting/invoices.ts`): a gentle
-  nudge in the first week overdue, a follow-up suggestion after that, and an escalation flag
-  past 30 days — suppressed for a while right after a reminder actually goes out, so it doesn't
-  nag every time you look at the page. Sending itself is unchanged: still the same
+  one was last sent (`suggestReminderAction()` in `src/lib/accounting/reminderSuggestions.ts`):
+  a gentle nudge in the first week overdue, a follow-up suggestion after that, and an escalation
+  flag past 30 days — suppressed for a while right after a reminder actually goes out, so it
+  doesn't nag every time you look at the page. Sending itself is unchanged: still the same
   preview-and-confirm dialog, never automatic.
+- **Milestone/progress invoicing** (`/dashboard/invoices` → + Milestone plan) — split one
+  contract into several invoices by percentage (e.g. a 50% deposit and 50% on completion),
+  created together and linked by a shared group id (`createMilestoneInvoicePlan()` in
+  `src/lib/accounting/invoices.ts`). Each milestone becomes an ordinary invoice afterward — edit,
+  send, remind, and record payment on it exactly like any other; the Invoices list shows which
+  milestone each one belongs to.
 - Customers and products/services (`/dashboard/customers`, `/dashboard/products`): runs on
   this app's own database — add, edit, and deactivate/reactivate. There's no hard-delete, so
   deactivating is the real "delete" here — same pattern as the Chart of Accounts. A

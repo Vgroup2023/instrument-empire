@@ -189,7 +189,7 @@ function balancesFromPostings(accountRows: AccountTypeRow[], postings: Posting[]
 }
 
 /** Sums every posting per account (all-time, or within `range` if given), signed so each balance reads naturally for its classification. */
-async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
+export async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
   const db = getDb();
   const [accountRows, postings] = await Promise.all([
     db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),

@@ -18,6 +18,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: '/dashboard/ar-ap', label: 'A/R & A/P aging', icon: '⏱️' },
       { href: '/dashboard/sales', label: 'Sales breakdown', icon: '📈' },
       { href: '/dashboard/anomalies', label: 'Anomaly detection', icon: '🚨' },
+      { href: '/dashboard/flux-analysis', label: 'Flux analysis', icon: '📐' },
     ],
   },
   {

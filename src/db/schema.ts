@@ -111,6 +111,8 @@ export const invoices = pgTable('invoices', {
   billEmail: text('bill_email'),
   currencyCode: text('currency_code').notNull().default('USD'),
   exchangeRate: numeric('exchange_rate', { precision: 14, scale: 6 }).notNull().default('1'),
+  // Tracked so reminder suggestions can avoid nagging right after one went out.
+  lastReminderSentAt: timestamp('last_reminder_sent_at', { withTimezone: true }),
   ...timestamps,
 });
 

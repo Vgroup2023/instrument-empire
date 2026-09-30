@@ -26,6 +26,7 @@ export interface Invoice {
   Balance: number;
   CurrencyRef?: { value: string };
   ExchangeRate?: number;
+  LastReminderSentAt?: string;
 }
 
 type InvoiceRow = typeof invoices.$inferSelect;
@@ -90,6 +91,7 @@ async function attachDetails(rows: InvoiceRow[]): Promise<Invoice[]> {
       Balance: round2(totalAmt - paid),
       CurrencyRef: { value: row.currencyCode },
       ExchangeRate: Number(row.exchangeRate),
+      LastReminderSentAt: row.lastReminderSentAt?.toISOString(),
     };
   });
 }
@@ -272,7 +274,9 @@ export async function sendInvoiceReminder(id: string, email?: string): Promise<I
   if (!to) throw new Error('No email address on file for this customer — add one first.');
   const { subject, text, html } = invoiceEmailBody(invoice, 'reminder');
   await sendMail({ to, subject, text, html });
-  return invoice;
+  const db = getDb();
+  await db.update(invoices).set({ lastReminderSentAt: new Date() }).where(eq(invoices.id, id));
+  return getInvoice(id);
 }
 
 // ---------------------------------------------------------------------------

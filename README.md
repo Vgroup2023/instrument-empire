@@ -70,6 +70,13 @@ anything currently built, and connecting one in Settings doesn't unlock anything
   actually been paid against an invoice — this app's own replacement for the balance
   QuickBooks used to compute for us — and post into a bank account from your Chart of
   Accounts.
+- **Smart reminder suggestions** — each unpaid invoice shows a suggestion (not an automatic
+  send) for whether a reminder is worth sending right now, based on how overdue it is and when
+  one was last sent (`suggestReminderAction()` in `src/lib/accounting/invoices.ts`): a gentle
+  nudge in the first week overdue, a follow-up suggestion after that, and an escalation flag
+  past 30 days — suppressed for a while right after a reminder actually goes out, so it doesn't
+  nag every time you look at the page. Sending itself is unchanged: still the same
+  preview-and-confirm dialog, never automatic.
 - Customers and products/services (`/dashboard/customers`, `/dashboard/products`): runs on
   this app's own database — add, edit, and deactivate/reactivate. There's no hard-delete, so
   deactivating is the real "delete" here — same pattern as the Chart of Accounts. A

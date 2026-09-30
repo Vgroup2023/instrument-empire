@@ -7,6 +7,7 @@ import {
   type JournalLineInput,
   type PostingType,
 } from '@/lib/quickbooks/journalEntryTypes';
+import { recordAuditLog } from '@/lib/accounting/auditLog';
 
 // This is the standalone, database-backed Journal Entries ledger — the app's
 // own source of truth, not QuickBooks. See src/lib/quickbooks/journalEntries.ts
@@ -100,7 +101,7 @@ export async function createJournalEntry(input: CreateJournalEntryInput): Promis
     throw new Error('Total debits must equal total credits before this can be saved.');
   }
   const db = getDb();
-  return db.transaction(async (tx) => {
+  const entry = await db.transaction(async (tx) => {
     const [entryRow] = await tx
       .insert(journalEntries)
       .values({
@@ -121,6 +122,8 @@ export async function createJournalEntry(input: CreateJournalEntryInput): Promis
     const [entry] = await attachLines([entryRow]);
     return entry;
   });
+  await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'create', after: entry });
+  return entry;
 }
 
 export interface UpdateJournalEntryInput {
@@ -136,8 +139,9 @@ export async function updateJournalEntry(input: UpdateJournalEntryInput): Promis
   if (input.lines && !balanceOf(input.lines).isBalanced) {
     throw new Error('Total debits must equal total credits before this can be saved.');
   }
+  const before = await getJournalEntry(input.id);
   const db = getDb();
-  return db.transaction(async (tx) => {
+  const entry = await db.transaction(async (tx) => {
     const patch: Partial<JournalEntryRow> = { updatedAt: new Date() };
     if (input.txnDate !== undefined) patch.txnDate = input.txnDate;
     if (input.memo !== undefined) patch.privateNote = input.memo || null;
@@ -165,11 +169,15 @@ export async function updateJournalEntry(input: UpdateJournalEntryInput): Promis
     const [entry] = await attachLines([entryRow]);
     return entry;
   });
+  await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'update', before, after: entry });
+  return entry;
 }
 
 export async function deleteJournalEntry(id: string): Promise<void> {
+  const before = await getJournalEntry(id).catch(() => null);
   const db = getDb();
   // journal_lines cascade-deletes via its ON DELETE CASCADE foreign key.
   const deleted = await db.delete(journalEntries).where(eq(journalEntries.id, id)).returning({ id: journalEntries.id });
   if (deleted.length === 0) throw new Error('Journal entry not found.');
+  if (before) await recordAuditLog({ entityType: 'journal_entry', entityId: id, action: 'delete', before });
 }

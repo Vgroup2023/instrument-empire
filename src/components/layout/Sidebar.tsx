@@ -42,6 +42,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard/accounts', label: 'Chart of accounts', icon: '📚' },
       { href: '/dashboard/journal-entries', label: 'Journal entries', icon: '📒' },
+      { href: '/dashboard/audit-log', label: 'Audit log', icon: '🕵️' },
     ],
   },
   {

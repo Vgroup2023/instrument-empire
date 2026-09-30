@@ -43,6 +43,13 @@
       "when": 1790730462613,
       "tag": "0005_sad_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790732531930,
+      "tag": "0006_faulty_psylocke",
+      "breakpoints": true
     }
   ]
 }

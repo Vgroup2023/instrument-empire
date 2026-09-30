@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { accounts } from '@/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DateRange } from '@/lib/dateRanges';
+import { recordAuditLog } from '@/lib/accounting/auditLog';
 
 // This is the standalone, database-backed Chart of Accounts — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/chartOfAccounts.ts
@@ -258,7 +259,9 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
       description: input.description || null,
     })
     .returning();
-  return toAccount(row, 0);
+  const account = toAccount(row, 0);
+  await recordAuditLog({ entityType: 'account', entityId: account.Id, action: 'create', after: account });
+  return account;
 }
 
 export interface UpdateAccountInput {
@@ -273,6 +276,7 @@ export interface UpdateAccountInput {
 }
 
 export async function updateAccount(input: UpdateAccountInput): Promise<Account> {
+  const before = await getAccount(input.id);
   const db = getDb();
   const patch: Partial<AccountRow> = { updatedAt: new Date() };
   if (input.name !== undefined) patch.name = input.name;
@@ -283,7 +287,9 @@ export async function updateAccount(input: UpdateAccountInput): Promise<Account>
   const [row] = await db.update(accounts).set(patch).where(eq(accounts.id, input.id)).returning();
   if (!row) throw new Error('Account not found.');
   const balances = await getAccountBalances();
-  return toAccount(row, balances.get(row.id) ?? 0);
+  const account = toAccount(row, balances.get(row.id) ?? 0);
+  await recordAuditLog({ entityType: 'account', entityId: account.Id, action: 'update', before, after: account });
+  return account;
 }
 
 export interface GlAccount {

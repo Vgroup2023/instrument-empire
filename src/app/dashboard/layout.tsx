@@ -1,6 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
-import { MobileNav } from '@/components/layout/MobileNav';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -10,8 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar />
-          <MobileNav />
-          <main className="safe-bottom flex-1 px-4 py-6 md:px-8 md:py-8">
+          <main className="safe-bottom flex-1 px-4 py-6 lg:px-8 lg:py-8">
             <div className="mx-auto max-w-6xl">{children}</div>
           </main>
         </div>

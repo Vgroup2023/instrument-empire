@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Label, Input } from '@/components/ui/Field';
 import { CustomerSelect } from '@/components/documents/CustomerSelect';
-import { LineItemsEditor } from '@/components/documents/LineItemsEditor';
+import { LineItemsEditor, blankLines } from '@/components/documents/LineItemsEditor';
 import { CurrencyExchangeRateField } from '@/components/documents/CurrencyExchangeRateField';
 import { useToast } from '@/components/ui/Toast';
 import type { Customer } from '@/lib/accounting/customers';
@@ -48,7 +48,7 @@ export function InvoiceFormDialog({
       quantity: l.SalesItemLineDetail.Qty,
       unitPrice: l.SalesItemLineDetail.UnitPrice,
       description: l.Description,
-    })) ?? [{ itemId: '', quantity: 1, unitPrice: 0 }],
+    })) ?? blankLines(10),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function InvoiceFormDialog({
     setLoading(true);
     setError(null);
     try {
-      const validLines = lines.filter((l) => l.itemId);
+      const validLines = lines.filter((l) => l.itemId || l.description?.trim());
       if (validLines.length === 0) throw new Error('Add at least one line item.');
 
       const res = await fetch(isEdit ? `/api/invoices/${invoice!.Id}` : '/api/invoices', {

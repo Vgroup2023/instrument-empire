@@ -15,7 +15,7 @@ export function lineTotal(items: LineItemInput[]): number {
 }
 
 export interface LineInsertRow {
-  productId: string;
+  productId: string | null;
   description: string | null;
   qty: string;
   unitPrice: string;
@@ -26,7 +26,9 @@ export interface LineInsertRow {
 /** Builds insertable line rows from form input, in the shape every sales-line table (invoice_lines, estimate_lines) shares. */
 export function toLineInsertRows(items: LineItemInput[]): LineInsertRow[] {
   return items.map((item, index) => ({
-    productId: item.itemId,
+    // A custom line (no catalog product) has itemId === '' — that's not a
+    // valid uuid, so it must become null rather than being inserted as-is.
+    productId: item.itemId || null,
     description: item.description || null,
     qty: item.quantity.toFixed(4),
     unitPrice: item.unitPrice.toFixed(4),

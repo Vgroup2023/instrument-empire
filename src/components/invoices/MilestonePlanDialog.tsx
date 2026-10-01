@@ -79,7 +79,7 @@ export function MilestonePlanDialog({
     setLoading(true);
     setError(null);
     try {
-      const validLines = lines.filter((l) => l.itemId);
+      const validLines = lines.filter((l) => l.itemId || l.description?.trim());
       if (validLines.length === 0) throw new Error('Add at least one line item for the full contract value.');
       const validMilestones = milestones.filter((m) => m.label.trim() && m.percent > 0);
       if (validMilestones.length < 2) throw new Error('Add at least two milestones.');

@@ -1,15 +1,19 @@
 import Link from 'next/link';
 import { getQboTokens } from '@/lib/session';
 import { Badge } from '@/components/ui/Badge';
+import { MobileNavDrawer } from './MobileNavDrawer';
 
 export async function TopBar() {
   const tokens = await getQboTokens();
 
   return (
-    <header className="safe-top flex min-h-16 items-center justify-between border-b border-white/10 bg-header-gradient px-4 md:px-6">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/globlex-ai-logo.webp" alt="Globlex AI" className="h-10 md:hidden" />
-      <div className="hidden md:block" />
+    <header className="safe-top flex min-h-16 items-center justify-between border-b border-white/10 bg-header-gradient px-4 lg:px-6">
+      <div className="flex items-center gap-2">
+        <MobileNavDrawer />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/globlex-ai-logo.webp" alt="Globlex AI" className="h-10 w-auto min-w-0 lg:hidden" />
+      </div>
+      <div className="hidden lg:block" />
       <div className="flex items-center gap-3">
         {tokens ? (
           <Link href="/dashboard/settings" className="flex items-center gap-2">

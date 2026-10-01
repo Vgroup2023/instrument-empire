@@ -260,7 +260,7 @@ export async function getSalesByProduct(period: PeriodKey = 'this-year'): Promis
   const invoicesList = await listInvoices();
   const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
   const rows = inPeriod.flatMap((inv) =>
-    inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? 'Unknown', amount: line.Amount })),
+    inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? line.Description ?? 'Custom item', amount: line.Amount })),
   );
   return buildSalesBreakdown(rows);
 }

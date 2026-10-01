@@ -117,7 +117,9 @@ export async function getInvoice(id: string): Promise<Invoice> {
 
 function validateLines(lines: LineItemInput[]): void {
   if (lines.length === 0) throw new Error('Add at least one line item.');
-  if (lines.some((l) => !l.itemId)) throw new Error('Every line needs a product/service selected.');
+  if (lines.some((l) => !l.itemId && !l.description?.trim())) {
+    throw new Error('Every line needs either a product/service or a description.');
+  }
 }
 
 export interface CreateInvoiceInput {
@@ -303,7 +305,7 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
 
 function invoiceEmailBody(invoice: Invoice, kind: 'invoice' | 'reminder'): { subject: string; text: string; html: string } {
   const lineRows = invoice.Line.map(
-    (l) => `${l.SalesItemLineDetail.ItemRef.name ?? 'Item'} — ${l.SalesItemLineDetail.Qty} x ${formatCurrency(l.SalesItemLineDetail.UnitPrice)} = ${formatCurrency(l.Amount)}`,
+    (l) => `${l.SalesItemLineDetail.ItemRef.name ?? l.Description ?? 'Item'} — ${l.SalesItemLineDetail.Qty} x ${formatCurrency(l.SalesItemLineDetail.UnitPrice)} = ${formatCurrency(l.Amount)}`,
   );
   const heading = kind === 'reminder' ? `Payment reminder: Invoice ${invoice.DocNumber}` : `Invoice ${invoice.DocNumber}`;
   const subject = heading;

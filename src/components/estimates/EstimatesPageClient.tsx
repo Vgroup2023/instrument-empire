@@ -215,6 +215,7 @@ export function EstimatesPageClient({
             itemName: l.SalesItemLineDetail.ItemRef.name,
             quantity: l.SalesItemLineDetail.Qty,
             unitPrice: l.SalesItemLineDetail.UnitPrice,
+            description: l.Description,
           }))}
           onCreated={() => setScheduleListKey((k) => k + 1)}
         />

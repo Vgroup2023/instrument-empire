@@ -1,6 +1,10 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { agentFindings, agentRuns, restrictedParties, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
+import { agentFindings, agentRuns, restrictedParties, shipmentDocuments, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
+import { createHash } from 'crypto';
+import { loadHtsIndex, loadScreeningIndex } from '@/lib/refdata/load';
+import { suggestHts, type HtsSuggestion } from '@/lib/hts/classify';
+import { llmEnabled } from '@/lib/llm/json';
 import { listInvoices } from '@/lib/accounting/invoices';
 import { listBills } from '@/lib/accounting/bills';
 import { AGENTS, departmentFor, type AgentContext, type AgentId, type Finding, type FindingAgent, type ShipmentCtx } from './types';
@@ -16,11 +20,13 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 export async function loadContext(now = new Date()): Promise<AgentContext> {
   const db = getDb();
-  const [shipmentRows, lineRows, eventRows, receiptRows, restricted, invoices, bills] = await Promise.all([
+  const [hts, screening] = await Promise.all([loadHtsIndex().catch(() => null), loadScreeningIndex().catch(() => null)]);
+  const [shipmentRows, lineRows, eventRows, receiptRows, docRows, restricted, invoices, bills] = await Promise.all([
     db.select().from(shipments),
     db.select().from(shipmentLines),
     db.select().from(shipmentEvents),
     db.select().from(warehouseReceipts),
+    db.select().from(shipmentDocuments).orderBy(shipmentDocuments.createdAt),
     db.select().from(restrictedParties),
     listInvoices(),
     listBills(),
@@ -28,7 +34,15 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
   const linesByShipment = new Map<string, ShipmentCtx['lines']>();
   for (const l of lineRows) {
     const list = linesByShipment.get(l.shipmentId) ?? [];
-    list.push({ id: l.id, description: l.description, htsCode: l.htsCode, value: num(l.value), eccn: l.eccn });
+    list.push({
+      id: l.id,
+      description: l.description,
+      htsCode: l.htsCode,
+      value: num(l.value),
+      eccn: l.eccn,
+      htsSuggestion: (l.htsSuggestion as HtsSuggestion | null) ?? null,
+      htsSuggestionKey: l.htsSuggestionKey,
+    });
     linesByShipment.set(l.shipmentId, list);
   }
   const eventsByShipment = new Map<string, { type: string; occurredAt: string }[]>();
@@ -38,8 +52,16 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
     eventsByShipment.set(e.shipmentId, list);
   }
   const receiptByShipment = new Map(receiptRows.map((r) => [r.shipmentId, r]));
+  // Latest commercial invoice total per shipment (rows are oldest first, so later ones win).
+  const invoiceTotals = new Map<string, number>();
+  for (const d of docRows) {
+    const e = d.extracted as { total?: unknown; currency?: unknown };
+    if (d.docType === 'commercial_invoice' && typeof e.total === 'number' && (!e.currency || e.currency === 'USD')) invoiceTotals.set(d.shipmentId, e.total);
+  }
   return {
     now,
+    hts,
+    screening,
     restrictedParties: restricted.map((r) => r.name),
     shipments: shipmentRows.map((s) => ({
       id: s.id,
@@ -58,6 +80,7 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
       invoicedAt: iso(s.invoicedAt),
       receivedDocs: s.receivedDocs,
       declaredValue: num(s.declaredValue),
+      invoiceTotal: invoiceTotals.get(s.id) ?? null,
       carrier: s.carrier,
       containerNo: s.containerNo,
       lastFreeDate: s.lastFreeDate,
@@ -162,9 +185,41 @@ export async function persistFindings(agent: FindingAgent, findings: Finding[]) 
     );
 }
 
+const NEW_SUGGESTIONS_PER_RUN = 25;
+
+/**
+ * Works out an HTS suggestion for each active line whose description has not
+ * been looked at (or changed, or Claude was switched on since). Results are
+ * stored on the line so a description is only looked at once. A cap keeps one
+ * run from making dozens of model calls; the rest wait for the next run.
+ */
+export async function enrichHtsSuggestions(ctx: AgentContext): Promise<number> {
+  if (!ctx.hts) return 0;
+  const db = getDb();
+  const mode = llmEnabled() ? 'ai' : 'search';
+  let done = 0;
+  for (const s of ctx.shipments) {
+    if (s.status !== 'open') continue;
+    for (const l of s.lines) {
+      const key = createHash('sha1').update(`${mode}|${l.description}`).digest('hex');
+      if (l.htsSuggestionKey === key) continue;
+      if (done >= NEW_SUGGESTIONS_PER_RUN) return done;
+      const suggestion = await suggestHts(l.description, ctx.hts);
+      // A model failure falls back to search results; remember that so it is retried when Claude answers again.
+      const modelFailed = mode === 'ai' && suggestion?.source === 'search';
+      await db.update(shipmentLines).set({ htsSuggestion: suggestion as never, htsSuggestionKey: modelFailed ? null : key }).where(eq(shipmentLines.id, l.id));
+      l.htsSuggestion = suggestion;
+      l.htsSuggestionKey = modelFailed ? null : key;
+      done += 1;
+    }
+  }
+  return done;
+}
+
 export async function runAgentsNow(): Promise<AgentRunSummary[]> {
   const db = getDb();
   const ctx = await loadContext();
+  await enrichHtsSuggestions(ctx).catch(() => 0);
   const results = runAllAgents(ctx);
   const summaries: AgentRunSummary[] = [];
   for (const meta of AGENTS) {

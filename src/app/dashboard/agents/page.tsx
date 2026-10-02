@@ -3,16 +3,18 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { agentOverview, listFindings, listRestrictedParties } from '@/lib/agents/queries';
 import { DEPARTMENTS, type Department } from '@/lib/agents/types';
+import { syncStatus } from '@/lib/refdata/load';
+import { llmEnabled } from '@/lib/llm/json';
 import { AgentsPageClient } from '@/components/agents/AgentsPageClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ dept?: string }> }) {
   const { dept } = await searchParams;
-  let data: [Awaited<ReturnType<typeof agentOverview>>, Awaited<ReturnType<typeof listFindings>>, Awaited<ReturnType<typeof listRestrictedParties>>] | null = null;
+  let data: [Awaited<ReturnType<typeof agentOverview>>, Awaited<ReturnType<typeof listFindings>>, Awaited<ReturnType<typeof listRestrictedParties>>, Awaited<ReturnType<typeof syncStatus>>] | null = null;
   let loadError: unknown = null;
   try {
-    data = await Promise.all([agentOverview(), listFindings('open'), listRestrictedParties()]);
+    data = await Promise.all([agentOverview(), listFindings('open'), listRestrictedParties(), syncStatus()]);
   } catch (err) {
     loadError = err;
   }
@@ -26,12 +28,14 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
     );
   }
 
-  const [overview, findings, restricted] = data;
+  const [overview, findings, restricted, refdata] = data;
   return (
     <AgentsPageClient
       overview={overview}
       findings={findings.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() }))}
       initialDepartment={DEPARTMENTS.some((d) => d.id === dept) ? (dept as Department) : 'all'}
+      refdata={refdata}
+      claudeOn={llmEnabled()}
       generatedAt={new Date().toISOString()}
       restricted={restricted.map((r) => ({ id: r.id, name: r.name, listName: r.listName }))}
     />

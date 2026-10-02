@@ -403,15 +403,17 @@ src/
 
 **Six agents** run over your shipments and accounts (`src/lib/agents/`). Each one is a plain
 rules function from a data snapshot to findings, so they're deterministic and unit-testable.
-They do **not** call an AI model and do **not** talk to CBP, ACE, AES or any screening service.
+By default they call no AI model and talk to no outside service; the official tariff, the
+official screening list and Claude are optional additions, described under **Official data and
+Claude** below. They never talk to CBP, ACE or AES.
 They only read what you record in **Shipments** and the accounting ledger, and queue findings
 for a person on **AI agents** (`/dashboard/agents`).
 
 | Agent | What it checks |
 | --- | --- |
-| HTS Oracle | HTS format (10 digits, chapters 01–97) and a short curated keyword list that suggests a 6-digit starting point. A broker must confirm the full code. |
+| HTS Oracle | Checks each code against the real tariff when synced (exists, valid statistical suffix), suggests a line for goods with no code, and flags likely misclassification. Without the synced tariff it checks code shape and a short keyword list. A broker must confirm every code. |
 | CBP Sentinel | ISF due 24 hours before loading (ocean), filed-late detection, and the 15-day entry window. |
-| Export Shield | Approximate name match against your restricted-party list, embargoed destinations (CU, IR, KP, SY), ECCN license prompts, and EEI timing above $2,500. |
+| Export Shield | Approximate name match of shippers and consignees against the official Consolidated Screening List (when synced) and your own list, embargoed destinations (CU, IR, KP, SY), ECCN license prompts, and EEI timing above $2,500. |
 | DocuPilot | Required documents on file, lines missing values, and line totals vs declared value. |
 | Risk Radar | 0–100 exposure score per file from the other agents' open findings. |
 | BillBot | Overdue invoice reminders, completed-but-unbilled files, bills due, and the CBP periodic monthly statement date (15th working day; weekends only, holidays can shift it). |
@@ -426,8 +428,8 @@ to create the new tables.
 Install button and per-device steps. The service worker caches only an offline page and icons,
 never financial data.
 
-What would make these real filing agents: ACE/ABI and AES connections, the live Consolidated
-Screening List, a tariff data source, and document extraction. None of those are wired up.
+Still not built: ACE/ABI and AES filing. That needs CBP certification or a certified filing
+partner and credentials.
 
 ## Shipping, logistics and warehouse
 
@@ -514,3 +516,37 @@ must appear in the order line) and stock comes from `qtyOnHand` on Inventory-typ
 - **One list of tabs:** `src/components/layout/navGroups.ts` feeds the sidebar, the mobile drawer
   and the master dashboard. `npm run check:nav` (also in CI) fails if a dashboard page isn't listed
   there or a listed page doesn't exist.
+
+## Official data and Claude
+
+Both are optional and show their status on **AI agents** under "Official data and Claude".
+
+**Official tariff and screening list** (no API keys; both are public downloads):
+- The US tariff from the USITC (about 29,900 lines, with each line's full description and the
+  general duty rate it inherits) and the trade.gov Consolidated Screening List (about 26,100
+  entries across 12 lists, with aliases) are copied into your database.
+- Sync them with **Sync now** on AI agents, or `npm run refdata:sync [hts|csl]` (needs `DATABASE_URL`).
+  The download takes about 15 seconds, which can exceed a serverless host's request limit, so the
+  repo includes `.github/workflows/refdata-sync.yml` (daily, writes straight to the database; add
+  the `DATABASE_URL` repository secret). A download that comes back short is refused and the old
+  copy stays.
+- Export Shield then screens every shipper and consignee in memory: the same words in any order,
+  ignoring "Inc/Ltd/GmbH" and similar, is a critical match; 80%+ similar is a high-severity
+  "may match". One-word names only match exactly. A real hit is not proof and a clear result is not
+  clearance: it is name matching, so compare addresses and countries on the official list.
+- HTS Oracle then flags codes that do not exist, unrecognised statistical suffixes, and gives
+  the general duty rate with each suggestion.
+
+**Claude** (set `ANTHROPIC_API_KEY`; model `claude-opus-5-5`, override with `DESK_LLM_MODEL`; `DESK_LLM=off` disables):
+- **HTS suggestions:** Claude proposes headings and tariff words, the real tariff supplies the
+  candidate lines, and Claude picks one *from that list*. A pick outside the list is discarded, so
+  a suggestion is always a line that exists. Each description is classified once and cached on the
+  line (at most 25 new ones per run). Without Claude, only keyword matches are listed, labelled as
+  not a classification.
+- **Invoice reading:** on a shipment, upload a commercial invoice (PDF or image up to 4 MB).
+  Claude copies out parties, currency, total and lines; the app re-checks the arithmetic and shows
+  warnings. **Apply** fills only blank fields (never overwrites), drops HTS codes that are not
+  10 digits, and does not convert non-USD values. The file itself is not stored, only what was read.
+  An invoice total that differs from the declared value raises a DocuPilot finding.
+- Text read from documents is treated as untrusted. The model returns fields only; nothing it
+  returns triggers an action.

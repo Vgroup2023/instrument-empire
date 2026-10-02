@@ -1,0 +1,29 @@
+name: Sync tariff and screening list
+
+# Downloads the USITC Harmonized Tariff Schedule and the trade.gov Consolidated
+# Screening List straight into your database, so no web server has to hold a
+# 16 MB download open. Add one repository secret: DATABASE_URL (the same value
+# the app uses).
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Check secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: test -n "$DATABASE_URL" || { echo "Set the DATABASE_URL secret."; exit 1; }
+      - name: Sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run refdata:sync

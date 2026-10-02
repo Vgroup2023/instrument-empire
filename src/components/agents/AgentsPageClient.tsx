@@ -40,6 +40,8 @@ export function AgentsPageClient({
   restricted,
   generatedAt,
   initialDepartment,
+  refdata,
+  claudeOn,
 }: {
   overview: { lastRun: Record<string, string | null>; openCount: Record<string, number> };
   findings: FindingRow[];
@@ -47,6 +49,8 @@ export function AgentsPageClient({
   /** Server render time, so freshness doesn't depend on the client clock during render. */
   generatedAt: string;
   initialDepartment: Department | 'all';
+  refdata: { hts: { at: string; rows: number } | null; csl: { at: string; rows: number } | null };
+  claudeOn: boolean;
 }) {
   const router = useRouter();
   const { notify } = useToast();
@@ -54,6 +58,7 @@ export function AgentsPageClient({
   const [filter, setFilter] = useState<AgentId | 'all'>('all');
   const [names, setNames] = useState('');
   const [dept, setDept] = useState<Department | 'all'>(initialDepartment);
+  const [syncing, setSyncing] = useState(false);
 
   async function call(url: string, init: RequestInit, ok: string) {
     const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
@@ -71,6 +76,21 @@ export function AgentsPageClient({
     setRunning(true);
     await call('/api/agents/run', { method: 'POST' }, 'Agents finished their run.');
     setRunning(false);
+  }
+
+  async function syncNow() {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/refdata/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset: 'all' }) });
+      const data = await res.json().catch(() => ({}));
+      if (data.errors?.length) notify(data.errors.join(' '), 'error');
+      else notify('Tariff and screening list updated.');
+      router.refresh();
+    } catch {
+      notify('The sync did not finish. On hosts that limit request time, run it from the scheduled job instead.', 'error');
+    } finally {
+      setSyncing(false);
+    }
   }
 
   const shown = findings.filter((f) => (filter === 'all' || f.agent === filter) && (dept === 'all' || f.department === dept));
@@ -175,9 +195,43 @@ export function AgentsPageClient({
       <Card>
         <CardHeader>
           <div>
+            <CardTitle>Official data and Claude</CardTitle>
+            <CardDescription>The tariff and screening list the agents check against, and whether Claude is switched on.</CardDescription>
+          </div>
+          <Button size="sm" variant="secondary" loading={syncing} onClick={syncNow}>
+            Sync now
+          </Button>
+        </CardHeader>
+        <CardBody className="grid gap-3 text-sm sm:grid-cols-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">US tariff (USITC HTS)</div>
+            {refdata.hts ? (
+              <p className="text-slate-700">{refdata.hts.rows.toLocaleString()} lines, synced {ago(refdata.hts.at, generatedAt)}</p>
+            ) : (
+              <p className="text-amber-700">Not synced. HTS Oracle only checks code shape.</p>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Consolidated Screening List</div>
+            {refdata.csl ? (
+              <p className="text-slate-700">{refdata.csl.rows.toLocaleString()} entries, synced {ago(refdata.csl.at, generatedAt)}</p>
+            ) : (
+              <p className="text-amber-700">Not synced. Export Shield only uses your own list.</p>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Claude</div>
+            {claudeOn ? <p className="text-slate-700">On: tariff suggestions and invoice reading.</p> : <p className="text-amber-700">Off. Set ANTHROPIC_API_KEY to turn it on.</p>}
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
             <CardTitle>Restricted-party list</CardTitle>
             <CardDescription>
-              Export Shield screens every shipper and consignee against these names. Paste entries from the official Consolidated Screening List; matching is approximate.
+              Export Shield screens every shipper and consignee against the official Consolidated Screening List and these extra names. Matching is approximate.
             </CardDescription>
           </div>
         </CardHeader>

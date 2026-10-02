@@ -550,3 +550,16 @@ Both are optional and show their status on **AI agents** under "Official data an
   An invoice total that differs from the declared value raises a DocuPilot finding.
 - Text read from documents is treated as untrusted. The model returns fields only; nothing it
   returns triggers an action.
+
+## Custom domain (globalxai.io)
+
+The app is hosted on Netlify. To serve it at `globalxai.io`:
+
+1. Netlify, then Domain management, then Add a domain: `globalxai.io` (accept `www.globalxai.io` too).
+2. DNS at your registrar: an `A` record for the apex pointing to `75.2.60.5` and a `CNAME` for `www` pointing to your `*.netlify.app` address (or switch the nameservers to Netlify DNS). Use the exact records Netlify shows if they differ.
+3. Once DNS has propagated, verify DNS and provision the HTTPS certificate in Netlify.
+4. Then update everything that holds the old address:
+   - Netlify environment: `APP_BASE_URL=https://globalxai.io`
+   - GitHub repository secret `APP_BASE_URL` (used by the hourly agent workflow)
+   - QuickBooks (only if connected): `QBO_REDIRECT_URI=https://globalxai.io/api/auth/callback`, and the same redirect URI in the Intuit app
+   - People who installed the app from the old address need to install it again from the new one; installs belong to one address.

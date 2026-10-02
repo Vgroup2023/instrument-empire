@@ -1,52 +1,70 @@
+import { redirect } from 'next/navigation';
+import { PasswordField } from '@/components/auth/PasswordField';
+import { isAppAuthenticated } from '@/lib/session';
+import { safeNext } from '@/lib/safeNext';
+
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const params = await searchParams;
-  const next = params.next ?? '/dashboard';
-  const hasError = params.error === '1';
+  const next = safeNext(params.next);
   const isRateLimited = params.error === 'rate_limited';
+  const hasError = params.error === '1';
+
+  // Already signed in: skip the form.
+  let signedIn = false;
+  try {
+    signedIn = await isAppAuthenticated();
+  } catch {
+    // SESSION_SECRET missing or cookie unreadable: show the form.
+  }
+  if (signedIn) redirect(next);
 
   return (
-    <div className="safe-top safe-bottom flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4">
+    <div className="safe-top safe-bottom flex min-h-screen flex-col items-center justify-center bg-header-gradient px-4 py-10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-6 w-full min-w-0 max-w-xs" />
-      <div className="w-full max-w-sm rounded-xl2 border border-slate-200 bg-surface p-8 shadow-card">
-        <div className="mb-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">Accounts Copilot</h1>
-          <p className="mt-1 text-sm text-slate-500">Internal financial insights &amp; actions app</p>
+      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-8 w-full min-w-0 max-w-[260px]" />
+
+      <main className="w-full max-w-sm rounded-xl2 bg-white p-8 shadow-xl">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
+          <p className="mt-1 text-sm text-slate-500">Accounts Copilot: your books, orders, shipments and AI agents in one place.</p>
         </div>
+
         <form action="/api/login" method="POST" className="space-y-4">
           <input type="hidden" name="next" value={next} />
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-              Passphrase
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoFocus
-              className="w-full rounded-lg border border-slate-300 bg-surface-muted px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            />
+          <PasswordField invalid={hasError} />
+          <div aria-live="polite">
+            {isRateLimited ? (
+              <p id="login-error" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                Too many attempts. Wait a few minutes before trying again.
+              </p>
+            ) : hasError ? (
+              <p id="login-error" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                That passphrase isn&apos;t right. Try again.
+              </p>
+            ) : null}
           </div>
-          {isRateLimited ? (
-            <p className="text-sm text-red-600">
-              Too many attempts. Wait a few minutes before trying again.
-            </p>
-          ) : hasError ? (
-            <p className="text-sm text-red-600">That passphrase isn&apos;t right. Try again.</p>
-          ) : null}
           <button
             type="submit"
-            className="w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+            className="w-full rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             Sign in
           </button>
         </form>
-      </div>
+
+        <p className="mt-6 text-xs text-slate-400">
+          This app uses one shared passphrase for the whole team. Ask your administrator if you don&apos;t have it.
+        </p>
+      </main>
+
+      <a href="/install" className="mt-6 text-sm text-slate-300 underline-offset-4 hover:text-white hover:underline">
+        Install the app on this device
+      </a>
     </div>
   );
 }

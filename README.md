@@ -502,3 +502,15 @@ templates filled with order data.
 payment, or a mailbox connector. Tracking numbers are entered by staff or pushed in through the
 `shipment` call above. Product matching uses your product names (every word of a product name
 must appear in the order line) and stock comes from `qtyOnHand` on Inventory-type products.
+
+## Sign-in and the master dashboard
+
+- **Sign-in** (`/login`): one shared passphrase (`APP_PASSWORD`) for the team; there are no per-person
+  accounts. Failed attempts are rate-limited, the passphrase check is constant-time, and the
+  post-login redirect only accepts same-site paths. Already signed in? `/login` skips straight on.
+- **Master dashboard** (`/dashboard`): a tile for every tab, grouped like the sidebar, with live
+  open-work counts (orders, agent findings, shipments), an "attention" strip, and a "Sample data"
+  badge on tabs still running on demo data (payments, payroll, capital). Financial insights sit below.
+- **One list of tabs:** `src/components/layout/navGroups.ts` feeds the sidebar, the mobile drawer
+  and the master dashboard. `npm run check:nav` (also in CI) fails if a dashboard page isn't listed
+  there or a listed page doesn't exist.

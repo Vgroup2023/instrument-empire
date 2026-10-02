@@ -33,8 +33,11 @@ function createDb() {
   // postgres-js doesn't enable TLS on its own unless the connection string
   // itself has a `sslmode` query param, which a copy-pasted Supabase
   // connection string won't have. connect_timeout fails fast on a stuck
-  // connection attempt instead of hanging indefinitely.
-  const client = postgres(url, { max: 5, prepare: false, ssl: 'require', connect_timeout: 10 });
+  // connection attempt instead of hanging indefinitely. It is kept well under
+  // Netlify's 10 second limit on a page render: at 10 seconds an unreachable
+  // database used the whole budget, and a page that waited twice for it was
+  // killed by the host with an "Inactivity Timeout" instead of showing an error.
+  const client = postgres(url, { max: 5, prepare: false, ssl: 'require', connect_timeout: 3 });
   return drizzle(client, { schema });
 }
 

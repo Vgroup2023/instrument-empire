@@ -19,6 +19,8 @@ export async function proxy(request: NextRequest) {
     // Carrier / TMS / WMS webhooks authenticate with INTEGRATION_KEY in the handler.
     pathname.startsWith('/api/integrations/') ||
     // Install instructions and the offline page must load before sign-in.
+    // Status check for the database; shows only a status word.
+    pathname === '/api/health' ||
     pathname === '/install' ||
     pathname === '/offline' ||
     pathname.startsWith('/_next') ||

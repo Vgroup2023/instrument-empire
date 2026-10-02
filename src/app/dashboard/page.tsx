@@ -4,24 +4,18 @@ import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/compon
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { MasterTabGrid } from '@/components/dashboard/MasterTabGrid';
 import { getTabStatus, type TabStatus } from '@/lib/tabStatus';
+import { withTimeout } from '@/lib/withTimeout';
 import { getProfitAndLossAndCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
 import { formatCurrency, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardHomePage() {
-  // Counts are a convenience: if the database is unreachable the tabs still show.
-  let status: TabStatus = { badges: {}, attention: [] };
-  try {
-    status = await getTabStatus();
-  } catch {
-    // leave the empty defaults
-  }
-
+export default function DashboardHomePage() {
   return (
     <div>
       <PageHeader
@@ -29,6 +23,36 @@ export default async function DashboardHomePage() {
         description="Every tab in one place, with what needs attention today. Financial insights are below."
       />
 
+      {/* The tab grid needs no database, so it shows straight away; counts and reports stream in after. */}
+      <Suspense
+        fallback={
+          <div className="mb-10">
+            <MasterTabGrid badges={{}} excludeHref="/dashboard" />
+          </div>
+        }
+      >
+        <LiveTabs />
+      </Suspense>
+
+      <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
+      <Suspense fallback={<p className="text-sm text-slate-500">Loading your reports…</p>}>
+        <InsightsBody />
+      </Suspense>
+    </div>
+  );
+}
+
+async function LiveTabs() {
+  // Counts are a convenience: if the database is slow or down the tabs still show.
+  let status: TabStatus = { badges: {}, attention: [] };
+  try {
+    status = await withTimeout(getTabStatus(), 3500, 'Tab counts took too long.');
+  } catch {
+    // leave the empty defaults
+  }
+
+  return (
+    <>
       {status.attention.length ? (
         <section aria-label="Needs attention" className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {status.attention.map((a) => (
@@ -45,14 +69,10 @@ export default async function DashboardHomePage() {
           ))}
         </section>
       ) : null}
-
       <div className="mb-10">
         <MasterTabGrid badges={status.badges} excludeHref="/dashboard" />
       </div>
-
-      <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
-      <InsightsBody />
-    </div>
+    </>
   );
 }
 
@@ -63,10 +83,11 @@ async function InsightsBody() {
   let balanceSheet: Awaited<ReturnType<typeof getBalanceSheet>> | null = null;
 
   try {
-    const [plAndCashFlow, balanceSheetResult] = await Promise.all([
-      getProfitAndLossAndCashFlow('this-year'),
-      getBalanceSheet('this-year'),
-    ]);
+    const [plAndCashFlow, balanceSheetResult] = await withTimeout(
+      Promise.all([getProfitAndLossAndCashFlow('this-year'), getBalanceSheet('this-year')]),
+      7000,
+      'Your reports took too long to load. The database may be slow or unreachable.',
+    );
     profitability = plAndCashFlow.profitability;
     cashFlow = plAndCashFlow.cashFlow;
     balanceSheet = balanceSheetResult;

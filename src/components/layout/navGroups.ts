@@ -83,6 +83,7 @@ export const navGroups: NavGroup[] = [
     title: 'App',
     items: [
       { href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️', description: 'Optional QuickBooks connection and provider status.' },
+      { href: '/dashboard/guide', label: 'Training guide', icon: '📖', description: 'How to use every tab. Read it here or download the Word file.' },
       { href: '/install', label: 'Install the app', icon: '⬇️', description: 'Add Accounts Copilot to your desktop or phone.' },
     ],
   },

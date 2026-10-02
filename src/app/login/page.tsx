@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { BRAND } from '@/lib/brand';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { isAppAuthenticated } from '@/lib/session';
 import { safeNext } from '@/lib/safeNext';
@@ -27,12 +28,17 @@ export default async function LoginPage({
   return (
     <div className="safe-top safe-bottom flex min-h-screen flex-col items-center justify-center bg-header-gradient px-4 py-10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-8 w-full min-w-0 max-w-[260px]" />
+      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-5 w-full min-w-0 max-w-[260px]" />
+      <div className="mb-8 max-w-sm text-center">
+        <p className="text-2xl font-semibold text-white">{BRAND.name}</p>
+        <p className="mt-1 text-sm font-semibold uppercase tracking-widest text-sky-300">{BRAND.tagline}</p>
+        <p className="mt-2 text-sm text-slate-300">{BRAND.marketing}</p>
+      </div>
 
       <main className="w-full max-w-sm rounded-xl2 bg-white p-8 shadow-xl">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
-          <p className="mt-1 text-sm text-slate-500">Accounts Copilot: your books, orders, shipments and AI agents in one place.</p>
+          <p className="mt-1 text-sm text-slate-500">Enter the passphrase to open your workspace.</p>
         </div>
 
         <form action="/api/login" method="POST" className="space-y-4">

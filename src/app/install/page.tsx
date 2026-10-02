@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { InstallButton } from '@/components/InstallButton';
 
-export const metadata: Metadata = { title: 'Install Accounts Copilot' };
+export const metadata: Metadata = { title: 'Install GloblexAI Office ERP' };
 
 const steps = [
   { device: 'Windows or Mac (Chrome, Edge)', how: 'Click Install app above, or use the install icon at the right end of the address bar.' },
@@ -14,7 +14,7 @@ export default function InstallPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 px-4 py-12">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Install Accounts Copilot</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Install GloblexAI Office ERP</h1>
         <p className="mt-2 text-sm text-slate-600">
           Runs in its own window with an icon on your desktop or home screen. Your six AI agents keep working on the server, so you can open the app any time and see what they found.
         </p>

@@ -1,7 +1,7 @@
 {
-  "name": "Accounts Copilot",
-  "short_name": "Copilot",
-  "description": "AI agents, shipments and accounting for your trade operation.",
+  "name": "GloblexAI Office ERP",
+  "short_name": "Office ERP",
+  "description": "AI-Powered Copilot. Run your orders, shipments and books from one intelligent workspace.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

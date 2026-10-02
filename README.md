@@ -1,4 +1,6 @@
-# Accounts Copilot
+# GloblexAI Office ERP
+
+*AI-Powered Copilot.* Run your orders, shipments and books from one intelligent workspace.
 
 A proprietary, single-tenant financial insights **and actions** app for the accounts
 department. It's a Next.js 16 (App Router + TypeScript + Tailwind) app with no external
@@ -596,4 +598,4 @@ migrations → Run workflow** (needs the `DATABASE_URL` repository secret), or r
 
 ## Training guide
 
-**Training guide** in the left menu (App group) shows the new-user operations guide in the browser and has a **Download (.docx)** button. Both read `docs/Accounts-Copilot-Operations-and-Training-Guide.docx`, so update that one file to update both. They sit behind the sign-in (`/dashboard/guide`, `/api/guide`).
+**Training guide** in the left menu (App group) shows the new-user operations guide in the browser and has a **Download (.docx)** button. Both read `docs/GloblexAI-Office-ERP-Operations-and-Training-Guide.docx`, so update that one file to update both. They sit behind the sign-in (`/dashboard/guide`, `/api/guide`).

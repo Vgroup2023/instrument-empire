@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { BRAND } from '@/lib/brand';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Accounts Copilot',
-  description:
-    'Financial insights and actions for the accounts department, with QuickBooks Online as an optional connection.',
+  title: `${BRAND.name} · ${BRAND.tagline}`,
+  description: BRAND.marketing,
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Accounts Copilot',
+    title: BRAND.shortName,
   },
 };
 

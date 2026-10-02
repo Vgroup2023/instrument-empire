@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getQboTokens } from '@/lib/session';
 import { Badge } from '@/components/ui/Badge';
 import { MobileNavDrawer } from './MobileNavDrawer';
+import { BRAND } from '@/lib/brand';
 
 export async function TopBar() {
   const tokens = await getQboTokens();
@@ -13,7 +14,13 @@ export async function TopBar() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/globlex-ai-logo.webp" alt="Globlex AI" className="h-10 w-auto min-w-0 lg:hidden" />
       </div>
-      <div className="hidden lg:block" />
+      <div className="min-w-0 flex-1 px-3 text-left lg:px-0">
+        <div className="truncate text-sm font-semibold text-slate-50">
+          <span className="sm:hidden">{BRAND.shortName}</span>
+          <span className="hidden sm:inline">{BRAND.name}</span>
+        </div>
+        <div className="truncate text-xs text-steel-400">{BRAND.tagline}</div>
+      </div>
       <div className="flex items-center gap-3">
         {tokens ? (
           <Link href="/dashboard/settings" className="flex items-center gap-2">

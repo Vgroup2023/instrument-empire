@@ -1,4 +1,8 @@
-// Pure, dependency-free types for the six trade agents. Each agent is a
+import type { HtsIndex } from '@/lib/hts';
+import type { HtsSuggestion } from '@/lib/hts/classify';
+import type { ScreeningIndex } from '@/lib/screening/match';
+
+// Pure types for the six trade agents. Each agent is a
 // function from a snapshot of the data (AgentContext) to findings, so the
 // rules can be tested without a database; runner.ts does the loading/saving.
 
@@ -33,6 +37,9 @@ export interface ShipmentLineCtx {
   htsCode: string | null;
   value: number | null;
   eccn: string | null;
+  /** Cached HTS suggestion for this description, and the key it was made under. */
+  htsSuggestion?: HtsSuggestion | null;
+  htsSuggestionKey?: string | null;
 }
 
 export interface ShipmentCtx {
@@ -56,6 +63,8 @@ export interface ShipmentCtx {
   containerNo: string | null;
   lastFreeDate: string | null;
   deliveredAt: string | null;
+  /** Total on the latest commercial invoice read by DocuPilot (USD or unstated currency). */
+  invoiceTotal?: number | null;
   events: { type: string; occurredAt: string }[];
   warehouse: WarehouseCtx | null;
   lines: ShipmentLineCtx[];
@@ -95,6 +104,9 @@ export interface AgentContext {
   now: Date;
   shipments: ShipmentCtx[];
   restrictedParties: string[];
+  /** The official tariff and screening list, when they have been synced. */
+  hts?: HtsIndex | null;
+  screening?: ScreeningIndex | null;
   invoices: InvoiceCtx[];
   bills: BillCtx[];
 }

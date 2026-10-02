@@ -1,6 +1,6 @@
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { agentFindings, agentRuns, customers, restrictedParties, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
+import { agentFindings, agentRuns, customers, restrictedParties, shipmentDocuments, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
 
 export async function listFindings(status: 'open' | 'resolved' | 'dismissed' = 'open') {
   const db = getDb();
@@ -115,6 +115,7 @@ export interface ShipmentDetail {
   lines: (typeof shipmentLines.$inferSelect)[];
   events: (typeof shipmentEvents.$inferSelect)[];
   receipt: typeof warehouseReceipts.$inferSelect | null;
+  documents: (typeof shipmentDocuments.$inferSelect)[];
   findings: Awaited<ReturnType<typeof listFindings>>;
 }
 
@@ -126,10 +127,11 @@ export async function getShipmentDetail(id: string): Promise<ShipmentDetail | nu
     .leftJoin(customers, eq(shipments.customerId, customers.id))
     .where(eq(shipments.id, id));
   if (!row) return null;
-  const [lines, events, [receipt], findings] = await Promise.all([
+  const [lines, events, [receipt], documents, findings] = await Promise.all([
     db.select().from(shipmentLines).where(eq(shipmentLines.shipmentId, id)),
     db.select().from(shipmentEvents).where(eq(shipmentEvents.shipmentId, id)).orderBy(desc(shipmentEvents.occurredAt)),
     db.select().from(warehouseReceipts).where(eq(warehouseReceipts.shipmentId, id)),
+    db.select().from(shipmentDocuments).where(eq(shipmentDocuments.shipmentId, id)).orderBy(desc(shipmentDocuments.createdAt)),
     listFindings('open'),
   ]);
   return {
@@ -138,6 +140,7 @@ export async function getShipmentDetail(id: string): Promise<ShipmentDetail | nu
     lines,
     events,
     receipt: receipt ?? null,
+    documents,
     findings: findings.filter((f) => f.shipmentId === id),
   };
 }

@@ -71,6 +71,13 @@
       "when": 1790939052197,
       "tag": "0009_elite_riptide",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790943921986,
+      "tag": "0010_natural_veda",
+      "breakpoints": true
     }
   ]
 }

@@ -51,6 +51,16 @@ export function runDocuPilot(ctx: AgentContext): Finding[] {
         detail: 'Get the signed delivery receipt before invoicing. Clients dispute charges without it.',
       });
     }
+    if (s.invoiceTotal != null && s.declaredValue !== null && s.declaredValue > 0 && Math.abs(s.invoiceTotal - s.declaredValue) / s.declaredValue > 0.01) {
+      out.push({
+        agent: 'docupilot',
+        severity: 'high',
+        shipmentId: s.id,
+        dedupeKey: `docs:invoice-total:${s.id}`,
+        title: `${s.reference}: commercial invoice total doesn't match the declared value`,
+        detail: `The invoice read from the uploaded document totals ${s.invoiceTotal.toFixed(2)}, but the declared value is ${s.declaredValue.toFixed(2)}. Correct one before filing.`,
+      });
+    }
     const incomplete = s.lines.filter((l) => !l.description.trim() || l.value === null);
     if (incomplete.length) {
       out.push({

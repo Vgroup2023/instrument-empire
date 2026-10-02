@@ -4,6 +4,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { getShipmentDetail } from '@/lib/agents/queries';
 import { ShipmentDetailClient } from '@/components/agents/ShipmentDetailClient';
+import { llmEnabled } from '@/lib/llm/json';
+import type { ExtractedInvoice } from '@/lib/documents/extract';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +62,8 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             }
           : null
       }
+      readingEnabled={llmEnabled()}
+      documents={detail.documents.map((d) => ({ id: d.id, fileName: d.fileName, status: d.status, createdAt: d.createdAt.toISOString(), extracted: { invoiceNumber: null, invoiceDate: null, seller: null, buyer: null, currency: null, total: null, lines: [], warnings: [], ...(d.extracted as unknown as Partial<ExtractedInvoice>) } }))}
       findings={detail.findings.map((f) => ({ id: f.id, severity: f.severity, title: f.title, detail: f.detail, department: f.department }))}
     />
   );

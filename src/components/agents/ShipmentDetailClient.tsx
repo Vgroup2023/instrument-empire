@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input, Label, Select, FieldGroup } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/format';
 import { ALL_DOCS } from '@/lib/agents/docupilot';
 import { DEPARTMENTS, EVENT_TYPES } from '@/lib/agents/types';
+import type { ExtractedInvoice } from '@/lib/documents/extract';
 
 interface Props {
   shipment: {
@@ -42,16 +43,19 @@ interface Props {
     storageBilledAt: string | null;
   } | null;
   findings: { id: string; severity: string; title: string; detail: string; department: string }[];
+  readingEnabled: boolean;
+  documents: { id: string; fileName: string | null; status: string; createdAt: string; extracted: ExtractedInvoice }[];
 }
 
 const TONE = { critical: 'danger', high: 'warning', medium: 'brand', low: 'neutral' } as const;
 const typeLabel = (t: string) => EVENT_TYPES.find((e) => e.id === t)?.label ?? t;
 const numOrNull = (v: string) => (v === '' ? null : Number(v));
 
-export function ShipmentDetailClient({ shipment: s, events, receipt, findings }: Props) {
+export function ShipmentDetailClient({ shipment: s, events, receipt, findings, readingEnabled, documents }: Props) {
   const router = useRouter();
   const { notify } = useToast();
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState(false);
   const [ev, setEv] = useState({ type: 'departed', location: '', note: '' });
   const [lg, setLg] = useState({ carrier: s.carrier ?? '', containerNo: s.containerNo ?? '', lastFreeDate: s.lastFreeDate ?? '' });
   const [wh, setWh] = useState({
@@ -77,6 +81,26 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings }:
       return false;
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setReading(true);
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const res = await fetch(`/api/shipments/${s.id}/documents`, { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Could not read the document.');
+      notify('Document read. Check it below, then apply it.');
+      router.refresh();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Something went wrong.', 'error');
+    } finally {
+      setReading(false);
     }
   }
 
@@ -171,6 +195,65 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings }:
           </CardBody>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Read an invoice with Claude</CardTitle>
+            <CardDescription>Upload a commercial invoice (PDF or image, up to 4 MB). Claude reads it; nothing changes on the shipment until you apply it.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          {readingEnabled ? (
+            <div>
+              <Label htmlFor="inv-file">Invoice file</Label>
+              <input id="inv-file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif" disabled={reading} onChange={upload} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-700" />
+              {reading ? <p className="mt-2 text-xs text-slate-500">Reading the document. This can take up to a minute.</p> : null}
+            </div>
+          ) : (
+            <p className="text-sm text-amber-700">Claude is off. Set ANTHROPIC_API_KEY on the server to read documents.</p>
+          )}
+          {documents.map((d) => (
+            <div key={d.id} className="space-y-2 rounded-lg border border-slate-200 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium text-slate-900">
+                  {d.extracted.invoiceNumber ? `Invoice ${d.extracted.invoiceNumber}` : (d.fileName ?? 'Invoice')} <span className="font-normal text-slate-500">· {d.extracted.seller ?? 'seller unknown'} to {d.extracted.buyer ?? 'buyer unknown'}</span>
+                </div>
+                <Badge tone={d.status === 'applied' ? 'success' : 'warning'}>{d.status === 'applied' ? 'applied' : 'waiting for you'}</Badge>
+              </div>
+              <div className="text-xs text-slate-500">
+                Total {d.extracted.total === null ? 'not found' : `${d.extracted.total.toFixed(2)} ${d.extracted.currency ?? ''}`} · {d.extracted.lines.length} line(s)
+              </div>
+              <ul className="space-y-0.5 text-xs text-slate-700">
+                {d.extracted.lines.slice(0, 8).map((l, i) => (
+                  <li key={i}>
+                    {l.quantity ?? '?'} x {l.description}
+                    {l.amount !== null ? ` · ${l.amount.toFixed(2)}` : ''}
+                  </li>
+                ))}
+                {d.extracted.lines.length > 8 ? <li className="text-slate-400">and {d.extracted.lines.length - 8} more</li> : null}
+              </ul>
+              {d.extracted.warnings.length ? (
+                <ul className="space-y-0.5 text-xs text-amber-700">
+                  {d.extracted.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {d.status !== 'applied' ? (
+                <div className="flex gap-2">
+                  <Button size="sm" loading={busy} onClick={() => send(`/api/shipments/${s.id}/documents/${d.id}`, 'POST', { action: 'apply' }, 'Applied. Only blank fields were filled.')}>
+                    Apply to shipment
+                  </Button>
+                  <Button size="sm" variant="ghost" loading={busy} onClick={() => send(`/api/shipments/${s.id}/documents/${d.id}`, 'POST', { action: 'discard' }, 'Discarded.')}>
+                    Discard
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader>

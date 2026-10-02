@@ -444,6 +444,10 @@ export const shipmentLines = pgTable('shipment_lines', {
   quantity: numeric('quantity', { precision: 14, scale: 2 }),
   value: numeric('value', { precision: 14, scale: 2 }),
   eccn: text('eccn'),
+  // Cached HTS Oracle suggestion, keyed by a hash of the description so it is
+  // only recomputed when the description changes.
+  htsSuggestion: jsonb('hts_suggestion').$type<Record<string, unknown> | null>(),
+  htsSuggestionKey: text('hts_suggestion_key'),
   ...timestamps,
 });
 
@@ -608,4 +612,52 @@ export const orderEvents = pgTable('order_events', {
   action: text('action').notNull(),
   detail: text('detail'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Reference data pulled from public sources: the USITC Harmonized Tariff
+// Schedule and the trade.gov Consolidated Screening List.
+// ---------------------------------------------------------------------------
+export const referenceSyncs = pgTable('reference_syncs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dataset: text('dataset').notNull(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  rowCount: integer('row_count').notNull().default(0),
+  error: text('error'),
+});
+
+export const htsCodes = pgTable('hts_codes', {
+  htsno: text('htsno').primaryKey(),
+  indent: integer('indent').notNull(),
+  description: text('description').notNull(),
+  // Parent descriptions joined, so a line like "Other" still says what it is other than.
+  path: text('path').notNull(),
+  // The general duty rate, taken from the nearest line above that states one.
+  general: text('general'),
+  special: text('special'),
+  other: text('other'),
+  units: jsonb('units').$type<string[]>().notNull().default([]),
+  chapter: integer('chapter').notNull(),
+});
+
+export const screeningEntries = pgTable('screening_entries', {
+  id: text('id').primaryKey(),
+  source: text('source').notNull(),
+  type: text('type'),
+  name: text('name').notNull(),
+  altNames: jsonb('alt_names').$type<string[]>().notNull().default([]),
+  programs: text('programs'),
+});
+
+// Documents read by DocuPilot. The file itself is not kept, only what was read from it.
+export const shipmentDocuments = pgTable('shipment_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shipmentId: uuid('shipment_id')
+    .notNull()
+    .references(() => shipments.id, { onDelete: 'cascade' }),
+  docType: text('doc_type').notNull().default('commercial_invoice'),
+  fileName: text('file_name'),
+  extracted: jsonb('extracted').$type<Record<string, unknown>>().notNull(),
+  status: text('status').notNull().default('extracted'),
+  ...timestamps,
 });

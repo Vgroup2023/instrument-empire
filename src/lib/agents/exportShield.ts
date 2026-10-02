@@ -30,14 +30,20 @@ export function runExportShield(ctx: AgentContext): Finding[] {
     for (const [role, name] of [['Shipper', s.shipper], ['Consignee', s.consignee]] as const) {
       if (!name) continue;
       const hit = matchesRestricted(name, ctx.restrictedParties);
-      if (hit) {
+      const csl = ctx.screening?.screen(name) ?? [];
+      if (hit || csl.length) {
+        const exact = !!hit || csl.some((m) => m.kind === 'exact');
+        const official = csl
+          .slice(0, 3)
+          .map((m) => `"${m.matchedName}" on ${m.entry.source}${m.entry.programs ? ` (${m.entry.programs})` : ''}, ${m.kind === 'exact' ? 'same name' : `${Math.round(m.score * 100)}% similar`}`)
+          .join('; ');
         out.push({
           agent: 'export-shield',
-          severity: 'critical',
+          severity: exact ? 'critical' : 'high',
           shipmentId: s.id,
           dedupeKey: `screen:${role}:${s.id}`,
-          title: `${s.reference}: ${role.toLowerCase()} "${name}" matches the restricted list`,
-          detail: `Matched "${hit}". Hold the file until compliance clears it. Name matching is approximate, so confirm against the official Consolidated Screening List.`,
+          title: `${s.reference}: ${role.toLowerCase()} "${name}" ${exact ? 'matches' : 'may match'} a restricted party`,
+          detail: `${hit ? `Your own list has "${hit}". ` : ''}${official ? `Consolidated Screening List: ${official}. ` : ''}Hold the file until compliance clears it. Name matching is approximate: look at addresses and countries on the official list before deciding either way.`,
         });
       }
     }

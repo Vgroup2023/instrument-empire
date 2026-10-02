@@ -24,4 +24,4 @@ jobs:
       - name: Migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:migrate
+        run: npx tsx scripts/migrate.ts

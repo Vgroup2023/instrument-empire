@@ -60,6 +60,10 @@ const config: Config = {
       backgroundImage: {
         // Dark gradient blue used for the sidebar, top bar, and mobile nav.
         'header-gradient': 'linear-gradient(180deg, #0a1a35 0%, #1e3a6e 100%)',
+        // Brushed silver-and-black, sampled from the Globlex AI logo plate: fine
+        // vertical grain over a diagonal sheen from black through gunmetal to silver.
+        'silver-black':
+          'repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px), linear-gradient(135deg, #07080a 0%, #1c1f25 24%, #4a4f5a 50%, #1c1f25 76%, #07080a 100%)',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 6px -1px rgb(0 0 0 / 0.06)',

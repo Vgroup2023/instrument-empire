@@ -9,11 +9,14 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
     icon: [
-      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      // ?v= makes browsers drop a cached copy of the old favicon.
+      { url: '/favicon.ico?v=2', sizes: 'any' },
+      { url: '/icons/favicon-16.png?v=2', sizes: '16x16', type: 'image/png' },
+      { url: '/icons/favicon-32.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png?v=2', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/icons/apple-touch-icon.png',
+    apple: '/icons/apple-touch-icon.png?v=2',
   },
   // iOS ignores the web manifest for "Add to Home Screen" and reads these instead.
   appleWebApp: {

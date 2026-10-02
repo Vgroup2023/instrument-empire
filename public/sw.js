@@ -2,7 +2,7 @@
 // when the network is down. It deliberately caches no pages or API responses,
 // because this app shows live financial data and a stale copy would be wrong.
 // Only the offline page and static icons are stored.
-const CACHE = 'copilot-shell-v2';
+const CACHE = 'copilot-shell-v3';
 const SHELL = ['/offline', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

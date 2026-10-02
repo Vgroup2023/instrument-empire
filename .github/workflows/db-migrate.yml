@@ -1,0 +1,27 @@
+name: Run database migrations
+
+# One-click: Actions tab -> "Run database migrations" -> Run workflow.
+# Applies every pending drizzle migration to the database in the DATABASE_URL
+# repository secret (the same value the app uses). Safe to re-run: already
+# applied migrations are skipped.
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Check secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: test -n "$DATABASE_URL" || { echo "Set the DATABASE_URL secret."; exit 1; }
+      - name: Migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:migrate

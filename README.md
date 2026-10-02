@@ -586,3 +586,10 @@ signing in) times out, the server cannot reach the database.
 Pages now start sending immediately, a database that does not answer produces an error message
 within about 3 seconds instead of a platform timeout, and the master dashboard's tab list shows
 even when the database is down.
+
+### If pages say `relation "shipments" does not exist`
+
+The database is behind the code. In GitHub open **Actions → Run database
+migrations → Run workflow** (needs the `DATABASE_URL` repository secret), or run
+`npm run db:migrate` locally with the production `DATABASE_URL`. Then check
+`/api/health` shows `"schema":"ok"` and press **Sync now** on the AI agents page.

@@ -1,4 +1,5 @@
 import { NavLinksList } from './NavLinksList';
+import { BRAND } from '@/lib/brand';
 
 export function Sidebar() {
   return (
@@ -6,7 +7,8 @@ export function Sidebar() {
       <div className="flex flex-col items-center gap-1 border-b border-white/10 px-4 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="w-full min-w-0 max-w-[180px]" />
-        <span className="text-xs font-medium uppercase tracking-wide text-steel-400">Accounts Copilot</span>
+        <span className="text-center text-xs font-semibold uppercase tracking-wide text-slate-100">{BRAND.name}</span>
+        <span className="text-center text-[11px] text-steel-400">{BRAND.tagline}</span>
       </div>
       <NavLinksList />
     </aside>

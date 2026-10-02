@@ -550,3 +550,26 @@ Both are optional and show their status on **AI agents** under "Official data an
   An invoice total that differs from the declared value raises a DocuPilot finding.
 - Text read from documents is treated as untrusted. The model returns fields only; nothing it
   returns triggers an action.
+
+## If a page shows "Inactivity Timeout"
+
+That message is Netlify giving up because the server sent nothing for 10 seconds. The sign-in
+page does not touch the database, so if `/login` loads but `/dashboard` (or any other page after
+signing in) times out, the server cannot reach the database.
+
+1. Open `https://your-address/api/health` (no sign-in). It answers within 5 seconds:
+   - `"database":"ok","schema":"ok"` is healthy.
+   - `"database":"unreachable"` or `"timeout"`: the server cannot get a connection. Check below.
+   - `"database":"not_configured"`: `DATABASE_URL` is not set in Netlify's environment.
+   - `"schema":"behind"`: the database is reachable but `npm run db:migrate` has not been run.
+2. For unreachable or timeout, check `DATABASE_URL` in Netlify (Site configuration, Environment variables):
+   - Supabase: use the **pooler** connection string (host like `aws-0-<region>.pooler.supabase.com`,
+     port `6543`), not the direct `db.<project>.supabase.co:5432` one. The direct host is IPv6-only,
+     which Netlify's servers cannot reach, so every attempt hangs.
+   - The database project is not paused (free Supabase projects pause after a week idle) and the
+     password in the URL is current.
+3. Redeploy after changing an environment variable.
+
+Pages now start sending immediately, a database that does not answer produces an error message
+within about 3 seconds instead of a platform timeout, and the master dashboard's tab list shows
+even when the database is down.

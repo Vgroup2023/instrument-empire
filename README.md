@@ -398,3 +398,64 @@ src/
       mock/            Demo-data providers for Capital/Benchmark (no real Intuit product access)
     session.ts         Signed-cookie session (app login + QuickBooks tokens)
 ```
+
+## Trade AI agents and installing the app
+
+**Six agents** run over your shipments and accounts (`src/lib/agents/`). Each one is a plain
+rules function from a data snapshot to findings, so they're deterministic and unit-testable.
+They do **not** call an AI model and do **not** talk to CBP, ACE, AES or any screening service.
+They only read what you record in **Shipments** and the accounting ledger, and queue findings
+for a person on **AI agents** (`/dashboard/agents`).
+
+| Agent | What it checks |
+| --- | --- |
+| HTS Oracle | HTS format (10 digits, chapters 01–97) and a short curated keyword list that suggests a 6-digit starting point. A broker must confirm the full code. |
+| CBP Sentinel | ISF due 24 hours before loading (ocean), filed-late detection, and the 15-day entry window. |
+| Export Shield | Approximate name match against your restricted-party list, embargoed destinations (CU, IR, KP, SY), ECCN license prompts, and EEI timing above $2,500. |
+| DocuPilot | Required documents on file, lines missing values, and line totals vs declared value. |
+| Risk Radar | 0–100 exposure score per file from the other agents' open findings. |
+| BillBot | Overdue invoice reminders, completed-but-unbilled files, bills due, and the CBP periodic monthly statement date (15th working day; weekends only, holidays can shift it). |
+
+Findings de-duplicate by key, close themselves when the condition clears, and stay dismissed if
+you dismissed them. **Run them daily:** set `CRON_SECRET` on the server and add `APP_BASE_URL` and
+`CRON_SECRET` as repository secrets; `.github/workflows/agents-daily.yml` calls
+`POST /api/agents/run` (and the recurring-invoice runner) each day. Run `npm run db:migrate`
+to create the new tables.
+
+**Install it:** the app is an installable PWA. Open `/install` (no sign-in needed) for the
+Install button and per-device steps. The service worker caches only an offline page and icons,
+never financial data.
+
+What would make these real filing agents: ACE/ABI and AES connections, the live Consolidated
+Screening List, a tariff data source, and document extraction. None of those are wired up.
+
+## Shipping, logistics and warehouse
+
+Every department works from the same shipment record (`/dashboard/shipments/[id]`).
+
+- **Operations board** (`/dashboard/operations`): each file by stage (Booked, In transit, Arrived,
+  Customs cleared, In warehouse, Delivered, Invoiced), plus open work per department. The stage is
+  worked out from filings, timeline events and warehouse status, not typed in.
+- **Logistics:** carrier, container or AWB number, last free day, and a timeline of events (departed,
+  arrived, customs hold, released, gate out, received at warehouse, delivered).
+- **Warehouse:** one receipt per shipment with bin, expected vs received vs damaged pieces, free
+  days and a daily rate. Release and storage-billed are stamped when you click them.
+- **Departments:** every agent finding is routed to Customs, Compliance, Shipping, Logistics,
+  Warehouse or Accounts. Filter by department on **AI agents**.
+
+New checks that use this data: customs hold open 2+ days (CBP Sentinel), last free day approaching
+or passed and warehouse shortage or damage (Risk Radar), delivered without proof of delivery
+(DocuPilot), and warehouse storage past the free days that hasn't been billed (BillBot).
+
+**Connecting carriers, a TMS or a WMS:** set `INTEGRATION_KEY`, then have the system send
+
+```
+POST /api/integrations/events
+Authorization: Bearer <INTEGRATION_KEY>
+{ "reference": "IMP-100", "type": "customs_hold", "location": "Long Beach", "occurredAt": "2026-10-02T14:00:00Z" }
+```
+
+`type` is one of `booked, departed, arrived, customs_hold, customs_released, gate_out,
+warehouse_received, delivered, note`. `reference` must match a shipment's file reference. A
+`delivered` event also stamps the delivery time. Nothing here polls carrier tracking APIs or reads
+a WMS by itself; those systems have to push events, or someone has to build a connector for them.

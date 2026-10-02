@@ -50,6 +50,20 @@
       "when": 1790732531930,
       "tag": "0006_faulty_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790936746724,
+      "tag": "0007_heavy_lionheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790937588261,
+      "tag": "0008_robust_gunslinger",
+      "breakpoints": true
     }
   ]
 }

@@ -398,3 +398,119 @@ export const auditLog = pgTable('audit_log', {
   after: jsonb('after'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Trade operations + AI agents (shipments the agents watch, and what they find)
+// ---------------------------------------------------------------------------
+export const shipmentDirectionEnum = pgEnum('shipment_direction', ['import', 'export']);
+export const shipmentStatusEnum = pgEnum('shipment_status', ['open', 'completed', 'cancelled']);
+export const agentFindingStatusEnum = pgEnum('agent_finding_status', ['open', 'resolved', 'dismissed']);
+
+export const shipments = pgTable('shipments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reference: text('reference').notNull(),
+  customerId: uuid('customer_id').references(() => customers.id),
+  direction: shipmentDirectionEnum('direction').notNull().default('import'),
+  status: shipmentStatusEnum('status').notNull().default('open'),
+  originCountry: text('origin_country'),
+  destinationCountry: text('destination_country'),
+  shipper: text('shipper'),
+  consignee: text('consignee'),
+  // Foreign port of loading date for imports, US port of export for exports.
+  loadingDate: date('loading_date'),
+  arrivalDate: date('arrival_date'),
+  isfFiledAt: timestamp('isf_filed_at', { withTimezone: true }),
+  entryFiledAt: timestamp('entry_filed_at', { withTimezone: true }),
+  eeiFiledAt: timestamp('eei_filed_at', { withTimezone: true }),
+  invoicedAt: timestamp('invoiced_at', { withTimezone: true }),
+  // Document types on file, e.g. ["commercial_invoice","packing_list"].
+  receivedDocs: jsonb('received_docs').$type<string[]>().notNull().default([]),
+  declaredValue: numeric('declared_value', { precision: 14, scale: 2 }),
+  // Logistics: who is moving it and when the free time on the container ends.
+  carrier: text('carrier'),
+  containerNo: text('container_no'),
+  lastFreeDate: date('last_free_date'),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  ...timestamps,
+});
+
+export const shipmentLines = pgTable('shipment_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shipmentId: uuid('shipment_id')
+    .notNull()
+    .references(() => shipments.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  htsCode: text('hts_code'),
+  quantity: numeric('quantity', { precision: 14, scale: 2 }),
+  value: numeric('value', { precision: 14, scale: 2 }),
+  eccn: text('eccn'),
+  ...timestamps,
+});
+
+// Timeline of what happened to a shipment, entered by staff or pushed in by a
+// carrier / TMS / WMS through /api/integrations/events.
+export const shipmentEvents = pgTable('shipment_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shipmentId: uuid('shipment_id')
+    .notNull()
+    .references(() => shipments.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  location: text('location'),
+  note: text('note'),
+  source: text('source').notNull().default('manual'),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Warehouse receipt for a shipment: what was expected, what arrived, where it
+// sits, and the storage terms used to bill after the free days.
+export const warehouseReceipts = pgTable('warehouse_receipts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shipmentId: uuid('shipment_id')
+    .notNull()
+    .unique()
+    .references(() => shipments.id, { onDelete: 'cascade' }),
+  binLocation: text('bin_location'),
+  expectedPieces: integer('expected_pieces'),
+  receivedPieces: integer('received_pieces'),
+  damagedPieces: integer('damaged_pieces').notNull().default(0),
+  receivedAt: timestamp('received_at', { withTimezone: true }),
+  releasedAt: timestamp('released_at', { withTimezone: true }),
+  freeDays: integer('free_days').notNull().default(5),
+  dailyRate: numeric('daily_rate', { precision: 10, scale: 2 }),
+  storageBilledAt: timestamp('storage_billed_at', { withTimezone: true }),
+  ...timestamps,
+});
+
+export const restrictedParties = pgTable('restricted_parties', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  listName: text('list_name').notNull().default('Internal'),
+  ...timestamps,
+});
+
+export const agentFindings = pgTable('agent_findings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agent: text('agent').notNull(),
+  severity: text('severity').notNull(),
+  title: text('title').notNull(),
+  detail: text('detail').notNull(),
+  shipmentId: uuid('shipment_id').references(() => shipments.id, { onDelete: 'cascade' }),
+  // Stable key so a repeat run updates the same finding instead of duplicating it.
+  dedupeKey: text('dedupe_key').notNull().unique(),
+  // Which team owns the follow-up: customs, compliance, shipping, logistics, warehouse or accounts.
+  department: text('department').notNull().default('customs'),
+  // Optional one-click action, e.g. { type: 'apply_hts', lineId, htsCode } or { type: 'link', href }.
+  action: jsonb('action').$type<Record<string, string> | null>(),
+  status: agentFindingStatusEnum('status').notNull().default('open'),
+  ...timestamps,
+});
+
+export const agentRuns = pgTable('agent_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agent: text('agent').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  findingsCount: integer('findings_count').notNull().default(0),
+  error: text('error'),
+});

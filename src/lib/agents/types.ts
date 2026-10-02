@@ -52,7 +52,25 @@ export interface ShipmentCtx {
   invoicedAt: string | null;
   receivedDocs: string[];
   declaredValue: number | null;
+  carrier: string | null;
+  containerNo: string | null;
+  lastFreeDate: string | null;
+  deliveredAt: string | null;
+  events: { type: string; occurredAt: string }[];
+  warehouse: WarehouseCtx | null;
   lines: ShipmentLineCtx[];
+}
+
+export interface WarehouseCtx {
+  binLocation: string | null;
+  expectedPieces: number | null;
+  receivedPieces: number | null;
+  damagedPieces: number;
+  receivedAt: string | null;
+  releasedAt: string | null;
+  freeDays: number;
+  dailyRate: number | null;
+  storageBilledAt: string | null;
 }
 
 export interface InvoiceCtx {
@@ -104,3 +122,64 @@ export function hoursUntil(target: Date, now: Date): number {
 export function isActive(s: ShipmentCtx): boolean {
   return s.status === 'open';
 }
+
+export type Department = 'customs' | 'compliance' | 'shipping' | 'logistics' | 'warehouse' | 'accounts';
+
+export const DEPARTMENTS: { id: Department; name: string }[] = [
+  { id: 'customs', name: 'Customs brokerage' },
+  { id: 'compliance', name: 'Trade compliance' },
+  { id: 'shipping', name: 'Shipping & documentation' },
+  { id: 'logistics', name: 'Logistics & transport' },
+  { id: 'warehouse', name: 'Warehouse' },
+  { id: 'accounts', name: 'Accounts' },
+];
+
+/** Which team owns a finding, from the first part(s) of its dedupe key. */
+export function departmentFor(dedupeKey: string): Department {
+  const [a, b] = dedupeKey.split(':');
+  if (a === 'bill') return 'accounts';
+  if (a === 'screen' || a === 'embargo' || a === 'eccn' || a === 'eei') return 'compliance';
+  if (a === 'docs') return 'shipping';
+  if (a === 'risk' && (b === 'lfd' || b === 'late')) return 'logistics';
+  if (a === 'risk' && b === 'wh') return 'warehouse';
+  if (a === 'risk') return 'compliance';
+  return 'customs';
+}
+
+export type Stage = 'booked' | 'in_transit' | 'arrived' | 'cleared' | 'in_warehouse' | 'delivered' | 'invoiced' | 'cancelled';
+
+export const STAGES: { id: Stage; name: string }[] = [
+  { id: 'booked', name: 'Booked' },
+  { id: 'in_transit', name: 'In transit' },
+  { id: 'arrived', name: 'Arrived' },
+  { id: 'cleared', name: 'Customs cleared' },
+  { id: 'in_warehouse', name: 'In warehouse' },
+  { id: 'delivered', name: 'Delivered' },
+  { id: 'invoiced', name: 'Invoiced' },
+];
+
+/** The furthest point the shipment has reached, judged from filings, events and warehouse status. */
+export function stageOf(s: ShipmentCtx, now: Date): Stage {
+  if (s.status === 'cancelled') return 'cancelled';
+  if (s.invoicedAt) return 'invoiced';
+  if (s.deliveredAt || s.events.some((e) => e.type === 'delivered')) return 'delivered';
+  const w = s.warehouse;
+  if (w?.receivedAt && !w.releasedAt) return 'in_warehouse';
+  if (s.events.some((e) => e.type === 'customs_released' || e.type === 'gate_out')) return 'cleared';
+  if (s.events.some((e) => e.type === 'arrived') || (s.arrivalDate !== null && dayStart(s.arrivalDate) <= now)) return 'arrived';
+  if (s.events.some((e) => e.type === 'departed') || (s.loadingDate !== null && dayStart(s.loadingDate) <= now)) return 'in_transit';
+  return 'booked';
+}
+
+export const EVENT_TYPES = [
+  { id: 'booked', label: 'Booked' },
+  { id: 'departed', label: 'Departed origin' },
+  { id: 'arrived', label: 'Arrived at port' },
+  { id: 'customs_hold', label: 'Customs hold' },
+  { id: 'customs_released', label: 'Customs released' },
+  { id: 'gate_out', label: 'Gate out / picked up' },
+  { id: 'warehouse_received', label: 'Received at warehouse' },
+  { id: 'delivered', label: 'Delivered' },
+  { id: 'note', label: 'Note' },
+] as const;
+

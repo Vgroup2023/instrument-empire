@@ -1,9 +1,9 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { agentFindings, agentRuns, restrictedParties, shipmentLines, shipments } from '@/db/schema';
+import { agentFindings, agentRuns, restrictedParties, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
 import { listInvoices } from '@/lib/accounting/invoices';
 import { listBills } from '@/lib/accounting/bills';
-import { AGENTS, type AgentContext, type AgentId, type Finding, type ShipmentCtx } from './types';
+import { AGENTS, departmentFor, type AgentContext, type AgentId, type Finding, type ShipmentCtx } from './types';
 import { runHtsOracle } from './hts';
 import { runCbpSentinel } from './sentinel';
 import { runExportShield } from './exportShield';
@@ -16,9 +16,11 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 export async function loadContext(now = new Date()): Promise<AgentContext> {
   const db = getDb();
-  const [shipmentRows, lineRows, restricted, invoices, bills] = await Promise.all([
+  const [shipmentRows, lineRows, eventRows, receiptRows, restricted, invoices, bills] = await Promise.all([
     db.select().from(shipments),
     db.select().from(shipmentLines),
+    db.select().from(shipmentEvents),
+    db.select().from(warehouseReceipts),
     db.select().from(restrictedParties),
     listInvoices(),
     listBills(),
@@ -29,6 +31,13 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
     list.push({ id: l.id, description: l.description, htsCode: l.htsCode, value: num(l.value), eccn: l.eccn });
     linesByShipment.set(l.shipmentId, list);
   }
+  const eventsByShipment = new Map<string, { type: string; occurredAt: string }[]>();
+  for (const e of eventRows) {
+    const list = eventsByShipment.get(e.shipmentId) ?? [];
+    list.push({ type: e.type, occurredAt: e.occurredAt.toISOString() });
+    eventsByShipment.set(e.shipmentId, list);
+  }
+  const receiptByShipment = new Map(receiptRows.map((r) => [r.shipmentId, r]));
   return {
     now,
     restrictedParties: restricted.map((r) => r.name),
@@ -49,6 +58,27 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
       invoicedAt: iso(s.invoicedAt),
       receivedDocs: s.receivedDocs,
       declaredValue: num(s.declaredValue),
+      carrier: s.carrier,
+      containerNo: s.containerNo,
+      lastFreeDate: s.lastFreeDate,
+      deliveredAt: iso(s.deliveredAt),
+      events: eventsByShipment.get(s.id) ?? [],
+      warehouse: (() => {
+        const r = receiptByShipment.get(s.id);
+        return r
+          ? {
+              binLocation: r.binLocation,
+              expectedPieces: r.expectedPieces,
+              receivedPieces: r.receivedPieces,
+              damagedPieces: r.damagedPieces,
+              receivedAt: iso(r.receivedAt),
+              releasedAt: iso(r.releasedAt),
+              freeDays: r.freeDays,
+              dailyRate: num(r.dailyRate),
+              storageBilledAt: iso(r.storageBilledAt),
+            }
+          : null;
+      })(),
       lines: linesByShipment.get(s.id) ?? [],
     })),
     invoices: invoices.map((i) => ({
@@ -101,6 +131,7 @@ async function persist(agent: AgentId, findings: Finding[]) {
         detail: f.detail,
         shipmentId: f.shipmentId ?? null,
         dedupeKey: f.dedupeKey,
+        department: departmentFor(f.dedupeKey),
         action: f.action ?? null,
       })
       .onConflictDoUpdate({
@@ -111,6 +142,7 @@ async function persist(agent: AgentId, findings: Finding[]) {
           severity: f.severity,
           title: f.title,
           detail: f.detail,
+          department: departmentFor(f.dedupeKey),
           updatedAt: new Date(),
           status: sql`case when ${agentFindings.status} = 'resolved' then 'open'::agent_finding_status else ${agentFindings.status} end`,
         },

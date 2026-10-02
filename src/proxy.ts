@@ -16,6 +16,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/api/recurring/run-due') ||
     // Same for the daily agent run; the handler checks CRON_SECRET or a session itself.
     pathname.startsWith('/api/agents/run') ||
+    // Carrier / TMS / WMS webhooks authenticate with INTEGRATION_KEY in the handler.
+    pathname.startsWith('/api/integrations/') ||
     // Install instructions and the offline page must load before sign-in.
     pathname === '/install' ||
     pathname === '/offline' ||

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Label, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { AGENTS, type AgentId } from '@/lib/agents/types';
+import { AGENTS, DEPARTMENTS, type AgentId, type Department } from '@/lib/agents/types';
 
 interface FindingRow {
   id: string;
@@ -18,6 +18,7 @@ interface FindingRow {
   severity: string;
   title: string;
   detail: string;
+  department: string;
   action: Record<string, string> | null;
   createdAt: string;
 }
@@ -38,18 +39,21 @@ export function AgentsPageClient({
   findings,
   restricted,
   generatedAt,
+  initialDepartment,
 }: {
   overview: { lastRun: Record<string, string | null>; openCount: Record<string, number> };
   findings: FindingRow[];
   restricted: { id: string; name: string; listName: string }[];
   /** Server render time, so freshness doesn't depend on the client clock during render. */
   generatedAt: string;
+  initialDepartment: Department | 'all';
 }) {
   const router = useRouter();
   const { notify } = useToast();
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<AgentId | 'all'>('all');
   const [names, setNames] = useState('');
+  const [dept, setDept] = useState<Department | 'all'>(initialDepartment);
 
   async function call(url: string, init: RequestInit, ok: string) {
     const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
@@ -69,7 +73,7 @@ export function AgentsPageClient({
     setRunning(false);
   }
 
-  const shown = filter === 'all' ? findings : findings.filter((f) => f.agent === filter);
+  const shown = findings.filter((f) => (filter === 'all' || f.agent === filter) && (dept === 'all' || f.department === dept));
 
   return (
     <div className="space-y-6">
@@ -120,6 +124,18 @@ export function AgentsPageClient({
           </div>
         </CardHeader>
         <CardBody className="p-0">
+          <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3">
+            {([{ id: 'all', name: 'All departments' }, ...DEPARTMENTS] as { id: Department | 'all'; name: string }[]).map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDept(d.id)}
+                className={`rounded-full px-3 py-1 text-xs ${dept === d.id ? 'bg-brand-600 text-white' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
           {shown.length === 0 ? (
             <EmptyState title="Nothing needs attention" description="Add shipments, then run the agents to see findings here." />
           ) : (
@@ -129,7 +145,9 @@ export function AgentsPageClient({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={SEVERITY_TONE[f.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>{f.severity}</Badge>
-                      <span className="text-xs text-slate-500">{AGENTS.find((a) => a.id === f.agent)?.name}</span>
+                      <span className="text-xs text-slate-500">
+                        {AGENTS.find((a) => a.id === f.agent)?.name} · {DEPARTMENTS.find((d) => d.id === f.department)?.name}
+                      </span>
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-900">{f.title}</p>
                     <p className="text-xs text-slate-500">{f.detail}</p>

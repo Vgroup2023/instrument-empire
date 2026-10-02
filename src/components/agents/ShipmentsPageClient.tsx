@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -123,7 +124,9 @@ export function ShipmentsPageClient({ shipments, customers }: { shipments: Shipm
               {shipments.map((s) => (
                 <Tr key={s.id}>
                   <Td>
-                    <div className="font-medium text-slate-900">{s.reference}</div>
+                    <Link href={`/dashboard/shipments/${s.id}`} className="font-medium text-brand-700 hover:underline">
+                      {s.reference}
+                    </Link>
                     <div className="text-xs text-slate-500">
                       {s.direction} · {s.customerName ?? 'no client'} · {s.lineCount} line{s.lineCount === 1 ? '' : 's'}
                     </div>

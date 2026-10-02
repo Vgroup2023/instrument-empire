@@ -43,6 +43,23 @@ export function runCbpSentinel(ctx: AgentContext): Finding[] {
         });
       }
     }
+    // A customs hold with no release after it needs a person to chase the exam.
+    const holds = s.events.filter((e) => e.type === 'customs_hold').map((e) => new Date(e.occurredAt).getTime());
+    if (holds.length) {
+      const lastHold = Math.max(...holds);
+      const released = s.events.some((e) => e.type === 'customs_released' && new Date(e.occurredAt).getTime() > lastHold);
+      const days = Math.floor((ctx.now.getTime() - lastHold) / 86_400_000);
+      if (!released && days >= 2) {
+        out.push({
+          agent: 'cbp-sentinel',
+          severity: days >= 5 ? 'critical' : 'high',
+          shipmentId: s.id,
+          dedupeKey: `hold:${s.id}`,
+          title: `${s.reference}: customs hold open for ${days} days`,
+          detail: 'Find out what CBP needs (exam, documents, or a CF-28/29) and tell the client. Storage and per-diem charges build up while it sits.',
+        });
+      }
+    }
     if (s.arrivalDate && !s.entryFiledAt) {
       const daysLeft = 15 - Math.floor((ctx.now.getTime() - dayStart(s.arrivalDate).getTime()) / 86_400_000);
       if (daysLeft < 0) {

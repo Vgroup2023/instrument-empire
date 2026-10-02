@@ -4,6 +4,15 @@ import { dayStart, hoursUntil, isActive } from './types';
 // DocuPilot checks completeness and consistency of what is already recorded.
 // It does not read PDFs; documents are ticked off as they arrive.
 
+/** Every document type a file can carry, including ones only needed later in its life. */
+export const ALL_DOCS: { key: string; label: string }[] = [
+  { key: 'commercial_invoice', label: 'Commercial invoice' },
+  { key: 'packing_list', label: 'Packing list' },
+  { key: 'bill_of_lading', label: 'Bill of lading / air waybill' },
+  { key: 'delivery_order', label: 'Delivery order' },
+  { key: 'proof_of_delivery', label: 'Proof of delivery' },
+];
+
 export const REQUIRED_DOCS: Record<'import' | 'export', { key: string; label: string }[]> = {
   import: [
     { key: 'commercial_invoice', label: 'Commercial invoice' },
@@ -30,6 +39,16 @@ export function runDocuPilot(ctx: AgentContext): Finding[] {
         dedupeKey: `docs:missing:${s.id}`,
         title: `${s.reference}: ${missing.length} document${missing.length === 1 ? '' : 's'} missing`,
         detail: `Still needed: ${missing.map((m) => m.label).join(', ')}.`,
+      });
+    }
+    if ((s.deliveredAt || s.events.some((e) => e.type === 'delivered')) && !s.receivedDocs.includes('proof_of_delivery')) {
+      out.push({
+        agent: 'docupilot',
+        severity: 'medium',
+        shipmentId: s.id,
+        dedupeKey: `docs:pod:${s.id}`,
+        title: `${s.reference}: delivered but no proof of delivery on file`,
+        detail: 'Get the signed delivery receipt before invoicing. Clients dispute charges without it.',
       });
     }
     const incomplete = s.lines.filter((l) => !l.description.trim() || l.value === null);

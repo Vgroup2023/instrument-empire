@@ -57,6 +57,25 @@ export function runBillBot(ctx: AgentContext): Finding[] {
     }
   }
 
+  // Warehouse storage past the free days that nobody has billed yet.
+  for (const s of ctx.shipments) {
+    const w = s.warehouse;
+    if (!w?.receivedAt || w.storageBilledAt || !w.dailyRate) continue;
+    const end = w.releasedAt ? new Date(w.releasedAt).getTime() : today;
+    const days = Math.floor((end - new Date(w.receivedAt).getTime()) / DAY) - w.freeDays;
+    if (days <= 0) continue;
+    const amount = days * w.dailyRate;
+    out.push({
+      agent: 'billbot',
+      severity: amount >= 500 ? 'medium' : 'low',
+      shipmentId: s.id,
+      dedupeKey: `bill:storage:${s.id}`,
+      title: `${s.reference}: ${days} storage day${days === 1 ? '' : 's'} not billed (${amount.toFixed(2)})`,
+      detail: `${w.freeDays} free days, then ${w.dailyRate.toFixed(2)} per day${w.releasedAt ? ', released' : ', still in the warehouse'}. Add it to the client invoice, then mark storage billed on the shipment.`,
+      action: { type: 'link', href: `/dashboard/shipments/${s.id}` },
+    });
+  }
+
   for (const b of ctx.bills) {
     if (b.balance <= 0 || !b.dueDate) continue;
     const days = Math.floor((dayStart(b.dueDate).getTime() - today) / DAY);

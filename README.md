@@ -428,3 +428,34 @@ never financial data.
 
 What would make these real filing agents: ACE/ABI and AES connections, the live Consolidated
 Screening List, a tariff data source, and document extraction. None of those are wired up.
+
+## Shipping, logistics and warehouse
+
+Every department works from the same shipment record (`/dashboard/shipments/[id]`).
+
+- **Operations board** (`/dashboard/operations`): each file by stage (Booked, In transit, Arrived,
+  Customs cleared, In warehouse, Delivered, Invoiced), plus open work per department. The stage is
+  worked out from filings, timeline events and warehouse status, not typed in.
+- **Logistics:** carrier, container or AWB number, last free day, and a timeline of events (departed,
+  arrived, customs hold, released, gate out, received at warehouse, delivered).
+- **Warehouse:** one receipt per shipment with bin, expected vs received vs damaged pieces, free
+  days and a daily rate. Release and storage-billed are stamped when you click them.
+- **Departments:** every agent finding is routed to Customs, Compliance, Shipping, Logistics,
+  Warehouse or Accounts. Filter by department on **AI agents**.
+
+New checks that use this data: customs hold open 2+ days (CBP Sentinel), last free day approaching
+or passed and warehouse shortage or damage (Risk Radar), delivered without proof of delivery
+(DocuPilot), and warehouse storage past the free days that hasn't been billed (BillBot).
+
+**Connecting carriers, a TMS or a WMS:** set `INTEGRATION_KEY`, then have the system send
+
+```
+POST /api/integrations/events
+Authorization: Bearer <INTEGRATION_KEY>
+{ "reference": "IMP-100", "type": "customs_hold", "location": "Long Beach", "occurredAt": "2026-10-02T14:00:00Z" }
+```
+
+`type` is one of `booked, departed, arrived, customs_hold, customs_released, gate_out,
+warehouse_received, delivered, note`. `reference` must match a shipment's file reference. A
+`delivered` event also stamps the delivery time. Nothing here polls carrier tracking APIs or reads
+a WMS by itself; those systems have to push events, or someone has to build a connector for them.

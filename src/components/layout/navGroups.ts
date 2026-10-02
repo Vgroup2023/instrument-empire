@@ -17,6 +17,7 @@ export const navGroups: NavGroup[] = [
   {
     title: 'Trade & AI agents',
     items: [
+      { href: '/dashboard/operations', label: 'Operations board', icon: '🧭' },
       { href: '/dashboard/agents', label: 'AI agents', icon: '🤖' },
       { href: '/dashboard/shipments', label: 'Shipments', icon: '🚢' },
     ],

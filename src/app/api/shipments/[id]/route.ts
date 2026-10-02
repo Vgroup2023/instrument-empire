@@ -13,7 +13,15 @@ type Milestone = 'isf' | 'entry' | 'eei' | 'invoiced';
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as { milestone?: Milestone; doc?: string; received?: boolean; status?: string };
+    const body = (await request.json()) as {
+      milestone?: Milestone;
+      doc?: string;
+      received?: boolean;
+      status?: string;
+      carrier?: string;
+      containerNo?: string;
+      lastFreeDate?: string;
+    };
     const db = getDb();
     const [current] = await db.select().from(shipments).where(eq(shipments.id, id));
     if (!current) return NextResponse.json({ error: 'Shipment not found.' }, { status: 404 });
@@ -36,6 +44,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       set.status = body.status as 'open' | 'completed' | 'cancelled';
     }
+    if (body.carrier !== undefined) set.carrier = body.carrier.trim() || null;
+    if (body.containerNo !== undefined) set.containerNo = body.containerNo.trim() || null;
+    if (body.lastFreeDate !== undefined) set.lastFreeDate = body.lastFreeDate || null;
     await db.update(shipments).set(set).where(eq(shipments.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {

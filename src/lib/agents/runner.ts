@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { agentFindings, agentRuns, restrictedParties, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
 import { listInvoices } from '@/lib/accounting/invoices';
 import { listBills } from '@/lib/accounting/bills';
-import { AGENTS, departmentFor, type AgentContext, type AgentId, type Finding, type ShipmentCtx } from './types';
+import { AGENTS, departmentFor, type AgentContext, type AgentId, type Finding, type FindingAgent, type ShipmentCtx } from './types';
 import { runHtsOracle } from './hts';
 import { runCbpSentinel } from './sentinel';
 import { runExportShield } from './exportShield';
@@ -119,7 +119,7 @@ export interface AgentRunSummary {
   error?: string;
 }
 
-async function persist(agent: AgentId, findings: Finding[]) {
+export async function persistFindings(agent: FindingAgent, findings: Finding[]) {
   const db = getDb();
   for (const f of findings) {
     await db
@@ -170,7 +170,7 @@ export async function runAgentsNow(): Promise<AgentRunSummary[]> {
   for (const meta of AGENTS) {
     const [run] = await db.insert(agentRuns).values({ agent: meta.id }).returning();
     try {
-      await persist(meta.id, results[meta.id]);
+      await persistFindings(meta.id, results[meta.id]);
       await db.update(agentRuns).set({ finishedAt: new Date(), findingsCount: results[meta.id].length }).where(eq(agentRuns.id, run.id));
       summaries.push({ agent: meta.id, findings: results[meta.id].length });
     } catch (err) {

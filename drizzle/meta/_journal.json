@@ -64,6 +64,13 @@
       "when": 1790937588261,
       "tag": "0008_robust_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790939052197,
+      "tag": "0009_elite_riptide",
+      "breakpoints": true
     }
   ]
 }

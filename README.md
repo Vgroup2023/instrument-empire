@@ -459,3 +459,46 @@ Authorization: Bearer <INTEGRATION_KEY>
 warehouse_received, delivered, note`. `reference` must match a shipment's file reference. A
 `delivered` event also stamps the delivery time. Nothing here polls carrier tracking APIs or reads
 a WMS by itself; those systems have to push events, or someone has to build a connector for them.
+
+## Customer desk: order intake, customer service, order processing, shipping
+
+`/dashboard/orders` runs four agents (`src/lib/desk/`) that take an order from the inbox to the
+carrier and answer customers on the way. Everything they do is logged under **What the agents
+did**, and anything that needs judgement lands in **AI agents** (department: Customer service).
+
+| Agent | What it does on its own | What it hands to a person |
+| --- | --- | --- |
+| Order Intake | Reads an order from free text or structured lines, matches items to your product list, finds the customer by email, totals it, emails a confirmation. | Unknown items, missing address, bad quantities, likely duplicates (status `needs_review`). |
+| Customer Service | Classifies each message. Answers "where is my order" with real status and tracking; cancels an order that has not been picked yet; replies to strangers with a generic "send your order number" that reveals nothing. | Complaints and disputes, returns, address changes, cancels after picking, possibly lost parcels. It drafts the reply; you edit and send. |
+| Order Processing | Credit check (holds an order if the customer has an invoice 60+ days overdue), stock check, reserves stock, retries held orders each run. | Held orders (credit review or backorder). |
+| Shipping Processing | Picks shipping method and ship-by date, flags international orders for customs paperwork, watches late and in-transit orders. | Late orders, parcels not delivered after 7 days. |
+
+Safety rules baked in: replies state only facts from the order record; the sender's email must
+match the order's email before anything about it is shared or changed; no automatic reply to
+no-reply/out-of-office/bounce mail; at most 3 automatic replies per sender per 24 hours; address
+changes, refunds and returns never happen automatically; `DESK_AUTO_SEND=off` turns every reply
+into a draft.
+
+**Bringing work in:** add orders and messages in the app, or `POST /api/integrations/desk` (needs
+`INTEGRATION_KEY`) from an email-to-webhook service, web form or EDI converter:
+
+```
+{ "kind": "order",    "email": "jane@x.com", "rawText": "2 x Blue widget\n\nShip to:\n123 Main St\nSpringfield, IL 62704" }
+{ "kind": "order",    "email": "jane@x.com", "lines": [{ "description": "Blue widget", "quantity": 2 }], "shipTo": { "line1": "...", "city": "...", "postal": "..." } }
+{ "kind": "message",  "from": "jane@x.com", "subject": "Where is my order?", "body": "..." }
+{ "kind": "shipment", "orderNumber": "SO-261002-AB12", "event": "shipped", "carrier": "UPS", "trackingNo": "1Z..." }
+```
+
+Each call runs the desk straight away, so a customer gets an answer in the same request. The
+hourly workflow also runs it to retry held orders and raise late-order findings.
+
+**Optional AI:** set `ANTHROPIC_API_KEY` and the desk uses Claude (default `claude-opus-5-5`,
+override with `DESK_LLM_MODEL`) to read messy orders and classify emails. The model only returns
+structured fields that are validated afterwards; a complaint found by the rules is never
+downgraded; bad or missing output falls back to the rules. The reply text always comes from
+templates filled with order data.
+
+**Not built:** buying shipping labels or live carrier rates, reading carrier tracking, taking
+payment, or a mailbox connector. Tracking numbers are entered by staff or pushed in through the
+`shipment` call above. Product matching uses your product names (every word of a product name
+must appear in the order line) and stock comes from `qtyOnHand` on Inventory-type products.

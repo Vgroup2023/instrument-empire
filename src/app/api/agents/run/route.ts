@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { runAgentsNow } from '@/lib/agents/runner';
+import { runDesk } from '@/lib/desk/agents';
 import { apiErrorResponse } from '@/lib/apiError';
 import { verifyPayload } from '@/lib/crypto';
 import { APP_SESSION_COOKIE } from '@/lib/cookieNames';
@@ -9,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Runs all six agents. Called by the scheduler (Authorization: Bearer
+ * Runs the six trade agents and the four customer-desk agents. Called by the scheduler (Authorization: Bearer
  * $CRON_SECRET, same secret as /api/recurring/run-due) or by a signed-in user
  * clicking "Run now". The proxy lets this path through unauthenticated so the
  * scheduler can reach it, which means this handler must check access itself.
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   if (!allowed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    return NextResponse.json({ results: await runAgentsNow() });
+    return NextResponse.json({ results: await runAgentsNow(), desk: await runDesk() });
   } catch (err) {
     return apiErrorResponse(err);
   }

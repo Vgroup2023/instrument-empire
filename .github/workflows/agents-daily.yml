@@ -1,0 +1,22 @@
+name: Run AI agents
+
+# Runs all six agents every day. Add two repository secrets:
+#   APP_BASE_URL  e.g. https://your-app.netlify.app
+#   CRON_SECRET   the same value as the CRON_SECRET env var on the server
+on:
+  schedule:
+    - cron: '17 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the agent runner
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_BASE_URL" && test -n "$CRON_SECRET" || { echo "Set APP_BASE_URL and CRON_SECRET secrets."; exit 1; }
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/agents/run"
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/recurring/run-due"

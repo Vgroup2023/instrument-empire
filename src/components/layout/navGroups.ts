@@ -15,6 +15,13 @@ export interface NavGroup {
 // several features before this).
 export const navGroups: NavGroup[] = [
   {
+    title: 'Trade & AI agents',
+    items: [
+      { href: '/dashboard/agents', label: 'AI agents', icon: '🤖' },
+      { href: '/dashboard/shipments', label: 'Shipments', icon: '🚢' },
+    ],
+  },
+  {
     title: 'Insights',
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊' },
@@ -66,6 +73,9 @@ export const navGroups: NavGroup[] = [
   },
   {
     title: '',
-    items: [{ href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️' }],
+    items: [
+      { href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️' },
+      { href: '/install', label: 'Install the app', icon: '⬇️' },
+    ],
   },
 ];

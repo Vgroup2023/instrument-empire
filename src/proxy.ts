@@ -14,6 +14,11 @@ export async function proxy(request: NextRequest) {
     // Called by an external scheduler, not a browser — it authenticates
     // itself with CRON_SECRET instead of the app session cookie.
     pathname.startsWith('/api/recurring/run-due') ||
+    // Same for the daily agent run; the handler checks CRON_SECRET or a session itself.
+    pathname.startsWith('/api/agents/run') ||
+    // Install instructions and the offline page must load before sign-in.
+    pathname === '/install' ||
+    pathname === '/offline' ||
     pathname.startsWith('/_next') ||
     // Static assets served straight out of /public (logo, favicon, etc.) —
     // the login page itself needs these before the user is authenticated.

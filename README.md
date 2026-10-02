@@ -398,3 +398,33 @@ src/
       mock/            Demo-data providers for Capital/Benchmark (no real Intuit product access)
     session.ts         Signed-cookie session (app login + QuickBooks tokens)
 ```
+
+## Trade AI agents and installing the app
+
+**Six agents** run over your shipments and accounts (`src/lib/agents/`). Each one is a plain
+rules function from a data snapshot to findings, so they're deterministic and unit-testable.
+They do **not** call an AI model and do **not** talk to CBP, ACE, AES or any screening service.
+They only read what you record in **Shipments** and the accounting ledger, and queue findings
+for a person on **AI agents** (`/dashboard/agents`).
+
+| Agent | What it checks |
+| --- | --- |
+| HTS Oracle | HTS format (10 digits, chapters 01–97) and a short curated keyword list that suggests a 6-digit starting point. A broker must confirm the full code. |
+| CBP Sentinel | ISF due 24 hours before loading (ocean), filed-late detection, and the 15-day entry window. |
+| Export Shield | Approximate name match against your restricted-party list, embargoed destinations (CU, IR, KP, SY), ECCN license prompts, and EEI timing above $2,500. |
+| DocuPilot | Required documents on file, lines missing values, and line totals vs declared value. |
+| Risk Radar | 0–100 exposure score per file from the other agents' open findings. |
+| BillBot | Overdue invoice reminders, completed-but-unbilled files, bills due, and the CBP periodic monthly statement date (15th working day; weekends only, holidays can shift it). |
+
+Findings de-duplicate by key, close themselves when the condition clears, and stay dismissed if
+you dismissed them. **Run them daily:** set `CRON_SECRET` on the server and add `APP_BASE_URL` and
+`CRON_SECRET` as repository secrets; `.github/workflows/agents-daily.yml` calls
+`POST /api/agents/run` (and the recurring-invoice runner) each day. Run `npm run db:migrate`
+to create the new tables.
+
+**Install it:** the app is an installable PWA. Open `/install` (no sign-in needed) for the
+Install button and per-device steps. The service worker caches only an offline page and icons,
+never financial data.
+
+What would make these real filing agents: ACE/ABI and AES connections, the live Consolidated
+Screening List, a tariff data source, and document extraction. None of those are wired up.

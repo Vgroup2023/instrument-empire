@@ -1,0 +1,350 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Globlexus Trade ERP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: full-height scroll-snap "slides", one idea each, fixed dot rail on the right.
+   Deliberately dark-first single look: a trade-ops command room in ink, gold and cyan. */
+:root{
+  --ink:#070B14; --panel:#0E1626; --panel2:#121D33; --line:#1F2E4B;
+  --gold:#E8B546; --cyan:#35D6E8; --red:#FF6B7A; --green:#4ADE9A;
+  --text:#E8EEF8; --muted:#93A3BF;
+  --display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --body:'Manrope','Segoe UI',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+  scroll-snap-type:y proximity; scroll-behavior:smooth;
+}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:16px;line-height:1.55;overflow-x:hidden;padding-inline:16px}
+.slide{position:relative;min-height:92svh;display:flex;flex-direction:column;justify-content:center;gap:2rem;max-width:1180px;margin-inline:auto;padding-block:clamp(56px,9vh,96px);scroll-snap-align:start;padding-inline-end:clamp(0px,4vw,56px)}
+.slide::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(60% 50% at 80% 10%,rgba(53,214,232,.10),transparent 70%),radial-gradient(50% 40% at 10% 90%,rgba(232,181,70,.09),transparent 70%)}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:"";width:28px;height:1px;background:var(--gold)}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.02;letter-spacing:-.02em}
+h1{font-size:clamp(2.6rem,8vw,6.2rem);font-weight:800}
+h2{font-size:clamp(2rem,5vw,3.6rem);font-weight:800}
+h3{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+p{margin:0}
+.lead{font-size:clamp(1.05rem,2vw,1.3rem);color:var(--muted);max-width:60ch}
+.grad{background:linear-gradient(100deg,var(--gold),var(--cyan),var(--gold),var(--cyan));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:flow 7s linear infinite}
+@keyframes flow{to{background-position:-300% 0}}
+
+/* reveal system: visible by default, armed by JS only after load */
+.js .slide:not(.active) .rv{opacity:0;transform:translateY(24px)}
+.js .slide:not(.active) .rv-l{opacity:0;transform:translateX(-60px)}
+.rv,.rv-l{transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i,0)*110ms)}
+
+/* 1 intro */
+.brand{display:flex;align-items:center;gap:.9rem;font-family:var(--display);font-weight:800;letter-spacing:.32em;font-size:.95rem;text-transform:uppercase}
+.mark{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--cyan));color:var(--ink);font-size:1.4rem;letter-spacing:0;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 10px rgba(53,214,232,.12)}}
+.scrollhint{font-family:var(--mono);font-size:.78rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+
+/* 2 problems */
+.pains{display:grid;gap:12px;max-width:860px}
+.pain{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px}
+.pain b{font-family:var(--display);font-size:1.15rem}
+.pain span{display:block;color:var(--muted);font-size:.95rem}
+.pain i{font-style:normal;font-family:var(--mono);font-size:.8rem;color:var(--red);border:1px solid rgba(255,107,122,.4);padding:4px 8px;border-radius:6px;white-space:nowrap}
+
+/* 3 solution */
+.big{overflow:hidden;font-size:clamp(2.4rem,9.5vw,8rem);font-weight:800;line-height:.95;text-transform:uppercase}
+.big span{display:block}
+.js .slide:not(.active) .big span{opacity:0;letter-spacing:.08em}
+.big span{transition:opacity .9s ease,letter-spacing 1.1s cubic-bezier(.2,.8,.2,1)}
+.big span:nth-child(2){transition-delay:.35s}
+
+/* 4 modules */
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.mod{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mod::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.10) 50%,transparent 65%);transform:translateX(-120%);animation:sweep 4.5s ease-in-out infinite;animation-delay:calc(var(--i,0)*.35s);pointer-events:none}
+@keyframes sweep{0%{transform:translateX(-120%)}35%,100%{transform:translateX(120%)}}
+.mod small{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;color:var(--gold)}
+.mod.ext small{color:var(--cyan)}
+.mod p{color:var(--muted);font-size:.9rem}
+.legend{display:flex;gap:1.4rem;flex-wrap:wrap;font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+.legend b{color:var(--gold)} .legend b.c{color:var(--cyan)}
+
+/* 5 agents */
+.agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.agent{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.agent header{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:var(--green);text-transform:uppercase}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink var(--d,1.6s) ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+.agent p{color:var(--muted);font-size:.92rem}
+.feed{margin-top:auto;font-family:var(--mono);font-size:.76rem;color:var(--cyan);background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-height:3.3em;overflow-wrap:anywhere}
+.feed::before{content:"> ";color:var(--gold)}
+.note{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+
+/* 6 stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border-block:1px solid var(--line)}
+.stat{padding:40px 8px;display:flex;flex-direction:column;gap:6px}
+.stat+.stat{border-inline-start:1px solid var(--line);padding-inline-start:28px}
+.stat b{font-family:var(--display);font-size:clamp(3rem,7vw,5.5rem);line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--mono);font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+@media(max-width:700px){.stat+.stat{border-inline-start:0;border-top:1px solid var(--line);padding-inline-start:8px}}
+
+/* 7 cta */
+.cta h2{font-size:clamp(2.4rem,7vw,5.5rem)}
+.contact{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:760px}
+.cbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.cbox label{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.cbox .v{font-family:var(--display);font-size:1.3rem;font-weight:800;overflow-wrap:anywhere;user-select:all}
+.cbox a{color:var(--cyan);text-decoration:none}
+.btn{align-self:flex-start;font:inherit;font-weight:700;font-size:.85rem;color:var(--ink);background:linear-gradient(100deg,var(--gold),var(--cyan));border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn:focus-visible,.dots a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+
+/* 8 accounts copilot */
+.acc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:2rem;align-items:center}
+@media(max-width:860px){.acc{grid-template-columns:minmax(0,1fr)}}
+.ticks{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.ticks li{display:flex;gap:10px;color:var(--muted)}
+.ticks li::before{content:"";flex:none;width:8px;height:8px;margin-top:.55em;border-radius:2px;background:var(--gold)}
+.ticks b{color:var(--text)}
+.win{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.win header{display:flex;justify-content:space-between;gap:1rem;padding:12px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.win .body{padding:18px;display:grid;gap:18px}
+.arap{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.arap h4{margin:0 0 10px;font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.bar{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:center;font-family:var(--mono);font-size:.72rem;margin-bottom:7px}
+.bar div{height:9px;border-radius:5px;background:var(--panel2);overflow:hidden}
+.bar div i{display:block;height:100%;width:var(--w);border-radius:5px;background:var(--c,var(--cyan));transform-origin:left;animation:grow 1.4s cubic-bezier(.2,.8,.2,1) both}
+.bar em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+@keyframes grow{from{transform:scaleX(0)}}
+.copilot{background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.88rem;display:grid;gap:8px}
+.copilot .q{color:var(--muted)} .copilot .a{color:var(--text)}
+.copilot .a b{color:var(--gold)}
+@media(max-width:480px){.arap{grid-template-columns:1fr}}
+
+/* rail */
+.dots{position:fixed;right:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:5}
+.dots a{width:10px;height:10px;border-radius:50%;background:var(--line);border:1px solid var(--muted);display:block;transition:.3s}
+.dots a.on{background:var(--gold);border-color:var(--gold);transform:scale(1.4)}
+.dots a span{position:absolute;right:20px;transform:translateY(-35%);font-family:var(--mono);font-size:.7rem;color:var(--text);background:var(--panel);padding:3px 8px;border-radius:6px;opacity:0;pointer-events:none;white-space:nowrap;transition:.2s}
+.dots a:hover span,.dots a:focus-visible span{opacity:1}
+
+@media(prefers-reduced-motion:reduce){
+  :root{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .js .slide:not(.active) .rv,.js .slide:not(.active) .rv-l{opacity:1;transform:none}
+  .js .slide:not(.active) .big span{opacity:1;letter-spacing:normal}
+}
+</style>
+
+</head><body>
+<nav class="dots" id="dots" aria-label="Slides"></nav>
+
+<main>
+<!-- 1 INTRO -->
+<section class="slide active" id="intro" data-title="Intro">
+  <div class="brand rv" style="--i:0"><div class="mark">G</div>Globlexus Group</div>
+  <h1 class="rv" style="--i:1">The customs brokerage <span class="grad">ERP that thinks ahead.</span></h1>
+  <p class="lead rv" style="--i:2">Six AI agents watch every shipment, filing, classification and statement, so your team files clean and bills on time.</p>
+  <div class="scrollhint rv" style="--i:3">Scroll or press ↓ to begin</div>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="slide" id="problem" data-title="The Problem">
+  <div class="eyebrow rv">The Problem</div>
+  <h2 class="rv" style="--i:1">Five leaks in every brokerage.</h2>
+  <div class="pains">
+    <div class="pain rv-l" style="--i:2"><i>$5,000 / violation</i><div><b>Missed ISF penalties</b><span>10+2 filings land late or wrong, and liquidated damages follow.</span></div></div>
+    <div class="pain rv-l" style="--i:3"><i>10-digit codes</i><div><b>HTS chaos</b><span>Classification lives in spreadsheets, memory and old entries.</span></div></div>
+    <div class="pain rv-l" style="--i:4"><i>EAR · ITAR</i><div><b>Export control risk</b><span>A missed screening or EEI error is a violation waiting to be found.</span></div></div>
+    <div class="pain rv-l" style="--i:5"><i>7+ tools</i><div><b>Fragmented tools</b><span>Entry, docs, email and billing never share one record of the shipment.</span></div></div>
+    <div class="pain rv-l" style="--i:6"><i>Cash delayed</i><div><b>Missed Statement Date and client billing</b><span>Statement payments slip and clients get invoiced weeks late.</span></div></div>
+  </div>
+</section>
+
+<!-- 3 SOLUTION -->
+<section class="slide" id="solution" data-title="The Solution">
+  <div class="eyebrow rv">The Solution</div>
+  <div class="big grad-wrap"><span class="grad">One platform.</span><span>Total compliance.</span></div>
+  <p class="lead rv" style="--i:2">One shipment record from quote to cash, with an AI agent guarding every step.</p>
+</section>
+
+<!-- 4 MODULES -->
+<section class="slide" id="modules" data-title="10 Modules">
+  <div class="eyebrow rv">10 Modules</div>
+  <h2 class="rv" style="--i:1">Seven core modules. Three that grow the business.</h2>
+  <div class="mods" id="mods"></div>
+  <div class="legend rv"><span><b>CORE</b> compliance and filing</span><span><b class="c">EXTENDED</b> client, insight and accounting</span></div>
+</section>
+
+<!-- 5 AGENTS -->
+<section class="slide" id="agents" data-title="6 AI Agents">
+  <div class="eyebrow rv">6 AI Agents</div>
+  <h2 class="rv" style="--i:1">Always on. Never off shift.</h2>
+  <div class="agents" id="agentGrid"></div>
+  <div class="note rv">Activity lines are sample output shown for illustration.</div>
+</section>
+
+<!-- 6 STATS -->
+<section class="slide" id="stats" data-title="Stats">
+  <div class="eyebrow rv">By the numbers</div>
+  <div class="stats">
+    <div class="stat rv" style="--i:1"><b data-n="10">10</b><span>Modules</span></div>
+    <div class="stat rv" style="--i:2"><b data-n="6">6</b><span>AI Agents</span></div>
+    <div class="stat rv" style="--i:3"><b class="grad"><span data-n="19">19</span> CFR</b><span>Compliant</span></div>
+    <div class="stat rv" style="--i:4"><b class="grad">Zero</b><span>Gaps</span></div>
+  </div>
+</section>
+
+<!-- 7 CTA -->
+<section class="slide cta" id="cta" data-title="Book a Demo">
+  <div class="eyebrow rv">Next step</div>
+  <h2 class="rv" style="--i:1"><span class="grad">Book Your Free Demo</span></h2>
+  <p class="lead rv" style="--i:2">See your own entries, classifications and statements run through the six agents. Thirty minutes, no commitment.</p>
+  <div class="contact rv" style="--i:3">
+    <div class="cbox"><label>Website</label><div class="v"><a href="https://www.globlexus.com" target="_blank" rel="noopener" id="siteText">www.globlexus.com</a></div><button class="btn ghost" data-copy="www.globlexus.com">Copy</button></div>
+    <div class="cbox"><label>Email</label><div class="v" id="mailText">demo@globlexus.com</div><button class="btn" data-copy="demo@globlexus.com">Copy email</button></div>
+  </div>
+</section>
+
+<!-- 8 ACCOUNTS COPILOT -->
+<section class="slide" id="copilot" data-title="Accounts Copilot">
+  <div class="eyebrow rv">Accounts Copilot</div>
+  <div class="acc">
+    <div style="display:grid;gap:1.4rem">
+      <h2 class="rv" style="--i:1">AR and AP, run by <span class="grad">AI.</span></h2>
+      <p class="lead rv" style="--i:2">The accounting side of the platform. Every invoice, bill and payment ties back to the shipment that earned it.</p>
+      <ul class="ticks rv" style="--i:3">
+        <li><span><b>Invoices, estimates and payment links</b> with recurring schedules</span></li>
+        <li><span><b>Bills with approval flow</b> and one-click pay</span></li>
+        <li><span><b>AR and AP aging</b> by days overdue, straight from the ledger</span></li>
+        <li><span><b>Anomaly flags</b> for duplicates, odd amounts and unbalanced entries</span></li>
+        <li><span><b>Reconciliation, payroll and insights</b> in one place</span></li>
+      </ul>
+    </div>
+    <div class="win rv" style="--i:2">
+      <header><span>Accounts Copilot · AR / AP</span><span>Sample data</span></header>
+      <div class="body">
+        <div class="arap">
+          <div><h4>Receivable aging</h4>
+            <div class="bar"><span>Current</span><div><i style="--w:82%;--c:var(--green)"></i></div><em>$184k</em></div>
+            <div class="bar"><span>1–30</span><div><i style="--w:46%;--c:var(--cyan)"></i></div><em>$96k</em></div>
+            <div class="bar"><span>31–60</span><div><i style="--w:22%;--c:var(--gold)"></i></div><em>$41k</em></div>
+            <div class="bar"><span>60+</span><div><i style="--w:9%;--c:var(--red)"></i></div><em>$14k</em></div>
+          </div>
+          <div><h4>Payable aging</h4>
+            <div class="bar"><span>Current</span><div><i style="--w:58%;--c:var(--green)"></i></div><em>$122k</em></div>
+            <div class="bar"><span>1–30</span><div><i style="--w:30%;--c:var(--cyan)"></i></div><em>$63k</em></div>
+            <div class="bar"><span>31–60</span><div><i style="--w:12%;--c:var(--gold)"></i></div><em>$24k</em></div>
+            <div class="bar"><span>60+</span><div><i style="--w:4%;--c:var(--red)"></i></div><em>$8k</em></div>
+          </div>
+        </div>
+        <div class="copilot">
+          <div class="q">Who should I chase this week?</div>
+          <div class="a">3 clients are past 30 days, <b>$41k</b> in total. Reminders are drafted and ready to send.</div>
+          <div class="q">Anything odd in payables?</div>
+          <div class="a">1 possible <b>duplicate bill</b>: same vendor, same amount, 2 days apart.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+document.documentElement.classList.add('js');
+
+const MODULES=[
+ ['ISF Manager','10+2 filings with deadline tracking and amendments.'],
+ ['Entry & ACE Filing','Build, review and transmit entries to CBP.'],
+ ['HTS Classification','Searchable tariff with saved rulings and duty rates.'],
+ ['Export & AES/EEI','Electronic Export Information with license checks.'],
+ ['Document Vault','Invoices, packing lists and bills of lading, linked to the file.'],
+ ['Compliance Screening','Party and destination screening with an audit trail.'],
+ ['Statements & Billing','Periodic statements, due dates and client invoicing.'],
+ ['Client Portal','Shipment status and document upload for your customers.'],
+ ['Analytics','Duty, penalty and margin dashboards by client and lane.'],
+ ['Accounts Copilot','AR and AP accounting with AI-assisted insights.']
+];
+const mods=document.getElementById('mods');
+MODULES.forEach((m,i)=>{
+  const d=document.createElement('div');
+  d.className='mod rv'+(i>=7?' ext':'');
+  d.style.setProperty('--i',i);
+  d.innerHTML='<small>'+(i<7?'CORE · ':'EXTENDED · ')+String(i+1).padStart(2,'0')+'</small><h3></h3><p></p>';
+  d.querySelector('h3').textContent=m[0];d.querySelector('p').textContent=m[1];
+  mods.appendChild(d);
+});
+
+const AGENTS=[
+ ['HTS Oracle','Classifies every line to the right tariff code and duty rate.',['Classified "18650 lithium cell" → HTS 8507.60.00','Duty rate checked, additional tariffs flagged','Matched 3 past entries for the same part']],
+ ['CBP Sentinel','Watches ISF and entry deadlines against vessel schedules.',['ISF 10+2 filed 31 hrs before loading','Entry summary due in 4 days, draft ready','Amendment needed: consignee address mismatch']],
+ ['Export Shield','Screens parties and destinations before an EEI is filed.',['Consignee screened against restricted lists: clear','License check needed for ECCN 3A991 to new country','EEI validated, ready to transmit']],
+ ['DocuPilot','Reads trade documents and fills the file for you.',['Extracted 14 fields from commercial invoice','Packing list weight differs from B/L by 2.1%','Linked 5 documents to file 24-0188']],
+ ['Risk Radar','Scores each file for penalty and audit exposure.',['File 24-0192 risk: LOW','AD/CVD scope question raised on steel fasteners','Reasonable-care checklist 100% complete']],
+ ['BillBot','Closes the loop from shipment to statement to client invoice.',['Statement due in 3 days: 12 entries ready','Drafted invoices for 9 completed files','Client payment matched to INV-3041']]
+];
+const grid=document.getElementById('agentGrid');
+const feeds=[];
+AGENTS.forEach((a,i)=>{
+  const d=document.createElement('article');
+  d.className='agent rv';d.style.setProperty('--i',i);
+  d.innerHTML='<header><h3></h3><div class="status"><span class="dot"></span>Online</div></header><p></p><div class="feed"></div>';
+  d.querySelector('h3').textContent=a[0];
+  d.querySelector('p').textContent=a[1];
+  d.querySelector('.dot').style.setProperty('--d',(1.2+i*0.37).toFixed(2)+'s');
+  const f=d.querySelector('.feed');f.textContent=a[2][0];feeds.push({el:f,list:a[2],n:0});
+  grid.appendChild(d);
+});
+setInterval(()=>feeds.forEach((f,i)=>{
+  setTimeout(()=>{f.n=(f.n+1)%f.list.length;f.el.textContent=f.list[f.n];},i*450);
+}),3800);
+
+// slides, rail, active state
+const slides=[...document.querySelectorAll('.slide')];
+const rail=document.getElementById('dots');
+slides.forEach((s,i)=>{
+  const a=document.createElement('a');a.href='#'+s.id;a.setAttribute('aria-label',s.dataset.title);
+  a.innerHTML='<span>'+s.dataset.title+'</span>';
+  a.addEventListener('click',e=>{e.preventDefault();s.scrollIntoView({behavior:'smooth'});});
+  rail.appendChild(a);
+});
+const dotEls=[...rail.children];
+let cur=0;
+function setActive(i){
+  cur=i;
+  slides.forEach((s,j)=>s.classList.toggle('active',j===i));
+  dotEls.forEach((d,j)=>d.classList.toggle('on',j===i));
+  if(slides[i].id==='stats')countUp();
+}
+const io=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting&&e.intersectionRatio>=0.35)setActive(slides.indexOf(e.target));});
+},{threshold:[0.35,0.6]});
+slides.forEach(s=>io.observe(s));
+setActive(0);
+
+addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
+  let n=cur;
+  if(['ArrowDown','ArrowRight','PageDown'].includes(e.key))n=Math.min(cur+1,slides.length-1);
+  else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key))n=Math.max(cur-1,0);
+  else return;
+  e.preventDefault();slides[n].scrollIntoView({behavior:'smooth'});
+});
+
+let counted=false;
+function countUp(){
+  if(counted)return;counted=true;
+  document.querySelectorAll('[data-n]').forEach(el=>{
+    const end=+el.dataset.n,t0=performance.now(),dur=1200;
+    (function f(t){const p=Math.min((t-t0)/dur,1);el.textContent=Math.round(end*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f);})(t0);
+  });
+}
+
+// copy buttons
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+  const old=b.textContent;
+  try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='Copied';}
+  catch(e){const r=document.createRange();r.selectNodeContents(b.previousElementSibling);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected, press copy';}
+  setTimeout(()=>b.textContent=old,1800);
+}));
+</script>
+</body></html>

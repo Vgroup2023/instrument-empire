@@ -593,3 +593,7 @@ The database is behind the code. In GitHub open **Actions → Run database
 migrations → Run workflow** (needs the `DATABASE_URL` repository secret), or run
 `npm run db:migrate` locally with the production `DATABASE_URL`. Then check
 `/api/health` shows `"schema":"ok"` and press **Sync now** on the AI agents page.
+
+## Training guide
+
+**Training guide** in the left menu (App group) shows the new-user operations guide in the browser and has a **Download (.docx)** button. Both read `docs/Accounts-Copilot-Operations-and-Training-Guide.docx`, so update that one file to update both. They sit behind the sign-in (`/dashboard/guide`, `/api/guide`).

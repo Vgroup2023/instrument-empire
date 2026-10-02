@@ -28,6 +28,12 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // The training guide is read from docs/ at runtime, so make sure it is
+  // bundled with the serverless functions that serve it.
+  outputFileTracingIncludes: {
+    '/api/guide': ['./docs/**/*'],
+    '/dashboard/guide': ['./docs/**/*'],
+  },
   async headers() {
     return [
       {

@@ -4,7 +4,9 @@ import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/compon
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { QuickAccessGrid } from '@/components/dashboard/QuickAccessGrid';
+import Link from 'next/link';
+import { MasterTabGrid } from '@/components/dashboard/MasterTabGrid';
+import { getTabStatus, type TabStatus } from '@/lib/tabStatus';
 import { getProfitAndLossAndCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
 import { formatCurrency, formatPercent } from '@/lib/format';
@@ -12,14 +14,40 @@ import { formatCurrency, formatPercent } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardHomePage() {
+  // Counts are a convenience: if the database is unreachable the tabs still show.
+  let status: TabStatus = { badges: {}, attention: [] };
+  try {
+    status = await getTabStatus();
+  } catch {
+    // leave the empty defaults
+  }
+
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description="Everything for the accounts department, in one place. Jump to a section, or see today's financial insights below."
+        title="Master dashboard"
+        description="Every tab in one place, with what needs attention today. Financial insights are below."
       />
-      <div className="mb-8">
-        <QuickAccessGrid excludeHref="/dashboard" />
+
+      {status.attention.length ? (
+        <section aria-label="Needs attention" className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {status.attention.map((a) => (
+            <Link
+              key={a.label}
+              href={a.href}
+              className={`flex items-center justify-between rounded-xl2 border px-4 py-3 shadow-card transition hover:shadow-md ${
+                a.tone === 'danger' ? 'border-red-200 bg-red-50' : 'border-gold-200 bg-gold-50'
+              }`}
+            >
+              <span className="text-sm font-medium text-slate-800">{a.label}</span>
+              <span className={`text-2xl font-semibold ${a.tone === 'danger' ? 'text-red-700' : 'text-gold-700'}`}>{a.count}</span>
+            </Link>
+          ))}
+        </section>
+      ) : null}
+
+      <div className="mb-10">
+        <MasterTabGrid badges={status.badges} excludeHref="/dashboard" />
       </div>
 
       <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>

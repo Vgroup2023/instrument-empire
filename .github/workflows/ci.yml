@@ -25,6 +25,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Check navigation covers every dashboard page
+        run: npm run check:nav
+
       - name: Build
         run: npm run build
         env:

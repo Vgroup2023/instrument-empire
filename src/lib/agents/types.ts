@@ -99,8 +99,18 @@ export interface AgentContext {
   bills: BillCtx[];
 }
 
+export type DeskAgentId = 'order-intake' | 'customer-service' | 'order-processing' | 'shipping-processing';
+export type FindingAgent = AgentId | DeskAgentId;
+
+export const DESK_AGENTS: { id: DeskAgentId; name: string; summary: string }[] = [
+  { id: 'order-intake', name: 'Order Intake', summary: 'Reads incoming orders, checks them and confirms the clean ones.' },
+  { id: 'customer-service', name: 'Customer Service', summary: 'Answers order questions from the order record and escalates the rest.' },
+  { id: 'order-processing', name: 'Order Processing', summary: 'Checks credit and stock, then reserves stock for confirmed orders.' },
+  { id: 'shipping-processing', name: 'Shipping Processing', summary: 'Picks the shipping method and ship-by date, and watches late and in-transit orders.' },
+];
+
 export interface Finding {
-  agent: AgentId;
+  agent: FindingAgent;
   severity: Severity;
   title: string;
   detail: string;
@@ -123,7 +133,7 @@ export function isActive(s: ShipmentCtx): boolean {
   return s.status === 'open';
 }
 
-export type Department = 'customs' | 'compliance' | 'shipping' | 'logistics' | 'warehouse' | 'accounts';
+export type Department = 'customs' | 'compliance' | 'shipping' | 'logistics' | 'warehouse' | 'accounts' | 'service';
 
 export const DEPARTMENTS: { id: Department; name: string }[] = [
   { id: 'customs', name: 'Customs brokerage' },
@@ -132,11 +142,13 @@ export const DEPARTMENTS: { id: Department; name: string }[] = [
   { id: 'logistics', name: 'Logistics & transport' },
   { id: 'warehouse', name: 'Warehouse' },
   { id: 'accounts', name: 'Accounts' },
+  { id: 'service', name: 'Customer service' },
 ];
 
 /** Which team owns a finding, from the first part(s) of its dedupe key. */
 export function departmentFor(dedupeKey: string): Department {
   const [a, b] = dedupeKey.split(':');
+  if (a === 'desk') return 'service';
   if (a === 'bill') return 'accounts';
   if (a === 'screen' || a === 'embargo' || a === 'eccn' || a === 'eei') return 'compliance';
   if (a === 'docs') return 'shipping';

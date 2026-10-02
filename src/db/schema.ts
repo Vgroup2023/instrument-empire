@@ -514,3 +514,98 @@ export const agentRuns = pgTable('agent_runs', {
   findingsCount: integer('findings_count').notNull().default(0),
   error: text('error'),
 });
+
+// ---------------------------------------------------------------------------
+// Customer service desk: order intake, customer service, order processing and
+// shipping processing. Agents move orders along and log everything they do.
+// ---------------------------------------------------------------------------
+export const orderStatusEnum = pgEnum('order_status', [
+  'received',
+  'parsing',
+  'needs_review',
+  'confirmed',
+  'on_hold',
+  'processing',
+  'ready_to_ship',
+  'shipped',
+  'delivered',
+  'cancelled',
+]);
+export const serviceMessageStatusEnum = pgEnum('service_message_status', [
+  'open',
+  'handling',
+  'auto_replied',
+  'awaiting_approval',
+  'escalated',
+  'closed',
+]);
+
+export const orders = pgTable('orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderNumber: text('order_number').notNull().unique(),
+  channel: text('channel').notNull().default('manual'),
+  status: orderStatusEnum('status').notNull().default('received'),
+  customerId: uuid('customer_id').references(() => customers.id),
+  customerName: text('customer_name'),
+  customerEmail: text('customer_email'),
+  poNumber: text('po_number'),
+  shipLine1: text('ship_line1'),
+  shipCity: text('ship_city'),
+  shipRegion: text('ship_region'),
+  shipPostal: text('ship_postal'),
+  shipCountry: text('ship_country'),
+  // The original message or payload, kept so a person can check the agent's reading.
+  rawText: text('raw_text'),
+  currency: text('currency').notNull().default('USD'),
+  total: numeric('total', { precision: 14, scale: 2 }),
+  // Why the order is waiting on a person or on stock.
+  holdReason: text('hold_reason'),
+  shippingMethod: text('shipping_method'),
+  shipByDate: date('ship_by_date'),
+  carrier: text('carrier'),
+  trackingNo: text('tracking_no'),
+  shippedAt: timestamp('shipped_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  ...timestamps,
+});
+
+export const orderLines = pgTable('order_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderId: uuid('order_id')
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  sku: text('sku'),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  unitPrice: numeric('unit_price', { precision: 14, scale: 2 }),
+  productId: uuid('product_id').references(() => products.id),
+  // Set once stock has been taken for this line, so a cancel can give it back.
+  reservedQty: integer('reserved_qty').notNull().default(0),
+});
+
+export const serviceMessages = pgTable('service_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  fromEmail: text('from_email').notNull(),
+  subject: text('subject'),
+  body: text('body').notNull(),
+  channel: text('channel').notNull().default('manual'),
+  intent: text('intent'),
+  status: serviceMessageStatusEnum('status').notNull().default('open'),
+  replyDraft: text('reply_draft'),
+  repliedAt: timestamp('replied_at', { withTimezone: true }),
+  handledBy: text('handled_by'),
+  // Why the agent did not answer on its own.
+  escalationReason: text('escalation_reason'),
+  ...timestamps,
+});
+
+export const orderEvents = pgTable('order_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderId: uuid('order_id').references(() => orders.id, { onDelete: 'cascade' }),
+  messageId: uuid('message_id').references(() => serviceMessages.id, { onDelete: 'cascade' }),
+  agent: text('agent').notNull(),
+  action: text('action').notNull(),
+  detail: text('detail'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

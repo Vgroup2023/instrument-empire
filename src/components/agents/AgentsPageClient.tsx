@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Label, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { AGENTS, DEPARTMENTS, type AgentId, type Department } from '@/lib/agents/types';
+import { AGENTS, DESK_AGENTS, DEPARTMENTS, type AgentId, type Department } from '@/lib/agents/types';
 
 interface FindingRow {
   id: string;
@@ -146,7 +146,7 @@ export function AgentsPageClient({
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={SEVERITY_TONE[f.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>{f.severity}</Badge>
                       <span className="text-xs text-slate-500">
-                        {AGENTS.find((a) => a.id === f.agent)?.name} · {DEPARTMENTS.find((d) => d.id === f.department)?.name}
+                        {[...AGENTS, ...DESK_AGENTS].find((a) => a.id === f.agent)?.name} · {DEPARTMENTS.find((d) => d.id === f.department)?.name}
                       </span>
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-900">{f.title}</p>

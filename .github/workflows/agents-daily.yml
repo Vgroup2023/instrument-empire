@@ -1,11 +1,11 @@
 name: Run AI agents
 
-# Runs all six agents every day. Add two repository secrets:
+# Runs the trade agents and the customer-desk agents every hour. Add two repository secrets:
 #   APP_BASE_URL  e.g. https://your-app.netlify.app
 #   CRON_SECRET   the same value as the CRON_SECRET env var on the server
 on:
   schedule:
-    - cron: '17 11 * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 jobs:

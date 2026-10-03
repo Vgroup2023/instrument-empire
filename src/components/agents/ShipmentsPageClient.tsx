@@ -124,7 +124,7 @@ export function ShipmentsPageClient({ shipments, customers }: { shipments: Shipm
               {shipments.map((s) => (
                 <Tr key={s.id}>
                   <Td>
-                    <Link href={`/dashboard/shipments/${s.id}`} className="font-medium text-brand-700 hover:underline">
+                    <Link prefetch={false} href={`/dashboard/shipments/${s.id}`} className="font-medium text-brand-700 hover:underline">
                       {s.reference}
                     </Link>
                     <div className="text-xs text-slate-500">

@@ -68,7 +68,9 @@ export function MobileNavDrawer() {
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/globlex-ai-logo.webp"
+                    src="/brand/globlex-logo-360.v1.webp"
+                    width={360}
+                    height={240}
                     alt="Globlex AI — The AI Architect Co."
                     className="h-10 w-auto min-w-0"
                   />

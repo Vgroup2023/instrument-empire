@@ -45,7 +45,7 @@ export default async function OperationsPage() {
         {DEPARTMENTS.map((d) => {
           const n = deptCounts[d.id] ?? 0;
           return (
-            <Link key={d.id} href={`/dashboard/agents?dept=${d.id}`} className="rounded-xl2 border border-slate-200 bg-surface p-4 shadow-card transition hover:border-brand-400">
+            <Link prefetch={false} key={d.id} href={`/dashboard/agents?dept=${d.id}`} className="rounded-xl2 border border-slate-200 bg-surface p-4 shadow-card transition hover:border-brand-400">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-900">{d.name}</span>
                 <Badge tone={n ? 'warning' : 'success'}>{n} open</Badge>
@@ -72,7 +72,7 @@ export default async function OperationsPage() {
                 </div>
                 <div className="space-y-2">
                   {items.map((s) => (
-                    <Link key={s.id} href={`/dashboard/shipments/${s.id}`} className="block">
+                    <Link prefetch={false} key={s.id} href={`/dashboard/shipments/${s.id}`} className="block">
                       <Card>
                         <CardBody className="space-y-1 px-3 py-2.5">
                           <div className="text-sm font-medium text-slate-900">{s.reference}</div>

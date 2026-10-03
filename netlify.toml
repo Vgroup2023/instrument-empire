@@ -6,3 +6,27 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Cache headers for static files. Netlify serves files from /public straight
+# from its CDN, so headers set in next.config.mjs don't reach them.
+# The logo files have a version in their name (.v1), so they can be cached for
+# a year; rename to .v2 to change one.
+[[headers]]
+  for = "/brand/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

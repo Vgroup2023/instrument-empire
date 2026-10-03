@@ -119,7 +119,7 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings, r
         title={s.reference}
         description={`${s.direction} · ${s.customerName ?? 'no client'} · loads ${formatDate(s.loadingDate)} · arrives ${formatDate(s.arrivalDate)}`}
         actions={
-          <Link href="/dashboard/shipments" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <Link prefetch={false} href="/dashboard/shipments" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
             All shipments
           </Link>
         }

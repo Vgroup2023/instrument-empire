@@ -45,5 +45,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Skip build assets and anything with a file extension (logo, icons, manifest,
+  // service worker). Those are public anyway, and running the auth check on each
+  // one only made every page load wait on extra function calls.
+  matcher: ['/((?!_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)'],
 };

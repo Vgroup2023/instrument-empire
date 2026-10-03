@@ -40,6 +40,8 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // Cache headers for the logo, icons and favicon are in netlify.toml: Netlify
+      // serves files from /public straight from its CDN, which skips these rules.
     ];
   },
   // A config-level redirect (compiled into routes-manifest.json) rather than

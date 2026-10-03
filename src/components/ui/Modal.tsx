@@ -38,13 +38,13 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain px-4">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full rounded-xl2 bg-surface p-6 shadow-xl',
+          'relative z-10 max-h-[90dvh] w-full overflow-y-auto overscroll-contain rounded-xl2 bg-surface p-6 shadow-xl',
           sizeClasses[size],
         )}
       >

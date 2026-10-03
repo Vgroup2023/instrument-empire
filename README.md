@@ -599,3 +599,20 @@ migrations → Run workflow** (needs the `DATABASE_URL` repository secret), or r
 ## Training guide
 
 **Training guide** in the left menu (App group) shows the new-user operations guide in the browser and has a **Download (.docx)** button. Both read `docs/GloblexAI-Office-ERP-Operations-and-Training-Guide.docx`, so update that one file to update both. They sit behind the sign-in (`/dashboard/guide`, `/api/guide`).
+
+## Sign-in page: marketing copy and client ERP links
+
+The headline, intro, four feature cards and tagline on `/login` come from `src/lib/brand.ts`; edit
+that one file to change the wording. Under the sign-in card, **Connect to your business ERP** lists
+client businesses (`src/config/clientSystems.ts`). Each one's link is an environment variable, so you
+can add or change it in Netlify (Project configuration → Environment variables) without code:
+
+| Client | Variable |
+|---|---|
+| BlueStar IMEX-CHB | `CLIENT_ERP_URL_BLUESTAR` |
+| DRSimplicios | `CLIENT_ERP_URL_DRSIMPLICIOS` |
+
+Set it to the client's full `https://…` address and redeploy. Until a link is set, that client shows
+"Link coming soon" and is not clickable. Only `https` addresses are accepted. To add another client,
+add a line to `CLIENT_SYSTEMS` and a matching variable.
+

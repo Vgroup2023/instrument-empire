@@ -12,7 +12,7 @@ export async function TopBar() {
       <div className="flex items-center gap-2">
         <MobileNavDrawer />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/globlex-ai-logo.webp" alt="Globlex AI" className="h-10 w-auto min-w-0 lg:hidden" />
+        <img src="/brand/globlex-logo-360.v1.webp" width={360} height={240} decoding="async" alt="Globlex AI" className="h-10 w-auto min-w-0 lg:hidden" />
       </div>
       <div className="min-w-0 flex-1 px-3 text-left lg:px-0">
         <div className="truncate text-sm font-semibold text-slate-50">
@@ -23,7 +23,7 @@ export async function TopBar() {
       </div>
       <div className="flex items-center gap-3">
         {tokens ? (
-          <Link href="/dashboard/settings" className="flex items-center gap-2">
+          <Link prefetch={false} href="/dashboard/settings" className="flex items-center gap-2">
             <Badge tone="success">● QuickBooks connected</Badge>
             <span className="hidden text-sm text-slate-300 sm:inline">{tokens.companyName}</span>
           </Link>

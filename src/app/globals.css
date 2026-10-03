@@ -11,9 +11,35 @@ body {
   height: 100%;
 }
 
+/* Keeps the app steady on phones and tablets instead of floating:
+   - no rubber-band bounce or pull-to-refresh sliding the whole page
+   - no sideways drift or accidental double-tap zoom (pinch zoom still works)
+   - iOS can't inflate text when the device is rotated
+   - no grey flash on tap */
+html {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background-color: #ffffff;
   color: #0f172a;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+/* iPhone and iPad zoom the whole page in when you tap a field set below 16px,
+   and leave it zoomed and shifted. Fields are 14px on desktop; on touch screens
+   they are 16px. The :not() terms make this beat the .text-sm utility. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 @layer utilities {

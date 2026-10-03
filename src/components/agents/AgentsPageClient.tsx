@@ -174,7 +174,7 @@ export function AgentsPageClient({
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {f.action?.type === 'link' ? (
-                      <Link href={f.action.href} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <Link prefetch={false} href={f.action.href} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         Open
                       </Link>
                     ) : null}

@@ -12,7 +12,7 @@ const steps = [
 
 export default function InstallPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 px-4 py-12">
+    <main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 py-12">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Install GloblexAI Office ERP</h1>
         <p className="mt-2 text-sm text-slate-600">

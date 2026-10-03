@@ -40,6 +40,21 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // Static brand files. The logo files carry a version in their name
+      // (.v1), so they can be cached for a year; rename to .v2 to change one.
+      // Without this the browser re-checked the logo with the server on every page view.
+      {
+        source: '/brand/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
+      {
+        source: '/favicon.ico',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
     ];
   },
   // A config-level redirect (compiled into routes-manifest.json) rather than

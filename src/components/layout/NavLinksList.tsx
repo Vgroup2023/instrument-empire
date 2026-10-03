@@ -23,6 +23,9 @@ export function NavLinksList() {
                 item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
               return (
                 <Link
+                // No background prefetch: the menu has 26 links, and each prefetch
+                // was a server call fired the moment the page loaded.
+                prefetch={false}
                   key={item.href}
                   href={item.href}
                   className={cn(

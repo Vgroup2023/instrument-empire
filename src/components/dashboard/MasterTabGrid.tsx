@@ -25,6 +25,7 @@ export function MasterTabGrid({ badges, excludeHref }: { badges: Record<string, 
                 const sample = item.demoProvider ? providers[item.demoProvider] === 'mock' : false;
                 return (
                   <Link
+                  prefetch={false}
                     key={item.href}
                     href={item.href}
                     className="group flex items-start gap-3 rounded-xl2 border border-slate-200 bg-surface p-4 shadow-card transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"

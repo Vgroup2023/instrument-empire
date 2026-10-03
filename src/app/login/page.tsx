@@ -26,9 +26,9 @@ export default async function LoginPage({
   if (signedIn) redirect(next);
 
   return (
-    <div className="safe-top safe-bottom flex min-h-screen flex-col items-center justify-center bg-silver-black px-4 py-10">
+    <div className="safe-top safe-bottom flex min-h-dvh flex-col items-center justify-center bg-silver-black px-4 py-10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/globlex-ai-logo.webp" alt="Globlex AI — The AI Architect Co." className="mb-5 w-full min-w-0 max-w-[260px]" />
+      <img src="/brand/globlex-logo-520.v1.webp" width={520} height={347} fetchPriority="high" alt="Globlex AI — The AI Architect Co." className="mb-5 w-full min-w-0 max-w-[260px]" />
       <div className="mb-8 max-w-sm text-center">
         <p className="text-2xl font-semibold text-white">{BRAND.name}</p>
         <p className="mt-1 text-sm font-semibold uppercase tracking-widest text-sky-300">{BRAND.tagline}</p>

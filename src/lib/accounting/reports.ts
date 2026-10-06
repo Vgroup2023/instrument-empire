@@ -1,3 +1,5 @@
+import { getDb } from '@/db/client';
+import { sql } from 'drizzle-orm';
 import { resolvePeriod, type PeriodKey, type DateRange } from '@/lib/dateRanges';
 import { sumBalancesByAccountType } from '@/lib/accounting/chartOfAccounts';
 import { listInvoices } from '@/lib/accounting/invoices';
@@ -113,26 +115,54 @@ const CURRENT_LIABILITY_TYPES = ['Credit Card', 'Other Current Liability'];
 const NON_CURRENT_LIABILITY_TYPES = ['Long Term Liability'];
 
 /**
+ * Accounts Receivable/Payable balance = (sum of every line's amount) minus
+ * (sum of every payment's amount), across ALL invoices/bills at once rather
+ * than per document — there's no void/soft-delete concept here, a deleted
+ * invoice or bill cascade-deletes its own lines and payments, so this global
+ * aggregate is exactly equivalent to summing each document's own Balance.
+ * It replaces what used to be a full listInvoices()/listBills() call here —
+ * each ~5 queries joining customer names, product names, and line items the
+ * balance sheet never uses — with one trivial aggregate query apiece. Worth
+ * it because this runs on every Dashboard load.
+ */
+async function sumArBalance(): Promise<number> {
+  const db = getDb();
+  const [row] = await db.execute<{ balance: string | null }>(sql`
+    SELECT (COALESCE((SELECT SUM(amount) FROM invoice_lines), 0)
+          - COALESCE((SELECT SUM(amount) FROM invoice_payments), 0))::text AS balance
+  `);
+  return Number(row.balance ?? 0);
+}
+
+async function sumApBalance(): Promise<number> {
+  const db = getDb();
+  const [row] = await db.execute<{ balance: string | null }>(sql`
+    SELECT (COALESCE((SELECT SUM(amount) FROM bill_lines), 0)
+          - COALESCE((SELECT SUM(amount) FROM bill_payments), 0))::text AS balance
+  `);
+  return Number(row.balance ?? 0);
+}
+
+/**
  * Accounts Receivable and Accounts Payable aren't posted to the ledger as GL
  * accounts (there's no arAccountId/apAccountId on invoices/bills) — instead
- * they're computed directly from unpaid invoice/bill balances, reusing
- * Invoices/Bills' already-correct current-balance logic. Since
- * resolvePeriod's endDate is always today, those "current" balances are
- * already exactly "as of endDate".
+ * they're computed directly from unpaid invoice/bill balances (see
+ * sumArBalance/sumApBalance above). Since resolvePeriod's endDate is always
+ * today, those "current" balances are already exactly "as of endDate".
  */
 export async function getBalanceSheet(period: PeriodKey = 'this-year'): Promise<BalanceSheetSummary> {
   const { endDate } = resolvePeriod(period);
   const asOfRange: DateRange = { startDate: EPOCH, endDate };
 
-  const [typeTotals, invoicesList, billsList] = await Promise.all([
+  const [typeTotals, arBalanceRaw, apBalanceRaw] = await Promise.all([
     sumBalancesByAccountType(asOfRange),
-    listInvoices(),
-    listBills(),
+    sumArBalance(),
+    sumApBalance(),
   ]);
   const profitToDate = cumulativeNetIncome(typeTotals);
 
-  const arBalance = round2(invoicesList.reduce((sum, inv) => sum + inv.Balance, 0));
-  const apBalance = round2(billsList.reduce((sum, bill) => sum + bill.Balance, 0));
+  const arBalance = round2(arBalanceRaw);
+  const apBalance = round2(apBalanceRaw);
 
   const totalCurrentAssets = round2(sumTypes(typeTotals, CURRENT_ASSET_TYPES) + arBalance);
   const totalAssets = round2(totalCurrentAssets + sumTypes(typeTotals, NON_CURRENT_ASSET_TYPES));
@@ -249,18 +279,34 @@ function buildSalesBreakdown(rows: { name: string; amount: number }[]): SalesBre
 }
 
 export async function getSalesByCustomer(period: PeriodKey = 'this-year'): Promise<SalesBreakdownRow[]> {
-  const { startDate, endDate } = resolvePeriod(period);
-  const invoicesList = await listInvoices();
-  const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
-  return buildSalesBreakdown(inPeriod.map((inv) => ({ name: inv.CustomerRef.name ?? 'Unknown', amount: inv.TotalAmt })));
+  return (await getSalesBreakdown(period)).byCustomer;
 }
 
 export async function getSalesByProduct(period: PeriodKey = 'this-year'): Promise<SalesBreakdownRow[]> {
+  return (await getSalesBreakdown(period)).byProduct;
+}
+
+/**
+ * The Sales breakdown page shows both of these together, so this fetches
+ * invoices once and derives both groupings from it — getSalesByCustomer()
+ * and getSalesByProduct() used to each independently call listInvoices()
+ * (itself ~5 joined queries), silently doubling that page's DB round trips
+ * every time it loaded.
+ */
+export async function getSalesBreakdown(
+  period: PeriodKey = 'this-year',
+): Promise<{ byCustomer: SalesBreakdownRow[]; byProduct: SalesBreakdownRow[] }> {
   const { startDate, endDate } = resolvePeriod(period);
   const invoicesList = await listInvoices();
   const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
-  const rows = inPeriod.flatMap((inv) =>
-    inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? line.Description ?? 'Custom item', amount: line.Amount })),
+
+  const byCustomer = buildSalesBreakdown(
+    inPeriod.map((inv) => ({ name: inv.CustomerRef.name ?? 'Unknown', amount: inv.TotalAmt })),
   );
-  return buildSalesBreakdown(rows);
+  const byProduct = buildSalesBreakdown(
+    inPeriod.flatMap((inv) =>
+      inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? line.Description ?? 'Custom item', amount: line.Amount })),
+    ),
+  );
+  return { byCustomer, byProduct };
 }

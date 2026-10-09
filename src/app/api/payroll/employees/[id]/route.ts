@@ -6,7 +6,9 @@ import {
   updateEmployee,
   type EmploymentStatus,
 } from '@/lib/quickbooks/payroll';
+import { parseBasePay, parseEmploymentStatus } from '@/lib/accounting/payroll';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +27,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as {
+    const body = (await readJson(request)) as unknown as {
       basePay?: { amount: number; period: 'hourly' | 'salary-annual' };
       status?: EmploymentStatus;
       displayName?: string;
@@ -33,6 +35,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       jobTitle?: string;
       department?: string;
     };
+    // Validate every part up front so a bad field can't leave a half-applied update.
+    if (body.basePay) parseBasePay(body.basePay);
+    if (body.status) parseEmploymentStatus(body.status);
     let employee = null;
     if (body.basePay) {
       employee = await setEmployeeBasePay(id, body.basePay);

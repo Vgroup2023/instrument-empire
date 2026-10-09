@@ -1,7 +1,8 @@
+import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listTransfers } from '@/lib/accounting/transfers';
+import { listTransfersPage } from '@/lib/accounting/transfers';
 import { listPaymentAccounts } from '@/lib/accounting/chartOfAccounts';
 import { TransfersPageClient } from '@/components/transfers/TransfersPageClient';
 
@@ -28,10 +29,10 @@ export default async function TransfersPage() {
     );
   }
 
-  return <TransfersPageClient initialTransfers={data.transfers} accounts={data.accounts} />;
+  return <TransfersPageClient initialTransfers={data.transfers.items} initialTotal={data.transfers.total} accounts={data.accounts} />;
 }
 
 async function loadTransfersData() {
-  const [transfers, accounts] = await Promise.all([listTransfers(), listPaymentAccounts()]);
+  const [transfers, accounts] = await Promise.all([listTransfersPage(PAGE_SIZE, 0), listPaymentAccounts()]);
   return { transfers, accounts };
 }

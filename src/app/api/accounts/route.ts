@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAccount, listAccounts, type CreateAccountInput } from '@/lib/accounting/chartOfAccounts';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateAccountInput;
+    const body = (await readJson(request)) as unknown as CreateAccountInput;
     if (!body.name || !body.accountType || !body.accountSubType) {
       return NextResponse.json(
         { error: 'A name, account type, and category are required.' },

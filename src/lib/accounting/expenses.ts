@@ -1,7 +1,23 @@
 import { getDb } from '@/db/client';
+import type { Page } from '@/lib/paging';
 import { expenses, expenseLines, vendors, accounts } from '@/db/schema';
 import { eq, inArray, desc, sql } from 'drizzle-orm';
 import type { AccountExpenseLine, ExpenseLineInput } from '@/lib/quickbooks/expenseLineTypes';
+import {
+  MAX_MONEY,
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  isoDate,
+  oneOf,
+  optIsoDate,
+  optUuid,
+  round2 as roundMoney,
+  todayIso,
+  uuid,
+} from '@/lib/validation';
+import { requireAccount, requireAccounts, requireVendor, parseExpenseLines, EXPENSE_ACCOUNT_TYPES, PAYMENT_ACCOUNT_TYPES, type Executor } from '@/lib/accounting/entryRules';
+import { nextDocNumber } from '@/lib/accounting/docNumbers';
 
 export type { ExpenseLineInput };
 
@@ -31,15 +47,10 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-async function nextDocNumber(): Promise<string> {
-  const db = getDb();
-  const [row] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(expenses);
-  return `EXP-${String((row?.count ?? 0) + 1).padStart(4, '0')}`;
-}
-
-async function attachDetails(rows: ExpenseRow[]): Promise<Expense[]> {
+// Pass the open transaction as `ex` when reading back something just written inside it (see invoices.ts).
+async function attachDetails(rows: ExpenseRow[], ex: Executor = getDb()): Promise<Expense[]> {
   if (rows.length === 0) return [];
-  const db = getDb();
+  const db = ex;
   const ids = rows.map((r) => r.id);
   const paymentAccountIds = [...new Set(rows.map((r) => r.paymentAccountId))];
   const vendorIds = [...new Set(rows.map((r) => r.vendorId).filter((id): id is string => Boolean(id)))];
@@ -96,29 +107,38 @@ export async function listExpenses(): Promise<Expense[]> {
   return attachDetails(rows);
 }
 
-export async function getExpense(id: string): Promise<Expense> {
+/** The newest `limit` rows after skipping `offset`, plus the overall count, so a tab can open fast and load more on request. */
+export async function listExpensesPage(limit: number, offset: number): Promise<Page<Expense>> {
   const db = getDb();
-  const [row] = await db.select().from(expenses).where(eq(expenses.id, id));
-  if (!row) throw new Error('Expense not found.');
-  const [expense] = await attachDetails([row]);
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(expenses).orderBy(desc(expenses.txnDate), desc(expenses.createdAt)).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(expenses),
+  ]);
+  return { items: await attachDetails(rows), total: n };
+}
+
+export async function getExpense(id: string, ex: Executor = getDb()): Promise<Expense> {
+  uuid(id, 'Expense');
+  const [row] = await ex.select().from(expenses).where(eq(expenses.id, id));
+  if (!row) throw new NotFoundError('Expense not found.');
+  const [expense] = await attachDetails([row], ex);
   return expense;
 }
 
-function validateLines(lines: ExpenseLineInput[]): void {
-  const valid = lines.filter((l) => l.accountId && l.amount > 0);
-  if (valid.length === 0) throw new Error('Add at least one expense line with an amount.');
+function toLineInsertRows(lines: ExpenseLineInput[]) {
+  return lines.map((line, index) => ({
+    accountId: line.accountId,
+    description: line.description || null,
+    amount: line.amount.toFixed(2),
+    lineNumber: index + 1,
+  }));
 }
 
-function toLineInsertRows(lines: ExpenseLineInput[]) {
-  return lines
-    .filter((l) => l.accountId && l.amount > 0)
-    .map((line, index) => ({
-      accountId: line.accountId,
-      description: line.description || null,
-      amount: line.amount.toFixed(2),
-      lineNumber: index + 1,
-    }));
+function checkedTotal(lines: ExpenseLineInput[]): void {
+  if (roundMoney(lines.reduce((sum, l) => sum + l.amount, 0)) > MAX_MONEY) throw new ValidationError('The expense total is too large.');
 }
+
+const PAYMENT_TYPES = ['Cash', 'Check', 'CreditCard'] as const;
 
 export interface CreateExpenseInput {
   paymentAccountId: string;
@@ -131,22 +151,26 @@ export interface CreateExpenseInput {
 }
 
 export async function createExpense(input: CreateExpenseInput): Promise<Expense> {
-  validateLines(input.lines);
+  const raw = asRecord(input, 'The expense');
+  const paymentAccountId = uuid(raw.paymentAccountId, 'Payment account');
+  const paymentType = oneOf(raw.paymentType, 'Payment type', PAYMENT_TYPES);
+  const vendorId = optUuid(raw.vendorId, 'Vendor');
+  const txnDate = optIsoDate(raw.txnDate, 'Expense date') ?? todayIso();
+  const lines = parseExpenseLines(raw.lines);
+  checkedTotal(lines);
+
   const db = getDb();
-  const docNumber = await nextDocNumber();
   return db.transaction(async (tx) => {
+    await requireAccount(tx, paymentAccountId, 'The payment account', PAYMENT_ACCOUNT_TYPES);
+    await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this expense', EXPENSE_ACCOUNT_TYPES);
+    if (vendorId) await requireVendor(tx, vendorId);
+    const docNumber = await nextDocNumber(tx, 'expense', 'EXP');
     const [row] = await tx
       .insert(expenses)
-      .values({
-        docNumber,
-        txnDate: input.txnDate || new Date().toISOString().slice(0, 10),
-        paymentAccountId: input.paymentAccountId,
-        paymentType: input.paymentType,
-        vendorId: input.vendorId || null,
-      })
+      .values({ docNumber, txnDate, paymentAccountId, paymentType, vendorId: vendorId ?? null })
       .returning();
-    await tx.insert(expenseLines).values(toLineInsertRows(input.lines).map((line) => ({ ...line, expenseId: row.id })));
-    const [expense] = await attachDetails([row]);
+    await tx.insert(expenseLines).values(toLineInsertRows(lines).map((line) => ({ ...line, expenseId: row.id })));
+    const [expense] = await attachDetails([row], tx);
     return expense;
   });
 }
@@ -165,32 +189,43 @@ export interface UpdateExpenseInput {
 }
 
 export async function updateExpense(input: UpdateExpenseInput): Promise<Expense> {
-  if (input.lines) validateLines(input.lines);
+  const raw = asRecord(input, 'The expense');
+  const id = uuid(raw.id, 'Expense');
+  const lines = raw.lines !== undefined ? parseExpenseLines(raw.lines) : undefined;
+  if (lines) checkedTotal(lines);
+  const txnDate = raw.txnDate !== undefined ? isoDate(raw.txnDate, 'Expense date') : undefined;
+  const paymentAccountId = raw.paymentAccountId !== undefined ? uuid(raw.paymentAccountId, 'Payment account') : undefined;
+  const paymentType = raw.paymentType !== undefined ? oneOf(raw.paymentType, 'Payment type', PAYMENT_TYPES) : undefined;
+  const vendorId = raw.vendorId !== undefined ? (optUuid(raw.vendorId, 'Vendor') ?? null) : undefined;
+
   const db = getDb();
   return db.transaction(async (tx) => {
+    if (paymentAccountId) await requireAccount(tx, paymentAccountId, 'The payment account', PAYMENT_ACCOUNT_TYPES);
+    if (lines) await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this expense', EXPENSE_ACCOUNT_TYPES);
+    if (vendorId) await requireVendor(tx, vendorId);
     const patch: Partial<ExpenseRow> = { updatedAt: new Date() };
-    if (input.txnDate !== undefined) patch.txnDate = input.txnDate;
-    if (input.paymentAccountId !== undefined) patch.paymentAccountId = input.paymentAccountId;
-    if (input.paymentType !== undefined) patch.paymentType = input.paymentType;
-    if (input.vendorId !== undefined) patch.vendorId = input.vendorId || null;
+    if (txnDate !== undefined) patch.txnDate = txnDate;
+    if (paymentAccountId !== undefined) patch.paymentAccountId = paymentAccountId;
+    if (paymentType !== undefined) patch.paymentType = paymentType;
+    if (vendorId !== undefined) patch.vendorId = vendorId;
 
-    const [row] = await tx.update(expenses).set(patch).where(eq(expenses.id, input.id)).returning();
-    if (!row) throw new Error('Expense not found.');
-
-    if (input.lines) {
-      await tx.delete(expenseLines).where(eq(expenseLines.expenseId, input.id));
-      await tx.insert(expenseLines).values(toLineInsertRows(input.lines).map((line) => ({ ...line, expenseId: row.id })));
+    const [row] = await tx.update(expenses).set(patch).where(eq(expenses.id, id)).returning();
+    if (!row) throw new NotFoundError('Expense not found.');
+    if (lines) {
+      await tx.delete(expenseLines).where(eq(expenseLines.expenseId, id));
+      await tx.insert(expenseLines).values(toLineInsertRows(lines).map((line) => ({ ...line, expenseId: row.id })));
     }
-    const [expense] = await attachDetails([row]);
+    const [expense] = await attachDetails([row], tx);
     return expense;
   });
 }
 
 export async function deleteExpense(id: string): Promise<void> {
+  uuid(id, 'Expense');
   const db = getDb();
   // expense_lines cascade-deletes via its ON DELETE CASCADE foreign key.
   const deleted = await db.delete(expenses).where(eq(expenses.id, id)).returning({ id: expenses.id });
-  if (deleted.length === 0) throw new Error('Expense not found.');
+  if (deleted.length === 0) throw new NotFoundError('Expense not found.');
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +245,7 @@ export interface ExpenseAccountSuggestion {
 }
 
 export async function suggestExpenseAccountsForVendor(vendorId: string): Promise<ExpenseAccountSuggestion[]> {
+  uuid(vendorId, 'Vendor');
   const db = getDb();
   const rows = await db.execute<{ account_id: string; account_name: string; uses: string }>(sql`
     SELECT el.account_id, a.name AS account_name, COUNT(*) AS uses

@@ -1,9 +1,20 @@
 import { getDb } from '@/db/client';
 import { recurringTemplates } from '@/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { and, eq, asc } from 'drizzle-orm';
 import type { LineItemInput } from '@/lib/quickbooks/salesTypes';
 import { createInvoice, sendInvoice } from '@/lib/accounting/invoices';
 import { createEstimate, sendEstimate } from '@/lib/accounting/estimates';
+import {
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  isoDate,
+  oneOf,
+  optEmail,
+  uuid,
+} from '@/lib/validation';
+import { parseSalesLines, requireCustomer } from '@/lib/accounting/entryRules';
+import { customers } from '@/db/schema';
 
 // This is the standalone, database-backed recurring-schedule engine. It's
 // always been app-owned rather than a QuickBooks feature — the public
@@ -106,42 +117,62 @@ export interface CreateRecurringInput {
   autoSend: boolean;
 }
 
+const FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'] as const;
+const DOC_TYPES = ['invoice', 'estimate'] as const;
+
 export async function createRecurringTemplate(input: CreateRecurringInput): Promise<RecurringTemplate> {
+  const raw = asRecord(input, 'The schedule');
+  const docType = oneOf(raw.docType ?? 'invoice', 'Document type', DOC_TYPES);
+  const customerId = uuid(raw.customerId, 'Customer');
+  const lines = parseSalesLines(raw.lines);
+  const frequency = oneOf(raw.frequency, 'Frequency', FREQUENCIES);
+  const startDate = isoDate(raw.startDate, 'Start date');
+  const email = optEmail(raw.email, 'Email');
+  if (raw.autoSend !== undefined && typeof raw.autoSend !== 'boolean') throw new ValidationError('Auto-send must be true or false.');
+  const autoSend = raw.autoSend === true;
+  if (autoSend && !email) throw new ValidationError('Add an email address to send automatically.');
+
   const db = getDb();
+  await requireCustomer(db, customerId);
+  // The customer's name comes from the record itself, never from what the client sent.
+  const [customer] = await db.select({ displayName: customers.displayName }).from(customers).where(eq(customers.id, customerId));
   const [row] = await db
     .insert(recurringTemplates)
     .values({
-      docType: input.docType,
-      customerId: input.customerId,
-      customerName: input.customerName,
-      email: input.email || null,
-      lines: JSON.stringify(input.lines),
-      frequency: input.frequency,
-      startDate: input.startDate,
-      nextRunDate: input.startDate,
-      autoSend: input.autoSend,
+      docType,
+      customerId,
+      customerName: customer.displayName,
+      email: email ?? null,
+      lines: JSON.stringify(lines),
+      frequency,
+      startDate,
+      nextRunDate: startDate,
+      autoSend,
     })
     .returning();
   return toTemplate(row);
 }
 
 export async function setRecurringActive(id: string, active: boolean): Promise<void> {
+  uuid(id, 'Schedule');
+  if (typeof active !== 'boolean') throw new ValidationError('Active must be true or false.');
   const db = getDb();
   const updated = await db
     .update(recurringTemplates)
     .set({ active })
     .where(eq(recurringTemplates.id, id))
     .returning({ id: recurringTemplates.id });
-  if (updated.length === 0) throw new Error('Recurring schedule not found.');
+  if (updated.length === 0) throw new NotFoundError('Recurring schedule not found.');
 }
 
 export async function deleteRecurringTemplate(id: string): Promise<void> {
+  uuid(id, 'Schedule');
   const db = getDb();
   const deleted = await db
     .delete(recurringTemplates)
     .where(eq(recurringTemplates.id, id))
     .returning({ id: recurringTemplates.id });
-  if (deleted.length === 0) throw new Error('Recurring schedule not found.');
+  if (deleted.length === 0) throw new NotFoundError('Recurring schedule not found.');
 }
 
 /**
@@ -159,42 +190,42 @@ export async function runDueTemplates(): Promise<{ templateId: string; docId?: s
   for (const row of rows) {
     if (!row.active || row.nextRunDate > today) continue;
 
+    // Claim this run first by moving nextRunDate forward with a compare-and-set, so two overlapping
+    // runs (a retried cron call, a double-click) can't both create the same document.
+    const nextRunDate = computeNextRunDate(row.frequency, row.nextRunDate);
+    const claimed = await db
+      .update(recurringTemplates)
+      .set({ nextRunDate })
+      .where(and(eq(recurringTemplates.id, row.id), eq(recurringTemplates.nextRunDate, row.nextRunDate), eq(recurringTemplates.active, true)))
+      .returning({ id: recurringTemplates.id });
+    if (claimed.length === 0) continue;
+
+    let docId: string | undefined;
     try {
       const lines = JSON.parse(row.lines) as LineItemInput[];
-      let docId: string;
-      if (row.docType === 'invoice') {
-        const invoice = await createInvoice({
-          customerId: row.customerId,
-          customerName: row.customerName,
-          email: row.email ?? undefined,
-          lines,
-        });
-        if (row.autoSend) await sendInvoice(invoice.Id, row.email ?? undefined);
-        docId = invoice.Id;
-      } else {
-        const estimate = await createEstimate({
-          customerId: row.customerId,
-          customerName: row.customerName,
-          email: row.email ?? undefined,
-          lines,
-        });
-        if (row.autoSend) await sendEstimate(estimate.Id, row.email ?? undefined);
-        docId = estimate.Id;
-      }
+      const base = { customerId: row.customerId, customerName: row.customerName, email: row.email ?? undefined, lines };
+      if (row.docType === 'invoice') docId = (await createInvoice(base)).Id;
+      else docId = (await createEstimate(base)).Id;
       await db
         .update(recurringTemplates)
-        .set({
-          lastRunDate: today,
-          lastError: null,
-          lastCreatedDocId: docId,
-          nextRunDate: computeNextRunDate(row.frequency, row.nextRunDate),
-        })
+        .set({ lastRunDate: today, lastError: null, lastCreatedDocId: docId })
         .where(eq(recurringTemplates.id, row.id));
+      if (row.autoSend) {
+        if (row.docType === 'invoice') await sendInvoice(docId, row.email ?? undefined);
+        else await sendEstimate(docId, row.email ?? undefined);
+      }
       results.push({ templateId: row.id, docId });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      await db.update(recurringTemplates).set({ lastError: message }).where(eq(recurringTemplates.id, row.id));
-      results.push({ templateId: row.id, error: message });
+      if (docId) {
+        // The document exists, so this period is done — only the email failed. Don't hand the run back (that would duplicate the document).
+        await db.update(recurringTemplates).set({ lastError: `Created but not sent: ${message}` }).where(eq(recurringTemplates.id, row.id));
+        results.push({ templateId: row.id, docId, error: message });
+      } else {
+        // Nothing was created: give the run back so the next scheduled call retries it.
+        await db.update(recurringTemplates).set({ lastError: message, nextRunDate: row.nextRunDate }).where(eq(recurringTemplates.id, row.id));
+        results.push({ templateId: row.id, error: message });
+      }
     }
   }
 

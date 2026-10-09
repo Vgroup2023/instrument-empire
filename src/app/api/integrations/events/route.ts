@@ -5,6 +5,7 @@ import { getDb } from '@/db/client';
 import { shipments } from '@/db/schema';
 import { addShipmentEvent } from '@/lib/agents/events';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   if (!key || !sameSecret(provided, key)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const b = (await request.json()) as { reference?: string; type?: string; location?: string; note?: string; occurredAt?: string; source?: string };
+    const b = (await readJson(request)) as unknown as { reference?: string; type?: string; location?: string; note?: string; occurredAt?: string; source?: string };
     if (!b.reference || !b.type) return NextResponse.json({ error: 'reference and type are required.' }, { status: 400 });
     const [s] = await getDb().select({ id: shipments.id }).from(shipments).where(eq(shipments.reference, b.reference));
     if (!s) return NextResponse.json({ error: `No shipment with reference "${b.reference}".` }, { status: 404 });

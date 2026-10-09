@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCustomer, listCustomers, type CreateCustomerInput } from '@/lib/accounting/customers';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateCustomerInput;
+    const body = (await readJson(request)) as unknown as CreateCustomerInput;
     if (!body.displayName) {
       return NextResponse.json({ error: 'A customer name is required.' }, { status: 400 });
     }

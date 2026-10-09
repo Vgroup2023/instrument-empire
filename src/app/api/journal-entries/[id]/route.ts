@@ -5,8 +5,8 @@ import {
   updateJournalEntry,
   type UpdateJournalEntryInput,
 } from '@/lib/accounting/journalEntries';
-import { balanceOf } from '@/lib/quickbooks/journalEntryTypes';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,15 +24,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as Omit<UpdateJournalEntryInput, 'id'>;
-    if (body.lines) {
-      if (body.lines.length < 2) {
-        return NextResponse.json({ error: 'A journal entry needs at least two lines.' }, { status: 400 });
-      }
-      if (!balanceOf(body.lines).isBalanced) {
-        return NextResponse.json({ error: 'Total debits must equal total credits.' }, { status: 400 });
-      }
-    }
+    const body = (await readJson(request)) as unknown as Omit<UpdateJournalEntryInput, 'id'>;
     const journalEntry = await updateJournalEntry({ id, ...body });
     return NextResponse.json({ journalEntry });
   } catch (err) {

@@ -1,7 +1,19 @@
 import { getDb } from '@/db/client';
 import { paymentLinks } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { customers } from '@/db/schema';
 import { getAppBaseUrl } from '@/lib/config';
+import {
+  MAX_MONEY,
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  money,
+  optEmail,
+  optMoney,
+  optText,
+  uuid,
+} from '@/lib/validation';
 
 // This is the standalone, database-backed payment-link store behind
 // src/lib/quickbooks/payments.ts's PAYMENTS_PROVIDER=mock path (the default
@@ -57,17 +69,32 @@ export interface CreatePaymentLinkInput {
 }
 
 export async function createPaymentLink(input: CreatePaymentLinkInput): Promise<PaymentLink> {
+  const raw = asRecord(input, 'The payment link');
+  const customerId = uuid(raw.customerId, 'Customer');
+  const amount = money(raw.amount, 'Amount');
+  if (amount > MAX_MONEY) throw new ValidationError('The amount is too large.');
+  const email = optEmail(raw.email, 'Email');
+  const description = optText(raw.description, 'Description', 500);
+
   const db = getDb();
+  // The customer's name comes from the record itself, never from what the client sent.
+  const [customer] = await db
+    .select({ displayName: customers.displayName, active: customers.active })
+    .from(customers)
+    .where(eq(customers.id, customerId));
+  if (!customer) throw new ValidationError("That customer doesn't exist. Choose one from the list.");
+  if (!customer.active) throw new ValidationError('That customer is inactive. Reactivate them first.');
+
   const id = crypto.randomUUID();
   const [row] = await db
     .insert(paymentLinks)
     .values({
       id,
-      customerId: input.customerId,
-      customerName: input.customerName,
-      email: input.email || null,
-      amount: input.amount.toFixed(2),
-      description: input.description || null,
+      customerId,
+      customerName: customer.displayName,
+      email: email ?? null,
+      amount: amount.toFixed(2),
+      description: description ?? null,
       // Still a placeholder URL — there's no real payment processor wired up (see PAYMENTS_PROVIDER).
       url: `${getAppBaseUrl()}/pay/demo-${id.slice(0, 8)}`,
     })
@@ -75,13 +102,22 @@ export async function createPaymentLink(input: CreatePaymentLinkInput): Promise<
   return toPaymentLink(row);
 }
 
-export async function sendPaymentLink(id: string, email?: string): Promise<PaymentLink> {
+export async function sendPaymentLink(id: string, rawEmail?: string): Promise<PaymentLink> {
+  uuid(id, 'Payment link');
+  const email = optEmail(rawEmail, 'Email');
   const db = getDb();
-  const patch: Partial<PaymentLinkRow> = { status: 'sent', sentAt: new Date() };
-  if (email) patch.email = email;
-  const [row] = await db.update(paymentLinks).set(patch).where(eq(paymentLinks.id, id)).returning();
-  if (!row) throw new Error('Payment link not found.');
-  return toPaymentLink(row);
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(paymentLinks).where(eq(paymentLinks.id, id)).for('update');
+    if (!existing) throw new NotFoundError('Payment link not found.');
+    if (existing.status === 'paid' || existing.status === 'cancelled' || existing.status === 'expired') {
+      throw new ValidationError(`A ${existing.status} link can’t be sent.`);
+    }
+    if (!(email ?? existing.email)) throw new ValidationError('No email address on file for this link — add one first.');
+    const patch: Partial<PaymentLinkRow> = { status: 'sent', sentAt: new Date() };
+    if (email) patch.email = email;
+    const [row] = await tx.update(paymentLinks).set(patch).where(eq(paymentLinks.id, id)).returning();
+    return toPaymentLink(row);
+  });
 }
 
 export interface UpdatePaymentLinkInput {
@@ -92,26 +128,36 @@ export interface UpdatePaymentLinkInput {
 
 /** Only a still-active (not yet sent/paid/cancelled) link can be edited. */
 export async function updatePaymentLink(id: string, input: UpdatePaymentLinkInput): Promise<PaymentLink> {
+  uuid(id, 'Payment link');
+  const raw = asRecord(input, 'The payment link');
+  const amount = raw.amount !== undefined ? optMoney(raw.amount, 'Amount') : undefined;
+  if (amount !== undefined && amount > MAX_MONEY) throw new ValidationError('The amount is too large.');
   const db = getDb();
-  const [existing] = await db.select().from(paymentLinks).where(eq(paymentLinks.id, id));
-  if (!existing) throw new Error('Payment link not found.');
-  if (existing.status !== 'active') throw new Error('Only a link that hasn’t been sent yet can be edited.');
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(paymentLinks).where(eq(paymentLinks.id, id)).for('update');
+    if (!existing) throw new NotFoundError('Payment link not found.');
+    if (existing.status !== 'active') throw new ValidationError('Only a link that hasn’t been sent yet can be edited.');
 
-  const patch: Partial<PaymentLinkRow> = {};
-  if (input.amount !== undefined) patch.amount = input.amount.toFixed(2);
-  if (input.description !== undefined) patch.description = input.description || null;
-  if (input.email !== undefined) patch.email = input.email || null;
+    const patch: Partial<PaymentLinkRow> = {};
+    if (amount !== undefined) patch.amount = amount.toFixed(2);
+    if (raw.description !== undefined) patch.description = optText(raw.description, 'Description', 500) ?? null;
+    if (raw.email !== undefined) patch.email = optEmail(raw.email, 'Email') ?? null;
+    if (Object.keys(patch).length === 0) return toPaymentLink(existing);
 
-  const [row] = await db.update(paymentLinks).set(patch).where(eq(paymentLinks.id, id)).returning();
-  return toPaymentLink(row);
+    const [row] = await tx.update(paymentLinks).set(patch).where(eq(paymentLinks.id, id)).returning();
+    return toPaymentLink(row);
+  });
 }
 
 export async function cancelPaymentLink(id: string): Promise<PaymentLink> {
+  uuid(id, 'Payment link');
   const db = getDb();
-  const [existing] = await db.select().from(paymentLinks).where(eq(paymentLinks.id, id));
-  if (!existing) throw new Error('Payment link not found.');
-  if (existing.status === 'paid') throw new Error('A paid link can’t be cancelled.');
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(paymentLinks).where(eq(paymentLinks.id, id)).for('update');
+    if (!existing) throw new NotFoundError('Payment link not found.');
+    if (existing.status === 'paid') throw new ValidationError('A paid link can’t be cancelled.');
 
-  const [row] = await db.update(paymentLinks).set({ status: 'cancelled' }).where(eq(paymentLinks.id, id)).returning();
-  return toPaymentLink(row);
+    const [row] = await tx.update(paymentLinks).set({ status: 'cancelled' }).where(eq(paymentLinks.id, id)).returning();
+    return toPaymentLink(row);
+  });
 }

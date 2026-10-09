@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteTransfer, updateTransfer, type UpdateTransferInput } from '@/lib/accounting/transfers';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as Omit<UpdateTransferInput, 'id'>;
+    const body = (await readJson(request)) as unknown as Omit<UpdateTransferInput, 'id'>;
     const transfer = await updateTransfer({ id, ...body });
     return NextResponse.json({ transfer });
   } catch (err) {

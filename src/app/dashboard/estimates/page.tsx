@@ -1,7 +1,8 @@
+import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listEstimates } from '@/lib/accounting/estimates';
+import { listEstimatesPage } from '@/lib/accounting/estimates';
 import { listCustomers } from '@/lib/accounting/customers';
 import { listProducts } from '@/lib/accounting/products';
 import { EstimatesPageClient } from '@/components/estimates/EstimatesPageClient';
@@ -29,10 +30,11 @@ export default async function EstimatesPage() {
     );
   }
 
-  return <EstimatesPageClient initialEstimates={data.estimates} customers={data.customers} products={data.products} />;
+  return <EstimatesPageClient initialEstimates={data.estimates.items}
+      initialTotal={data.estimates.total} customers={data.customers} products={data.products} />;
 }
 
 async function loadEstimatesData() {
-  const [estimates, customers, products] = await Promise.all([listEstimates(), listCustomers(), listProducts()]);
+  const [estimates, customers, products] = await Promise.all([listEstimatesPage(PAGE_SIZE, 0), listCustomers(), listProducts()]);
   return { estimates, customers, products };
 }

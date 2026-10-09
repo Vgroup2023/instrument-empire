@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -14,22 +16,21 @@ import type { JournalEntry } from '@/lib/accounting/journalEntries';
 
 export function JournalEntriesPageClient({
   initialJournalEntries,
+  initialTotal,
   accounts,
 }: {
   initialJournalEntries: JournalEntry[];
+  initialTotal: number;
   accounts: Account[];
 }) {
-  const [journalEntries, setJournalEntries] = useState(initialJournalEntries);
+  const list = usePagedList<JournalEntry>('/api/journal-entries', 'journalEntries', initialJournalEntries, initialTotal);
+  const journalEntries = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<JournalEntry | null>(null);
 
   async function refresh() {
-    const res = await fetch('/api/journal-entries', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setJournalEntries(data.journalEntries);
-    }
+    return list.refresh();
   }
 
   function totalOf(entry: JournalEntry) {
@@ -107,6 +108,7 @@ export function JournalEntriesPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={journalEntries.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="journal entries" />
         </CardBody>
       </Card>
 

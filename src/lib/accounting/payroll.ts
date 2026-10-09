@@ -1,6 +1,17 @@
 import { getDb } from '@/db/client';
 import { payrollEmployees } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
+import {
+  NotFoundError,
+  asRecord,
+  isoDate,
+  money,
+  oneOf,
+  optEmail,
+  optText,
+  text,
+  uuid,
+} from '@/lib/validation';
 
 // This is the standalone, database-backed employee directory behind
 // src/lib/quickbooks/payroll.ts's PAYROLL_PROVIDER=mock path (the default —
@@ -49,7 +60,23 @@ export async function listEmployees(): Promise<Employee[]> {
   return rows.map(toEmployee);
 }
 
+const PAY_PERIODS = ['hourly', 'salary-annual'] as const;
+const EMPLOYMENT_STATUSES = ['active', 'terminated', 'pending'] as const;
+
+export function parseBasePay(raw: unknown): BasePay {
+  const pay = asRecord(raw, 'Base pay');
+  return {
+    amount: money(pay.amount, 'Base pay amount', { allowZero: true }),
+    period: oneOf(pay.period, 'Pay period', PAY_PERIODS),
+  };
+}
+
+export function parseEmploymentStatus(raw: unknown): EmploymentStatus {
+  return oneOf(raw, 'Status', EMPLOYMENT_STATUSES);
+}
+
 export async function getEmployee(id: string): Promise<Employee | null> {
+  uuid(id, 'Employee');
   const db = getDb();
   const [row] = await db.select().from(payrollEmployees).where(eq(payrollEmployees.id, id));
   return row ? toEmployee(row) : null;
@@ -65,30 +92,39 @@ export interface CreateEmployeeInput {
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
+  const raw = asRecord(input, 'The employee');
+  const displayName = text(raw.displayName, 'Name', { max: 120 });
+  const email = optEmail(raw.email, 'Email');
+  const jobTitle = optText(raw.jobTitle, 'Job title', 120);
+  const department = optText(raw.department, 'Department', 120);
+  const hiredDate = isoDate(raw.hiredDate, 'Hire date');
+  const basePay = parseBasePay(raw.basePay);
   const db = getDb();
   const [row] = await db
     .insert(payrollEmployees)
     .values({
-      displayName: input.displayName,
-      email: input.email || null,
-      jobTitle: input.jobTitle || null,
-      department: input.department || null,
-      hiredDate: input.hiredDate,
-      basePayAmount: input.basePay.amount.toFixed(2),
-      basePayPeriod: input.basePay.period,
+      displayName,
+      email: email ?? null,
+      jobTitle: jobTitle ?? null,
+      department: department ?? null,
+      hiredDate,
+      basePayAmount: basePay.amount.toFixed(2),
+      basePayPeriod: basePay.period,
     })
     .returning();
   return toEmployee(row);
 }
 
-export async function setEmployeeBasePay(id: string, basePay: BasePay): Promise<Employee> {
+export async function setEmployeeBasePay(id: string, rawBasePay: BasePay): Promise<Employee> {
+  uuid(id, 'Employee');
+  const basePay = parseBasePay(rawBasePay);
   const db = getDb();
   const [row] = await db
     .update(payrollEmployees)
     .set({ basePayAmount: basePay.amount.toFixed(2), basePayPeriod: basePay.period, updatedAt: new Date() })
     .where(eq(payrollEmployees.id, id))
     .returning();
-  if (!row) throw new Error('Employee not found.');
+  if (!row) throw new NotFoundError('Employee not found.');
   return toEmployee(row);
 }
 
@@ -100,27 +136,30 @@ export interface UpdateEmployeeInput {
 }
 
 export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
+  uuid(id, 'Employee');
   const db = getDb();
   const patch: Partial<EmployeeRow> = { updatedAt: new Date() };
-  if (input.displayName !== undefined) patch.displayName = input.displayName;
-  if (input.email !== undefined) patch.email = input.email || null;
-  if (input.jobTitle !== undefined) patch.jobTitle = input.jobTitle || null;
-  if (input.department !== undefined) patch.department = input.department || null;
+  if (input.displayName !== undefined) patch.displayName = text(input.displayName, 'Name', { max: 120 });
+  if (input.email !== undefined) patch.email = optEmail(input.email, 'Email') ?? null;
+  if (input.jobTitle !== undefined) patch.jobTitle = optText(input.jobTitle, 'Job title', 120) ?? null;
+  if (input.department !== undefined) patch.department = optText(input.department, 'Department', 120) ?? null;
 
   const [row] = await db.update(payrollEmployees).set(patch).where(eq(payrollEmployees.id, id)).returning();
-  if (!row) throw new Error('Employee not found.');
+  if (!row) throw new NotFoundError('Employee not found.');
   return toEmployee(row);
 }
 
 /** Terminating/reactivating is this app's own status field — there's no hard-delete for an employee record. */
-export async function setEmployeeStatus(id: string, status: EmploymentStatus): Promise<Employee> {
+export async function setEmployeeStatus(id: string, rawStatus: EmploymentStatus): Promise<Employee> {
+  uuid(id, 'Employee');
+  const status = parseEmploymentStatus(rawStatus);
   const db = getDb();
   const [row] = await db
     .update(payrollEmployees)
     .set({ status, updatedAt: new Date() })
     .where(eq(payrollEmployees.id, id))
     .returning();
-  if (!row) throw new Error('Employee not found.');
+  if (!row) throw new NotFoundError('Employee not found.');
   return toEmployee(row);
 }
 

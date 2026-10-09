@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { listCustomers } from '@/lib/accounting/customers';
-import { listInvoices } from '@/lib/accounting/invoices';
+import { listOverdueInvoices } from '@/lib/accounting/invoices';
 import { listPaymentLinks } from '@/lib/quickbooks/payments';
 import { providers } from '@/lib/config';
 import { PaymentsPageClient } from '@/components/payments/PaymentsPageClient';
@@ -38,16 +38,15 @@ export default async function PaymentsPage() {
       customers={data.customers}
       initialLinks={data.links}
       overdueInvoices={data.overdueInvoices}
+      overdueTotal={data.overdueTotal}
       isDemoPayments={providers.payments === 'mock'}
     />
   );
 }
 
+const OVERDUE_LIMIT = 200;
+
 async function loadPaymentsData() {
-  const [customers, invoices, links] = await Promise.all([listCustomers(), listInvoices(), listPaymentLinks()]);
-  const today = new Date();
-  const overdueInvoices = invoices.filter(
-    (inv) => inv.Balance > 0 && inv.DueDate && new Date(inv.DueDate) < today,
-  );
-  return { customers, overdueInvoices, links };
+  const [customers, overdue, links] = await Promise.all([listCustomers(), listOverdueInvoices(OVERDUE_LIMIT), listPaymentLinks()]);
+  return { customers, overdueInvoices: overdue.items, overdueTotal: overdue.total, links };
 }

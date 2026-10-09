@@ -5,6 +5,7 @@ import {
   type CreateRecurringInput,
 } from '@/lib/accounting/recurring';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,13 +21,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateRecurringInput;
-    if (!body.customerId || !body.lines?.length || !body.startDate) {
-      return NextResponse.json(
-        { error: 'A customer, at least one line item, and a start date are required.' },
-        { status: 400 },
-      );
-    }
+    const body = (await readJson(request)) as unknown as CreateRecurringInput;
     const template = await createRecurringTemplate(body);
     return NextResponse.json({ template });
   } catch (err) {

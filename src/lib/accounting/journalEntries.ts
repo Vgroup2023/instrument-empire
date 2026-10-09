@@ -1,13 +1,28 @@
 import { getDb } from '@/db/client';
+import type { Page } from '@/lib/paging';
 import { journalEntries, journalLines, accounts } from '@/db/schema';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { eq, inArray, desc, sql } from 'drizzle-orm';
 import {
-  balanceOf,
   type JournalLine,
   type JournalLineInput,
   type PostingType,
 } from '@/lib/quickbooks/journalEntryTypes';
 import { recordAuditLog } from '@/lib/accounting/auditLog';
+import {
+  MAX_MONEY,
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  isoDate,
+  list,
+  money,
+  oneOf,
+  optIsoDate,
+  optText,
+  todayIso,
+  uuid,
+} from '@/lib/validation';
+import { requireAccounts, type Executor } from '@/lib/accounting/entryRules';
 
 // This is the standalone, database-backed Journal Entries ledger — the app's
 // own source of truth, not QuickBooks. See src/lib/quickbooks/journalEntries.ts
@@ -27,8 +42,9 @@ export interface JournalEntry {
 
 type JournalEntryRow = typeof journalEntries.$inferSelect;
 
-async function attachLines(entryRows: JournalEntryRow[]): Promise<JournalEntry[]> {
-  const db = getDb();
+// Pass the open transaction as `ex` when reading back something just written inside it (see invoices.ts).
+async function attachLines(entryRows: JournalEntryRow[], ex: Executor = getDb()): Promise<JournalEntry[]> {
+  const db = ex;
   const entryIds = entryRows.map((e) => e.id);
   const lineRows = entryIds.length
     ? await db
@@ -75,19 +91,72 @@ async function attachLines(entryRows: JournalEntryRow[]): Promise<JournalEntry[]
 
 export async function listJournalEntries(): Promise<JournalEntry[]> {
   const db = getDb();
-  const rows = await db
-    .select()
-    .from(journalEntries)
-    .orderBy(desc(journalEntries.txnDate), desc(journalEntries.createdAt));
+  const rows = await db.select().from(journalEntries).orderBy(desc(journalEntries.txnDate), desc(journalEntries.createdAt));
   return attachLines(rows);
 }
 
-export async function getJournalEntry(id: string): Promise<JournalEntry> {
+/** The newest `limit` rows after skipping `offset`, plus the overall count, so a tab can open fast and load more on request. */
+export async function listJournalEntriesPage(limit: number, offset: number): Promise<Page<JournalEntry>> {
   const db = getDb();
-  const [row] = await db.select().from(journalEntries).where(eq(journalEntries.id, id));
-  if (!row) throw new Error('Journal entry not found.');
-  const [entry] = await attachLines([row]);
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(journalEntries).orderBy(desc(journalEntries.txnDate), desc(journalEntries.createdAt)).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(journalEntries),
+  ]);
+  return { items: await attachLines(rows), total: n };
+}
+
+export async function getJournalEntry(id: string, ex: Executor = getDb()): Promise<JournalEntry> {
+  uuid(id, 'Journal entry');
+  const [row] = await ex.select().from(journalEntries).where(eq(journalEntries.id, id));
+  if (!row) throw new NotFoundError('Journal entry not found.');
+  const [entry] = await attachLines([row], ex);
   return entry;
+}
+
+const POSTING_TYPES = ['Debit', 'Credit'] as const;
+
+/**
+ * Validates the lines and checks the books balance *as they will be stored*
+ * (to the cent, using whole cents so floating-point error can't hide a
+ * one-cent difference), with at least one debit and one credit.
+ */
+function parseJournalLines(raw: unknown): JournalLineInput[] {
+  const rows = list(raw, 'Journal lines', { min: 2 });
+  let debitCents = 0;
+  let creditCents = 0;
+  const out = rows.map((entry, index) => {
+    const n = index + 1;
+    const row = asRecord(entry, `Line ${n}`);
+    const line: JournalLineInput = {
+      accountId: uuid(row.accountId, `Line ${n} account`),
+      postingType: oneOf(row.postingType, `Line ${n} Debit/Credit`, POSTING_TYPES),
+      amount: money(row.amount, `Line ${n} amount`),
+      description: optText(row.description, `Line ${n} description`, 500),
+    };
+    const cents = Math.round(line.amount * 100);
+    if (line.postingType === 'Debit') debitCents += cents;
+    else creditCents += cents;
+    return line;
+  });
+  if (debitCents === 0 || creditCents === 0) {
+    throw new ValidationError('A journal entry needs at least one debit line and one credit line.');
+  }
+  if (debitCents !== creditCents) {
+    throw new ValidationError('Total debits must equal total credits before this can be saved.');
+  }
+  if (debitCents / 100 > MAX_MONEY) throw new ValidationError('The journal entry total is too large.');
+  return out;
+}
+
+function lineInsertRows(entryId: string, lines: JournalLineInput[]) {
+  return lines.map((line, index) => ({
+    journalEntryId: entryId,
+    accountId: line.accountId,
+    postingType: line.postingType,
+    amount: line.amount.toFixed(2),
+    description: line.description || null,
+    lineNumber: index,
+  }));
 }
 
 export interface CreateJournalEntryInput {
@@ -97,33 +166,23 @@ export interface CreateJournalEntryInput {
 }
 
 export async function createJournalEntry(input: CreateJournalEntryInput): Promise<JournalEntry> {
-  if (!balanceOf(input.lines).isBalanced) {
-    throw new Error('Total debits must equal total credits before this can be saved.');
-  }
+  const raw = asRecord(input, 'The journal entry');
+  const txnDate = optIsoDate(raw.txnDate, 'Journal date') ?? todayIso();
+  const memo = optText(raw.memo, 'Memo', 500);
+  const lines = parseJournalLines(raw.lines);
+
   const db = getDb();
-  const entry = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this journal entry');
     const [entryRow] = await tx
       .insert(journalEntries)
-      .values({
-        txnDate: input.txnDate ?? new Date().toISOString().slice(0, 10),
-        privateNote: input.memo || null,
-      })
+      .values({ txnDate, privateNote: memo ?? null })
       .returning();
-    await tx.insert(journalLines).values(
-      input.lines.map((line, index) => ({
-        journalEntryId: entryRow.id,
-        accountId: line.accountId,
-        postingType: line.postingType,
-        amount: line.amount.toFixed(2),
-        description: line.description || null,
-        lineNumber: index,
-      })),
-    );
-    const [entry] = await attachLines([entryRow]);
+    await tx.insert(journalLines).values(lineInsertRows(entryRow.id, lines));
+    const [entry] = await attachLines([entryRow], tx);
+    await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'create', after: entry }, tx);
     return entry;
   });
-  await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'create', after: entry });
-  return entry;
 }
 
 export interface UpdateJournalEntryInput {
@@ -136,48 +195,44 @@ export interface UpdateJournalEntryInput {
 }
 
 export async function updateJournalEntry(input: UpdateJournalEntryInput): Promise<JournalEntry> {
-  if (input.lines && !balanceOf(input.lines).isBalanced) {
-    throw new Error('Total debits must equal total credits before this can be saved.');
-  }
-  const before = await getJournalEntry(input.id);
+  const raw = asRecord(input, 'The journal entry');
+  const id = uuid(raw.id, 'Journal entry');
+  const txnDate = raw.txnDate !== undefined ? isoDate(raw.txnDate, 'Journal date') : undefined;
+  const memo = raw.memo !== undefined ? (optText(raw.memo, 'Memo', 500) ?? null) : undefined;
+  const lines = raw.lines !== undefined ? parseJournalLines(raw.lines) : undefined;
+
   const db = getDb();
-  const entry = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    // Lock the entry so two simultaneous edits can't interleave their line replacement.
+    const locked = await tx.select({ id: journalEntries.id }).from(journalEntries).where(eq(journalEntries.id, id)).for('update');
+    if (locked.length === 0) throw new NotFoundError('Journal entry not found.');
+    const before = await getJournalEntry(id, tx);
+    if (lines) await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this journal entry');
+
     const patch: Partial<JournalEntryRow> = { updatedAt: new Date() };
-    if (input.txnDate !== undefined) patch.txnDate = input.txnDate;
-    if (input.memo !== undefined) patch.privateNote = input.memo || null;
+    if (txnDate !== undefined) patch.txnDate = txnDate;
+    if (memo !== undefined) patch.privateNote = memo;
 
-    const [entryRow] = await tx
-      .update(journalEntries)
-      .set(patch)
-      .where(eq(journalEntries.id, input.id))
-      .returning();
-    if (!entryRow) throw new Error('Journal entry not found.');
-
-    if (input.lines) {
-      await tx.delete(journalLines).where(eq(journalLines.journalEntryId, input.id));
-      await tx.insert(journalLines).values(
-        input.lines.map((line, index) => ({
-          journalEntryId: entryRow.id,
-          accountId: line.accountId,
-          postingType: line.postingType,
-          amount: line.amount.toFixed(2),
-          description: line.description || null,
-          lineNumber: index,
-        })),
-      );
+    const [entryRow] = await tx.update(journalEntries).set(patch).where(eq(journalEntries.id, id)).returning();
+    if (lines) {
+      await tx.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+      await tx.insert(journalLines).values(lineInsertRows(entryRow.id, lines));
     }
-    const [entry] = await attachLines([entryRow]);
+    const [entry] = await attachLines([entryRow], tx);
+    await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'update', before, after: entry }, tx);
     return entry;
   });
-  await recordAuditLog({ entityType: 'journal_entry', entityId: entry.Id, action: 'update', before, after: entry });
-  return entry;
 }
 
 export async function deleteJournalEntry(id: string): Promise<void> {
-  const before = await getJournalEntry(id).catch(() => null);
+  uuid(id, 'Journal entry');
   const db = getDb();
-  // journal_lines cascade-deletes via its ON DELETE CASCADE foreign key.
-  const deleted = await db.delete(journalEntries).where(eq(journalEntries.id, id)).returning({ id: journalEntries.id });
-  if (deleted.length === 0) throw new Error('Journal entry not found.');
-  if (before) await recordAuditLog({ entityType: 'journal_entry', entityId: id, action: 'delete', before });
+  await db.transaction(async (tx) => {
+    const locked = await tx.select({ id: journalEntries.id }).from(journalEntries).where(eq(journalEntries.id, id)).for('update');
+    if (locked.length === 0) throw new NotFoundError('Journal entry not found.');
+    const before = await getJournalEntry(id, tx);
+    // journal_lines cascade-deletes via its ON DELETE CASCADE foreign key.
+    await tx.delete(journalEntries).where(eq(journalEntries.id, id));
+    await recordAuditLog({ entityType: 'journal_entry', entityId: id, action: 'delete', before }, tx);
+  });
 }

@@ -65,7 +65,7 @@ async function baselineIfNeeded(client: Sql) {
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
-  const client = postgres(url, { max: 1, ssl: 'require', prepare: false, connect_timeout: 15 });
+  const client = postgres(url, { max: 1, ssl: process.env.DATABASE_SSL === 'off' ? false : 'require', prepare: false, connect_timeout: 15 });
   try {
     const tables = await client`select table_name from information_schema.tables where table_schema = 'public' order by 1`;
     console.log(`public tables (${tables.length}):`, tables.map((t) => t.table_name).join(', ') || '(none)');

@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { accounts } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import type { DateRange } from '@/lib/dateRanges';
+import { ValidationError, NotFoundError } from '@/lib/validation';
 
 // Bank reconciliation via CSV import — this app has no bank feed connection,
 // so the statement has to come from a file you export from your bank and
@@ -78,7 +79,7 @@ function parseAmount(raw: string): number {
     s = s.slice(1);
   }
   const n = Number(s);
-  if (Number.isNaN(n)) throw new Error(`couldn't parse amount "${raw}"`);
+  if (Number.isNaN(n)) throw new ValidationError(`couldn't parse amount "${raw}"`);
   return negative ? -n : n;
 }
 
@@ -93,12 +94,12 @@ function parseDate(raw: string): string {
   }
   const d = new Date(s);
   if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  throw new Error(`couldn't parse date "${raw}"`);
+  throw new ValidationError(`couldn't parse date "${raw}"`);
 }
 
 export function parseStatementCsv(csvText: string): StatementLine[] {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) throw new Error('The statement is empty.');
+  if (lines.length === 0) throw new ValidationError('The statement is empty.');
 
   const rows = lines.map(parseCsvLine);
   const headerRow = rows[0].map((h) => h.toLowerCase());
@@ -121,7 +122,7 @@ export function parseStatementCsv(csvText: string): StatementLine[] {
       };
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'invalid data';
-      throw new Error(`Row ${index + 1} of the statement: ${reason}.`);
+      throw new ValidationError(`Row ${index + 1} of the statement: ${reason}.`);
     }
   });
 }
@@ -252,7 +253,7 @@ export interface ReconciliationResult {
 
 export async function reconcileStatement(accountId: string, csvText: string): Promise<ReconciliationResult> {
   const statementLines = parseStatementCsv(csvText);
-  if (statementLines.length === 0) throw new Error('No transaction rows found in the statement.');
+  if (statementLines.length === 0) throw new ValidationError('No transaction rows found in the statement.');
 
   const dates = [...statementLines.map((l) => l.date)].sort();
   const range: DateRange = {
@@ -262,7 +263,7 @@ export async function reconcileStatement(accountId: string, csvText: string): Pr
 
   const db = getDb();
   const [accountRow] = await db.select({ id: accounts.id, name: accounts.name }).from(accounts).where(eq(accounts.id, accountId));
-  if (!accountRow) throw new Error('Account not found.');
+  if (!accountRow) throw new NotFoundError('Account not found.');
 
   const ledgerTransactions = await listLedgerTransactionsForAccount(accountId, range);
   const { matched, unmatchedStatementLines, unmatchedLedgerTransactions } = matchStatementToLedger(

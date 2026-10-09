@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { warehouseReceipts } from '@/db/schema';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ interface Body {
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const b = (await request.json()) as Body;
+    const b = (await readJson(request)) as unknown as Body;
     for (const [k, v] of Object.entries({ expectedPieces: b.expectedPieces, receivedPieces: b.receivedPieces, damagedPieces: b.damagedPieces, freeDays: b.freeDays, dailyRate: b.dailyRate })) {
       if (v !== undefined && v !== null && (typeof v !== 'number' || v < 0 || Number.isNaN(v))) {
         return NextResponse.json({ error: `${k} must be a number of 0 or more.` }, { status: 400 });

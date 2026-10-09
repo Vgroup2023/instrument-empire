@@ -2,8 +2,6 @@ import { getDb } from '@/db/client';
 import { sql } from 'drizzle-orm';
 import { resolvePeriod, type PeriodKey, type DateRange } from '@/lib/dateRanges';
 import { sumBalancesByAccountType } from '@/lib/accounting/chartOfAccounts';
-import { listInvoices } from '@/lib/accounting/invoices';
-import { listBills } from '@/lib/accounting/bills';
 
 // This is the standalone, database-backed reports engine — the app's own
 // source of truth, computed from the local ledger (Chart of Accounts +
@@ -240,26 +238,40 @@ function buildAgingSummary(rows: { name: string; balance: number; dueDate: strin
   return [...byName.values()].sort((a, b) => b.total - a.total);
 }
 
+/**
+ * Aging is worked out by the database: it adds up each invoice's lines and
+ * payments and returns only the open balances, grouped by customer and due
+ * date. Loading every invoice with its lines, customer and product names
+ * just to bucket a handful of totals took seconds on a large ledger.
+ */
 export async function getArAgingSummary(): Promise<AgingBucketRow[]> {
-  const invoicesList = await listInvoices();
-  return buildAgingSummary(
-    invoicesList.map((inv) => ({
-      name: inv.CustomerRef.name ?? 'Unknown',
-      balance: inv.Balance,
-      dueDate: inv.DueDate ?? inv.TxnDate,
-    })),
-  );
+  const db = getDb();
+  const rows = await db.execute<{ name: string; due: string; balance: string }>(sql`
+    SELECT c.display_name AS name, COALESCE(i.due_date, i.txn_date)::text AS due,
+           SUM(t.total - COALESCE(p.paid, 0))::text AS balance
+    FROM invoices i
+    JOIN customers c ON c.id = i.customer_id
+    JOIN (SELECT invoice_id, SUM(amount) AS total FROM invoice_lines GROUP BY invoice_id) t ON t.invoice_id = i.id
+    LEFT JOIN (SELECT invoice_id, SUM(amount) AS paid FROM invoice_payments GROUP BY invoice_id) p ON p.invoice_id = i.id
+    WHERE t.total - COALESCE(p.paid, 0) > 0
+    GROUP BY c.display_name, COALESCE(i.due_date, i.txn_date)
+  `);
+  return buildAgingSummary(rows.map((r) => ({ name: r.name ?? 'Unknown', balance: Number(r.balance), dueDate: r.due })));
 }
 
 export async function getApAgingSummary(): Promise<AgingBucketRow[]> {
-  const billsList = await listBills();
-  return buildAgingSummary(
-    billsList.map((bill) => ({
-      name: bill.VendorRef.name ?? 'Unknown',
-      balance: bill.Balance,
-      dueDate: bill.DueDate ?? bill.TxnDate,
-    })),
-  );
+  const db = getDb();
+  const rows = await db.execute<{ name: string; due: string; balance: string }>(sql`
+    SELECT v.display_name AS name, COALESCE(b.due_date, b.txn_date)::text AS due,
+           SUM(t.total - COALESCE(p.paid, 0))::text AS balance
+    FROM bills b
+    JOIN vendors v ON v.id = b.vendor_id
+    JOIN (SELECT bill_id, SUM(amount) AS total FROM bill_lines GROUP BY bill_id) t ON t.bill_id = b.id
+    LEFT JOIN (SELECT bill_id, SUM(amount) AS paid FROM bill_payments GROUP BY bill_id) p ON p.bill_id = b.id
+    WHERE t.total - COALESCE(p.paid, 0) > 0
+    GROUP BY v.display_name, COALESCE(b.due_date, b.txn_date)
+  `);
+  return buildAgingSummary(rows.map((r) => ({ name: r.name ?? 'Unknown', balance: Number(r.balance), dueDate: r.due })));
 }
 
 export interface SalesBreakdownRow {
@@ -297,16 +309,29 @@ export async function getSalesBreakdown(
   period: PeriodKey = 'this-year',
 ): Promise<{ byCustomer: SalesBreakdownRow[]; byProduct: SalesBreakdownRow[] }> {
   const { startDate, endDate } = resolvePeriod(period);
-  const invoicesList = await listInvoices();
-  const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
-
-  const byCustomer = buildSalesBreakdown(
-    inPeriod.map((inv) => ({ name: inv.CustomerRef.name ?? 'Unknown', amount: inv.TotalAmt })),
-  );
-  const byProduct = buildSalesBreakdown(
-    inPeriod.flatMap((inv) =>
-      inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? line.Description ?? 'Custom item', amount: line.Amount })),
-    ),
-  );
-  return { byCustomer, byProduct };
+  const db = getDb();
+  // Totals per customer and per product/description are added up in the database
+  // (only a row per name comes back), not by loading every invoice and line.
+  const [customerRows, productRows] = await Promise.all([
+    db.execute<{ name: string; amount: string }>(sql`
+      SELECT c.display_name AS name, SUM(il.amount)::text AS amount
+      FROM invoice_lines il
+      JOIN invoices i ON i.id = il.invoice_id
+      JOIN customers c ON c.id = i.customer_id
+      WHERE i.txn_date >= ${startDate}::date AND i.txn_date <= ${endDate}::date
+      GROUP BY c.display_name
+    `),
+    db.execute<{ name: string; amount: string }>(sql`
+      SELECT COALESCE(p.name, il.description, 'Custom item') AS name, SUM(il.amount)::text AS amount
+      FROM invoice_lines il
+      JOIN invoices i ON i.id = il.invoice_id
+      LEFT JOIN products p ON p.id = il.product_id
+      WHERE i.txn_date >= ${startDate}::date AND i.txn_date <= ${endDate}::date
+      GROUP BY COALESCE(p.name, il.description, 'Custom item')
+    `),
+  ]);
+  return {
+    byCustomer: buildSalesBreakdown(customerRows.map((r) => ({ name: r.name ?? 'Unknown', amount: Number(r.amount) }))),
+    byProduct: buildSalesBreakdown(productRows.map((r) => ({ name: r.name, amount: Number(r.amount) }))),
+  };
 }

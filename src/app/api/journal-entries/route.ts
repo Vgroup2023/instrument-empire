@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createJournalEntry, listJournalEntries, type CreateJournalEntryInput } from '@/lib/accounting/journalEntries';
-import { balanceOf } from '@/lib/quickbooks/journalEntryTypes';
+import { createJournalEntry, listJournalEntries, listJournalEntriesPage, type CreateJournalEntryInput } from '@/lib/accounting/journalEntries';
+import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const paging = parsePaging(request.nextUrl.searchParams);
+    if (paging) {
+      const { items, total } = await listJournalEntriesPage(paging.limit, paging.offset);
+      return NextResponse.json({ journalEntries: items, total });
+    }
     const journalEntries = await listJournalEntries();
     return NextResponse.json({ journalEntries });
   } catch (err) {
@@ -17,13 +23,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateJournalEntryInput;
-    if (!body.lines?.length || body.lines.length < 2) {
-      return NextResponse.json({ error: 'A journal entry needs at least two lines.' }, { status: 400 });
-    }
-    if (!balanceOf(body.lines).isBalanced) {
-      return NextResponse.json({ error: 'Total debits must equal total credits.' }, { status: 400 });
-    }
+    const body = (await readJson(request)) as unknown as CreateJournalEntryInput;
     const journalEntry = await createJournalEntry(body);
     return NextResponse.json({ journalEntry });
   } catch (err) {

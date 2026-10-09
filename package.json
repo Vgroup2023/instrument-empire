@@ -14,7 +14,8 @@
     "refdata:sync": "tsx scripts/sync-refdata.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "qa:entries": "node scripts/qa/entries.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

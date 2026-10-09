@@ -1,7 +1,8 @@
+import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listInvoices, listDepositAccounts } from '@/lib/accounting/invoices';
+import { listInvoicesPage, listDepositAccounts } from '@/lib/accounting/invoices';
 import { listCustomers } from '@/lib/accounting/customers';
 import { listProducts } from '@/lib/accounting/products';
 import { InvoicesPageClient } from '@/components/invoices/InvoicesPageClient';
@@ -31,7 +32,8 @@ export default async function InvoicesPage() {
 
   return (
     <InvoicesPageClient
-      initialInvoices={data.invoices}
+      initialInvoices={data.invoices.items}
+      initialTotal={data.invoices.total}
       customers={data.customers}
       products={data.products}
       depositAccounts={data.depositAccounts}
@@ -42,7 +44,7 @@ export default async function InvoicesPage() {
 
 async function loadInvoicesData() {
   const [invoices, customers, products, depositAccounts] = await Promise.all([
-    listInvoices(),
+    listInvoicesPage(PAGE_SIZE, 0),
     listCustomers(),
     listProducts(),
     listDepositAccounts(),

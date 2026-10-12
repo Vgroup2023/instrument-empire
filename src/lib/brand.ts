@@ -33,6 +33,34 @@ export const BRAND = {
       body: 'Invoices, bills and banking with an audit trail, plus checks that flag duplicates and unusual amounts.',
     },
   ],
+  connections: {
+    heading: 'Connect to your business ERP',
+    statement:
+      'GloblexAI Office ERP plugs into the systems you already run, so information comes in once and your agents get to work on it. No re-keying, no rip-and-replace.',
+    items: [
+      {
+        icon: '🛒',
+        title: 'Orders from any source',
+        body: 'Send orders and customer messages from your website, web forms, EDI converters or any email-to-webhook service over a secure API.',
+      },
+      {
+        icon: '🚚',
+        title: 'Carrier, TMS and WMS feeds',
+        body: 'Shipment events from carriers, transport and warehouse systems land on the right file automatically.',
+      },
+      {
+        icon: '📒',
+        title: 'QuickBooks Online',
+        body: 'An optional connection to your QuickBooks Online company.',
+      },
+      {
+        icon: '🏛️',
+        title: 'Official trade data',
+        body: 'The USITC tariff schedule and the U.S. Consolidated Screening List sync into your workspace automatically.',
+      },
+    ],
+    note: 'Inbound connections are protected by a private key. Using a different system? Ask your Globlex AI administrator what is possible.',
+  },
   trust: 'AI drafts. You decide.',
   trustDetail: 'Agents flag and prepare. People approve.',
   byline: 'Built by Globlex AI · The AI Architect Co.',

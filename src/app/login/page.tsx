@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { BRAND } from '@/lib/brand';
-import { getClientSystems } from '@/config/clientSystems';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { isAppAuthenticated } from '@/lib/session';
 import { safeNext } from '@/lib/safeNext';
@@ -25,8 +24,6 @@ export default async function LoginPage({
     // SESSION_SECRET missing or cookie unreadable: show the form.
   }
   if (signedIn) redirect(next);
-
-  const clients = getClientSystems();
 
   return (
     <div className="safe-top safe-bottom min-h-dvh bg-silver-black px-4 py-10 lg:py-14">
@@ -103,42 +100,23 @@ export default async function LoginPage({
 
       <section aria-labelledby="erp-heading" className="mx-auto mt-14 max-w-6xl">
         <h2 id="erp-heading" className="text-center text-xl font-semibold text-white lg:text-left">
-          Connect to your business ERP
+          {BRAND.connections.heading}
         </h2>
-        <p className="mt-1 text-center text-sm text-slate-300 lg:text-left">
-          Globlex AI clients: open your business&apos;s master ERP system directly.
+        <p className="mx-auto mt-1 max-w-3xl text-center text-sm leading-relaxed text-slate-300 lg:mx-0 lg:text-left">
+          {BRAND.connections.statement}
         </p>
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((c) => (
-            <li key={c.id}>
-              {c.href ? (
-                <a
-                  href={c.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex h-full flex-col justify-between gap-3 rounded-xl2 border border-sky-300/40 bg-black/30 p-4 transition hover:border-sky-300 hover:bg-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-                >
-                  <span>
-                    <span className="block text-base font-semibold text-white">{c.name}</span>
-                    <span className="mt-0.5 block text-sm text-slate-300">{c.descriptor}</span>
-                  </span>
-                  <span className="text-sm font-semibold text-sky-300 group-hover:underline">Open ERP →</span>
-                </a>
-              ) : (
-                <div className="flex h-full flex-col justify-between gap-3 rounded-xl2 border border-white/15 bg-black/20 p-4">
-                  <span>
-                    <span className="block text-base font-semibold text-white">{c.name}</span>
-                    <span className="mt-0.5 block text-sm text-slate-300">{c.descriptor}</span>
-                  </span>
-                  <span className="text-sm text-slate-300">Link coming soon</span>
-                </div>
-              )}
+        <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {BRAND.connections.items.map((c) => (
+            <li key={c.title} className="rounded-xl2 border border-white/15 bg-black/30 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                <span aria-hidden>{c.icon}</span>
+                {c.title}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-300">{c.body}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-center text-sm text-slate-300 lg:text-left">
-          Don&apos;t see your business? Ask your Globlex AI administrator to add your connection.
-        </p>
+        <p className="mt-4 text-center text-sm text-slate-300 lg:text-left">{BRAND.connections.note}</p>
       </section>
 
       <footer className="mx-auto mt-12 flex max-w-6xl flex-col items-center gap-2 text-sm text-slate-300 lg:flex-row lg:justify-between">

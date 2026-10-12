@@ -1,7 +1,8 @@
+import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listJournalEntries } from '@/lib/accounting/journalEntries';
+import { listJournalEntriesPage } from '@/lib/accounting/journalEntries';
 import { listAccounts } from '@/lib/accounting/chartOfAccounts';
 import { JournalEntriesPageClient } from '@/components/journal-entries/JournalEntriesPageClient';
 
@@ -31,10 +32,11 @@ export default async function JournalEntriesPage() {
     );
   }
 
-  return <JournalEntriesPageClient initialJournalEntries={data.journalEntries} accounts={data.accounts} />;
+  return <JournalEntriesPageClient initialJournalEntries={data.journalEntries.items}
+      initialTotal={data.journalEntries.total} accounts={data.accounts} />;
 }
 
 async function loadJournalEntriesData() {
-  const [journalEntries, allAccounts] = await Promise.all([listJournalEntries(), listAccounts()]);
+  const [journalEntries, allAccounts] = await Promise.all([listJournalEntriesPage(PAGE_SIZE, 0), listAccounts()]);
   return { journalEntries, accounts: allAccounts.filter((a) => a.Active) };
 }

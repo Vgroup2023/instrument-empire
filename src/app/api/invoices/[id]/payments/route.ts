@@ -5,6 +5,7 @@ import {
   type RecordInvoicePaymentInput,
 } from '@/lib/accounting/invoices';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as Omit<RecordInvoicePaymentInput, 'invoiceId'>;
+    const body = (await readJson(request)) as unknown as Omit<RecordInvoicePaymentInput, 'invoiceId'>;
     if (!body.amount || !body.depositAccountId) {
       return NextResponse.json({ error: 'An amount and a deposit account are required.' }, { status: 400 });
     }

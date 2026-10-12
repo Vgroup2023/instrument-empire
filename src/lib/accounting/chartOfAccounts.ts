@@ -3,6 +3,7 @@ import { accounts } from '@/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DateRange } from '@/lib/dateRanges';
 import { recordAuditLog } from '@/lib/accounting/auditLog';
+import { ConflictError, NotFoundError, oneOf, optText, text, uuid } from '@/lib/validation';
 
 // This is the standalone, database-backed Chart of Accounts — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/chartOfAccounts.ts
@@ -77,6 +78,10 @@ interface Posting {
  * Receivable/Payable are deliberately not posted here — see reports.ts,
  * which computes those directly from invoice/bill balances instead.
  *
+ * The database adds the postings up per account and Debit/Credit, so only
+ * a couple of rows per account come back however many transactions exist
+ * (before, every posting row travelled to the server to be summed in JS).
+ *
  * When `range` is given, only postings dated within it are counted, so the
  * result reflects account activity for that period rather than an
  * all-time balance.
@@ -94,7 +99,7 @@ async function collectPostings(range?: DateRange): Promise<Posting[]> {
   // page load) was slow enough over the network to trip Postgres's own
   // statement_timeout, even against an otherwise-empty database.
   const rows = await db.execute<{ account_id: string; posting_type: 'Debit' | 'Credit'; amount: string }>(sql`
-    SELECT account_id, posting_type, amount FROM (
+    SELECT account_id, posting_type, SUM(amount) AS amount FROM (
       SELECT jl.account_id AS account_id, jl.posting_type AS posting_type, jl.amount AS amount
       FROM journal_lines jl
       JOIN journal_entries je ON jl.journal_entry_id = je.id
@@ -164,6 +169,7 @@ async function collectPostings(range?: DateRange): Promise<Posting[]> {
         AND (${end}::date IS NULL OR t.txn_date <= ${end}::date)
     ) postings
     WHERE account_id IS NOT NULL
+    GROUP BY account_id, posting_type
   `);
 
   return rows.map((row) => ({
@@ -232,9 +238,10 @@ export async function listAccounts(): Promise<Account[]> {
 }
 
 export async function getAccount(id: string): Promise<Account> {
+  uuid(id, 'Account');
   const db = getDb();
   const [row] = await db.select().from(accounts).where(eq(accounts.id, id));
-  if (!row) throw new Error('Account not found.');
+  if (!row) throw new NotFoundError('Account not found.');
   const balances = await getAccountBalances();
   return toAccount(row, balances.get(row.id) ?? 0);
 }
@@ -247,16 +254,28 @@ export interface CreateAccountInput {
   description?: string;
 }
 
+/** Another account already uses this account number (case ignored). Blank numbers never clash. */
+async function assertAcctNumFree(acctNum: string | undefined, exceptId?: string): Promise<void> {
+  if (!acctNum) return;
+  const db = getDb();
+  const rows = await db.select({ id: accounts.id }).from(accounts).where(sql`lower(${accounts.acctNum}) = lower(${acctNum})`);
+  if (rows.some((r) => r.id !== exceptId)) throw new ConflictError(`Account number ${acctNum} is already used by another account.`);
+}
+
 export async function createAccount(input: CreateAccountInput): Promise<Account> {
   const db = getDb();
+  const name = text(input.name, 'Account name', { max: 120 });
+  const accountType = oneOf(input.accountType, 'Account type', Object.keys(CLASSIFICATION_BY_TYPE) as [string, ...string[]]);
+  const acctNum = optText(input.acctNum, 'Account number', 20);
+  await assertAcctNumFree(acctNum);
   const [row] = await db
     .insert(accounts)
     .values({
-      name: input.name,
-      accountType: input.accountType,
-      accountSubType: input.accountSubType,
-      acctNum: input.acctNum || null,
-      description: input.description || null,
+      name,
+      accountType,
+      accountSubType: optText(input.accountSubType, 'Account sub-type', 80) ?? null,
+      acctNum: acctNum ?? null,
+      description: optText(input.description, 'Description', 500) ?? null,
     })
     .returning();
   const account = toAccount(row, 0);
@@ -279,13 +298,17 @@ export async function updateAccount(input: UpdateAccountInput): Promise<Account>
   const before = await getAccount(input.id);
   const db = getDb();
   const patch: Partial<AccountRow> = { updatedAt: new Date() };
-  if (input.name !== undefined) patch.name = input.name;
-  if (input.acctNum !== undefined) patch.acctNum = input.acctNum || null;
-  if (input.description !== undefined) patch.description = input.description || null;
+  if (input.name !== undefined) patch.name = text(input.name, 'Account name', { max: 120 });
+  if (input.acctNum !== undefined) {
+    const acctNum = optText(input.acctNum, 'Account number', 20);
+    await assertAcctNumFree(acctNum, input.id);
+    patch.acctNum = acctNum ?? null;
+  }
+  if (input.description !== undefined) patch.description = optText(input.description, 'Description', 500) ?? null;
   if (input.active !== undefined) patch.active = input.active;
 
   const [row] = await db.update(accounts).set(patch).where(eq(accounts.id, input.id)).returning();
-  if (!row) throw new Error('Account not found.');
+  if (!row) throw new NotFoundError('Account not found.');
   const balances = await getAccountBalances();
   const account = toAccount(row, balances.get(row.id) ?? 0);
   await recordAuditLog({ entityType: 'account', entityId: account.Id, action: 'update', before, after: account });

@@ -37,7 +37,9 @@ function createDb() {
   // Netlify's 10 second limit on a page render: at 10 seconds an unreachable
   // database used the whole budget, and a page that waited twice for it was
   // killed by the host with an "Inactivity Timeout" instead of showing an error.
-  const client = postgres(url, { max: 5, prepare: false, ssl: 'require', connect_timeout: 3 });
+  // DATABASE_SSL=off is only for a throwaway local database (tests, CI) that has no TLS.
+  const ssl = process.env.DATABASE_SSL === 'off' ? false : 'require';
+  const client = postgres(url, { max: 5, prepare: false, ssl, connect_timeout: 3 });
   return drizzle(client, { schema });
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaymentLink, listPaymentLinks, type CreatePaymentLinkInput } from '@/lib/quickbooks/payments';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,10 +17,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreatePaymentLinkInput;
-    if (!body.customerId || !body.amount) {
-      return NextResponse.json({ error: 'A customer and amount are required.' }, { status: 400 });
-    }
+    const body = (await readJson(request)) as unknown as CreatePaymentLinkInput;
     const link = await createPaymentLink(body);
     return NextResponse.json({ link });
   } catch (err) {

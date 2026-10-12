@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTransfer, listTransfers, type CreateTransferInput } from '@/lib/accounting/transfers';
+import { createTransfer, listTransfers, listTransfersPage, type CreateTransferInput } from '@/lib/accounting/transfers';
+import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const paging = parsePaging(request.nextUrl.searchParams);
+    if (paging) {
+      const { items, total } = await listTransfersPage(paging.limit, paging.offset);
+      return NextResponse.json({ transfers: items, total });
+    }
     const transfers = await listTransfers();
     return NextResponse.json({ transfers });
   } catch (err) {
@@ -16,16 +23,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateTransferInput;
-    if (!body.fromAccountId || !body.toAccountId || !body.amount) {
-      return NextResponse.json(
-        { error: 'A from account, to account, and amount are required.' },
-        { status: 400 },
-      );
-    }
-    if (body.fromAccountId === body.toAccountId) {
-      return NextResponse.json({ error: 'Choose two different accounts.' }, { status: 400 });
-    }
+    const body = (await readJson(request)) as unknown as CreateTransferInput;
     const transfer = await createTransfer(body);
     return NextResponse.json({ transfer });
   } catch (err) {

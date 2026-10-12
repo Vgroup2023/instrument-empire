@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/compon
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { BarList } from '@/components/charts/BarList';
-import { getSalesByCustomer, getSalesByProduct, type SalesBreakdownRow } from '@/lib/accounting/reports';
+import { getSalesBreakdown, type SalesBreakdownRow } from '@/lib/accounting/reports';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ async function SalesBody() {
   let error: string | null = null;
 
   try {
-    [byCustomer, byProduct] = await Promise.all([getSalesByCustomer('this-year'), getSalesByProduct('this-year')]);
+    ({ byCustomer, byProduct } = await getSalesBreakdown('this-year'));
   } catch (err) {
     error = describeError(err, 'Failed to load sales reports.');
   }

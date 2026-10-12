@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createProduct, listProducts, type CreateProductInput } from '@/lib/accounting/products';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateProductInput;
+    const body = (await readJson(request)) as unknown as CreateProductInput;
     if (!body.name) {
       return NextResponse.json({ error: 'A product/service name is required.' }, { status: 400 });
     }

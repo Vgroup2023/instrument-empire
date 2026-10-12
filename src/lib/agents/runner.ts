@@ -1,12 +1,10 @@
-import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { agentFindings, agentRuns, restrictedParties, shipmentDocuments, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
 import { createHash } from 'crypto';
 import { loadHtsIndex, loadScreeningIndex } from '@/lib/refdata/load';
 import { suggestHts, type HtsSuggestion } from '@/lib/hts/classify';
 import { llmEnabled } from '@/lib/llm/json';
-import { listInvoices } from '@/lib/accounting/invoices';
-import { listBills } from '@/lib/accounting/bills';
 import { AGENTS, departmentFor, type AgentContext, type AgentId, type Finding, type FindingAgent, type ShipmentCtx } from './types';
 import { runHtsOracle } from './hts';
 import { runCbpSentinel } from './sentinel';
@@ -18,18 +16,67 @@ import { runBillBot } from './billbot';
 const num = (v: string | null) => (v === null ? null : Number(v));
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
+/**
+ * BillBot only ever looks at invoices that are past due with a balance, and
+ * bills that are due within three days (or overdue) with a balance, so the
+ * database narrows to exactly those instead of loading every invoice and bill
+ * with its lines, names and payments — which took seconds on a big ledger.
+ */
+async function loadOpenInvoicesAndBills(now: Date): Promise<{ invoices: AgentContext['invoices']; bills: AgentContext['bills'] }> {
+  const db = getDb();
+  const today = now.toISOString().slice(0, 10);
+  const soon = new Date(now.getTime() + 3 * 86_400_000).toISOString().slice(0, 10);
+  const [invoiceRows, billRows] = await Promise.all([
+    db.execute<{ id: string; doc_number: string | null; customer_name: string | null; balance: string; due_date: string; last_reminder: Date | null }>(sql`
+      SELECT i.id, i.doc_number, c.display_name AS customer_name, i.due_date::text AS due_date, i.last_reminder_sent_at AS last_reminder,
+             (t.total - COALESCE(p.paid, 0))::text AS balance
+      FROM invoices i
+      JOIN customers c ON c.id = i.customer_id
+      JOIN (SELECT invoice_id, SUM(amount) AS total FROM invoice_lines GROUP BY invoice_id) t ON t.invoice_id = i.id
+      LEFT JOIN (SELECT invoice_id, SUM(amount) AS paid FROM invoice_payments GROUP BY invoice_id) p ON p.invoice_id = i.id
+      WHERE i.due_date < ${today}::date AND t.total - COALESCE(p.paid, 0) > 0
+    `),
+    db.execute<{ id: string; doc_number: string | null; vendor_name: string | null; balance: string; due_date: string; approved: boolean }>(sql`
+      SELECT b.id, b.doc_number, v.display_name AS vendor_name, b.due_date::text AS due_date, b.approved,
+             (t.total - COALESCE(p.paid, 0))::text AS balance
+      FROM bills b
+      JOIN vendors v ON v.id = b.vendor_id
+      JOIN (SELECT bill_id, SUM(amount) AS total FROM bill_lines GROUP BY bill_id) t ON t.bill_id = b.id
+      LEFT JOIN (SELECT bill_id, SUM(amount) AS paid FROM bill_payments GROUP BY bill_id) p ON p.bill_id = b.id
+      WHERE b.due_date <= ${soon}::date AND t.total - COALESCE(p.paid, 0) > 0
+    `),
+  ]);
+  return {
+    invoices: invoiceRows.map((i) => ({
+      id: i.id,
+      docNumber: i.doc_number,
+      customerName: i.customer_name ?? 'customer',
+      balance: Number(i.balance),
+      dueDate: i.due_date,
+      lastReminderSentAt: i.last_reminder ? new Date(i.last_reminder).toISOString() : null,
+    })),
+    bills: billRows.map((b) => ({
+      id: b.id,
+      docNumber: b.doc_number,
+      vendorName: b.vendor_name ?? 'vendor',
+      balance: Number(b.balance),
+      dueDate: b.due_date,
+      approved: b.approved,
+    })),
+  };
+}
+
 export async function loadContext(now = new Date()): Promise<AgentContext> {
   const db = getDb();
   const [hts, screening] = await Promise.all([loadHtsIndex().catch(() => null), loadScreeningIndex().catch(() => null)]);
-  const [shipmentRows, lineRows, eventRows, receiptRows, docRows, restricted, invoices, bills] = await Promise.all([
-    db.select().from(shipments),
+  const [shipmentRows, lineRows, eventRows, receiptRows, docRows, restricted, open] = await Promise.all([
+    db.select().from(shipments).orderBy(desc(shipments.createdAt)),
     db.select().from(shipmentLines),
     db.select().from(shipmentEvents),
     db.select().from(warehouseReceipts),
     db.select().from(shipmentDocuments).orderBy(shipmentDocuments.createdAt),
     db.select().from(restrictedParties),
-    listInvoices(),
-    listBills(),
+    loadOpenInvoicesAndBills(now),
   ]);
   const linesByShipment = new Map<string, ShipmentCtx['lines']>();
   for (const l of lineRows) {
@@ -104,22 +151,8 @@ export async function loadContext(now = new Date()): Promise<AgentContext> {
       })(),
       lines: linesByShipment.get(s.id) ?? [],
     })),
-    invoices: invoices.map((i) => ({
-      id: i.Id,
-      docNumber: i.DocNumber ?? null,
-      customerName: i.CustomerRef.name ?? 'customer',
-      balance: i.Balance,
-      dueDate: i.DueDate ?? null,
-      lastReminderSentAt: i.LastReminderSentAt ?? null,
-    })),
-    bills: bills.map((b) => ({
-      id: b.Id,
-      docNumber: b.DocNumber ?? null,
-      vendorName: b.VendorRef.name ?? 'vendor',
-      balance: b.Balance,
-      dueDate: b.DueDate ?? null,
-      approved: b.Approved,
-    })),
+    invoices: open.invoices,
+    bills: open.bills,
   };
 }
 

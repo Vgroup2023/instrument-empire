@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -20,19 +22,22 @@ import type { Bill } from '@/lib/accounting/bills';
 
 export function BillsPageClient({
   initialBills,
+  initialTotal,
   vendors,
   expenseAccounts,
   bankAccounts,
   homeCurrencyCode,
 }: {
   initialBills: Bill[];
+  initialTotal: number;
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   bankAccounts: GlAccount[];
   homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
-  const [bills, setBills] = useState(initialBills);
+  const list = usePagedList<Bill>('/api/bills', 'bills', initialBills, initialTotal);
+  const bills = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | undefined>(undefined);
   const [payTarget, setPayTarget] = useState<Bill | null>(null);
@@ -41,11 +46,7 @@ export function BillsPageClient({
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
 
   async function refresh() {
-    const res = await fetch('/api/bills', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setBills(data.bills);
-    }
+    return list.refresh();
   }
 
   async function handleDuplicate(bill: Bill) {
@@ -211,6 +212,7 @@ export function BillsPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={bills.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="bills" />
         </CardBody>
       </Card>
 

@@ -3,51 +3,48 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { shipments } from '@/db/schema';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
+import { NotFoundError, ValidationError, asRecord, oneOf, optIsoDate, optText, uuid } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-type Milestone = 'isf' | 'entry' | 'eei' | 'invoiced';
 
 /** PATCH { milestone } stamps a filing time; { doc, received } ticks a document; { status } closes or cancels. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as {
-      milestone?: Milestone;
-      doc?: string;
-      received?: boolean;
-      status?: string;
-      carrier?: string;
-      containerNo?: string;
-      lastFreeDate?: string;
-    };
-    const db = getDb();
-    const [current] = await db.select().from(shipments).where(eq(shipments.id, id));
-    if (!current) return NextResponse.json({ error: 'Shipment not found.' }, { status: 404 });
+    uuid(id, 'Shipment');
+    const body = asRecord(await readJson(request), 'The update');
+    const milestone = body.milestone === undefined ? undefined : oneOf(body.milestone, 'Milestone', ['isf', 'entry', 'eei', 'invoiced'] as const);
+    const doc = optText(body.doc, 'Document', 60);
+    if (body.received !== undefined && typeof body.received !== 'boolean') throw new ValidationError('Received must be true or false.');
+    const status = body.status === undefined ? undefined : oneOf(body.status, 'Status', ['open', 'completed', 'cancelled'] as const);
+    const carrier = body.carrier === undefined ? undefined : (optText(body.carrier, 'Carrier', 120) ?? null);
+    const containerNo = body.containerNo === undefined ? undefined : (optText(body.containerNo, 'Container number', 40) ?? null);
+    const lastFreeDate = body.lastFreeDate === undefined ? undefined : (optIsoDate(body.lastFreeDate, 'Last free date') ?? null);
 
-    const set: Partial<typeof shipments.$inferInsert> = { updatedAt: new Date() };
-    if (body.milestone) {
-      const col = { isf: 'isfFiledAt', entry: 'entryFiledAt', eei: 'eeiFiledAt', invoiced: 'invoicedAt' }[body.milestone];
-      if (!col) return NextResponse.json({ error: 'Unknown milestone.' }, { status: 400 });
-      set[col as 'isfFiledAt'] = new Date();
-    }
-    if (body.doc) {
-      const docs = new Set(current.receivedDocs);
-      if (body.received === false) docs.delete(body.doc);
-      else docs.add(body.doc);
-      set.receivedDocs = [...docs];
-    }
-    if (body.status) {
-      if (!['open', 'completed', 'cancelled'].includes(body.status)) {
-        return NextResponse.json({ error: 'Unknown status.' }, { status: 400 });
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(shipments).where(eq(shipments.id, id)).for('update');
+      if (!current) throw new NotFoundError('Shipment not found.');
+
+      const set: Partial<typeof shipments.$inferInsert> = { updatedAt: new Date() };
+      if (milestone) {
+        const col = { isf: 'isfFiledAt', entry: 'entryFiledAt', eei: 'eeiFiledAt', invoiced: 'invoicedAt' }[milestone];
+        set[col as 'isfFiledAt'] = new Date();
       }
-      set.status = body.status as 'open' | 'completed' | 'cancelled';
-    }
-    if (body.carrier !== undefined) set.carrier = body.carrier.trim() || null;
-    if (body.containerNo !== undefined) set.containerNo = body.containerNo.trim() || null;
-    if (body.lastFreeDate !== undefined) set.lastFreeDate = body.lastFreeDate || null;
-    await db.update(shipments).set(set).where(eq(shipments.id, id));
+      if (doc) {
+        const docs = new Set(current.receivedDocs);
+        if (body.received === false) docs.delete(doc);
+        else docs.add(doc);
+        set.receivedDocs = [...docs];
+      }
+      if (status) set.status = status;
+      if (carrier !== undefined) set.carrier = carrier;
+      if (containerNo !== undefined) set.containerNo = containerNo;
+      if (lastFreeDate !== undefined) set.lastFreeDate = lastFreeDate;
+      await tx.update(shipments).set(set).where(eq(shipments.id, id));
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

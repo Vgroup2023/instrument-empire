@@ -1,11 +1,32 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '@/db/client';
+import type { Page } from '@/lib/paging';
 import { invoices, invoiceLines, invoicePayments, customers, products, accounts } from '@/db/schema';
-import { eq, inArray, desc, sql } from 'drizzle-orm';
+import { and, eq, inArray, desc, sql } from 'drizzle-orm';
 import { sendMail } from '@/lib/email/mailer';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toLineInsertRows, rowsToSalesDocLines, type LineItemInput, type LineRow } from '@/lib/accounting/salesLines';
 import type { SalesDocLine } from '@/lib/quickbooks/salesTypes';
+import {
+  ConflictError,
+  MAX_MONEY,
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  dateNotBefore,
+  isoDate,
+  money,
+  optEmail,
+  optIsoDate,
+  optText,
+  optUuid,
+  round2 as roundMoney,
+  todayIso,
+  uuid,
+} from '@/lib/validation';
+import { requireAccount, requireCustomer, requireProducts, parseSalesLines, BANK_ACCOUNT_TYPES, type Executor, type Tx } from '@/lib/accounting/entryRules';
+import { nextDocNumber } from '@/lib/accounting/docNumbers';
+import { escapeHtml } from '@/lib/html';
 
 // This is the standalone, database-backed Invoices ledger — the app's own
 // source of truth, not QuickBooks. See src/lib/quickbooks/invoices.ts for the
@@ -38,15 +59,11 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-async function nextDocNumber(prefix: string): Promise<string> {
-  const db = getDb();
-  const [row] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(invoices);
-  return `${prefix}-${String((row?.count ?? 0) + 1).padStart(4, '0')}`;
-}
-
-async function attachDetails(rows: InvoiceRow[]): Promise<Invoice[]> {
+// Pass the open transaction as `ex` when reading back something just written inside it: the pool's other
+// connections can't see uncommitted rows, and waiting on one while holding a connection can freeze the app.
+async function attachDetails(rows: InvoiceRow[], ex: Executor = getDb()): Promise<Invoice[]> {
   if (rows.length === 0) return [];
-  const db = getDb();
+  const db = ex;
   const ids = rows.map((r) => r.id);
   const customerIds = [...new Set(rows.map((r) => r.customerId))];
 
@@ -107,19 +124,44 @@ export async function listInvoices(): Promise<Invoice[]> {
   return attachDetails(rows);
 }
 
-export async function getInvoice(id: string): Promise<Invoice> {
+/** The newest `limit` rows after skipping `offset`, plus the overall count, so a tab can open fast and load more on request. */
+export async function listInvoicesPage(limit: number, offset: number): Promise<Page<Invoice>> {
   const db = getDb();
-  const [row] = await db.select().from(invoices).where(eq(invoices.id, id));
-  if (!row) throw new Error('Invoice not found.');
-  const [invoice] = await attachDetails([row]);
-  return invoice;
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(invoices).orderBy(desc(invoices.txnDate), desc(invoices.createdAt)).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(invoices),
+  ]);
+  return { items: await attachDetails(rows), total: n };
 }
 
-function validateLines(lines: LineItemInput[]): void {
-  if (lines.length === 0) throw new Error('Add at least one line item.');
-  if (lines.some((l) => !l.itemId && !l.description?.trim())) {
-    throw new Error('Every line needs either a product/service or a description.');
-  }
+/**
+ * Invoices past their due date that still have a balance, oldest first. The
+ * database does the filtering (and the overall count), so the Payments tab
+ * doesn't have to load every invoice just to find the overdue ones.
+ */
+export async function listOverdueInvoices(limit: number): Promise<Page<Invoice>> {
+  const db = getDb();
+  const open = sql`i.due_date < CURRENT_DATE AND (
+      COALESCE((SELECT SUM(amount) FROM invoice_lines WHERE invoice_id = i.id), 0)
+      - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0)) > 0`;
+  const [idRows, countRows] = await Promise.all([
+    db.execute<{ id: string }>(sql`SELECT i.id FROM invoices i WHERE ${open} ORDER BY i.due_date ASC, i.created_at ASC LIMIT ${limit}`),
+    db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM invoices i WHERE ${open}`),
+  ]);
+  const ids = idRows.map((r) => r.id);
+  if (ids.length === 0) return { items: [], total: 0 };
+  const rows = await db.select().from(invoices).where(inArray(invoices.id, ids));
+  const order = new Map(ids.map((id, index) => [id, index]));
+  rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return { items: await attachDetails(rows), total: countRows[0]?.n ?? ids.length };
+}
+
+export async function getInvoice(id: string, ex: Executor = getDb()): Promise<Invoice> {
+  uuid(id, 'Invoice');
+  const [row] = await ex.select().from(invoices).where(eq(invoices.id, id));
+  if (!row) throw new NotFoundError('Invoice not found.');
+  const [invoice] = await attachDetails([row], ex);
+  return invoice;
 }
 
 export interface CreateInvoiceInput {
@@ -131,25 +173,34 @@ export interface CreateInvoiceInput {
   lines: LineItemInput[];
 }
 
+/** Total of a set of lines, refused if it would not fit the amount columns. */
+function checkedTotal(lines: LineItemInput[]): number {
+  const total = roundMoney(lines.reduce((sum, l) => sum + roundMoney(l.quantity * l.unitPrice), 0));
+  if (total > MAX_MONEY) throw new ValidationError('The invoice total is too large.');
+  return total;
+}
+
 export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice> {
-  validateLines(input.lines);
+  const raw = asRecord(input, 'The invoice');
+  const customerId = uuid(raw.customerId, 'Customer');
+  const lines = parseSalesLines(raw.lines);
+  checkedTotal(lines);
+  const txnDate = optIsoDate(raw.txnDate, 'Invoice date') ?? todayIso();
+  const dueDate = optIsoDate(raw.dueDate, 'Due date');
+  dateNotBefore(dueDate, txnDate, 'The due date', 'the invoice date');
+  const email = optEmail(raw.email, 'Billing email');
+
   const db = getDb();
-  const docNumber = await nextDocNumber('INV');
   return db.transaction(async (tx) => {
+    await requireCustomer(tx, customerId);
+    await requireProducts(tx, lines.map((l) => l.itemId));
+    const docNumber = await nextDocNumber(tx, 'invoice', 'INV');
     const [row] = await tx
       .insert(invoices)
-      .values({
-        docNumber,
-        customerId: input.customerId,
-        txnDate: input.txnDate || new Date().toISOString().slice(0, 10),
-        dueDate: input.dueDate || null,
-        billEmail: input.email || null,
-      })
+      .values({ docNumber, customerId, txnDate, dueDate: dueDate ?? null, billEmail: email ?? null })
       .returning();
-    await tx
-      .insert(invoiceLines)
-      .values(toLineInsertRows(input.lines).map((line) => ({ ...line, invoiceId: row.id })));
-    const [invoice] = await attachDetails([row]);
+    await tx.insert(invoiceLines).values(toLineInsertRows(lines).map((line) => ({ ...line, invoiceId: row.id })));
+    const [invoice] = await attachDetails([row], tx);
     return invoice;
   });
 }
@@ -177,42 +228,86 @@ export interface CreateMilestonePlanInput {
   milestones: MilestoneInput[];
 }
 
+/** Takes the row for update, so nothing else can change or pay this invoice while we check and write. */
+async function lockInvoice(tx: Tx, id: string): Promise<{ txnDate: string }> {
+  const rows = await tx.execute<{ txn_date: string }>(sql`select txn_date from invoices where id = ${id} for update`);
+  if (!rows[0]) throw new NotFoundError('Invoice not found.');
+  return { txnDate: String(rows[0].txn_date) };
+}
+
 export async function createMilestoneInvoicePlan(input: CreateMilestonePlanInput): Promise<Invoice[]> {
-  validateLines(input.lines);
-  if (input.milestones.length < 2) {
-    throw new Error('Add at least two milestones — for a single invoice, use New invoice instead.');
+  const raw = asRecord(input, 'The plan');
+  const customerId = uuid(raw.customerId, 'Customer');
+  const lines = parseSalesLines(raw.lines);
+  checkedTotal(lines);
+  const email = optEmail(raw.email, 'Billing email');
+  if (!Array.isArray(raw.milestones) || raw.milestones.length < 2) {
+    throw new ValidationError('Add at least two milestones — for a single invoice, use New invoice instead.');
   }
-  const totalPercent = round2(input.milestones.reduce((sum, m) => sum + m.percent, 0));
-  if (Math.abs(totalPercent - 100) > 0.5) {
-    throw new Error(`Milestone percentages must add up to 100% (currently ${totalPercent}%).`);
+  if (raw.milestones.length > 24) throw new ValidationError('A plan can have at most 24 milestones.');
+  const milestones = raw.milestones.map((entry, i) => {
+    const m = asRecord(entry, `Milestone ${i + 1}`);
+    return {
+      label: optText(m.label, `Milestone ${i + 1} label`, 80) ?? `Milestone ${i + 1}`,
+      percent: money(m.percent, `Milestone ${i + 1} percent`, { max: 100 }),
+      dueDate: optIsoDate(m.dueDate, `Milestone ${i + 1} due date`),
+    };
+  });
+  const totalPercent = roundMoney(milestones.reduce((sum, m) => sum + m.percent, 0));
+  if (totalPercent !== 100) {
+    throw new ValidationError(`Milestone percentages must add up to exactly 100% (currently ${totalPercent}%).`);
   }
+
+  // Split each line's amount across the milestones to the cent, with any rounding left over going to the last
+  // one, so the invoices always add up to exactly the contract total.
+  const lineAmounts = lines.map((l) => roundMoney(l.quantity * l.unitPrice));
+  const allocation = lineAmounts.map((amount) => {
+    const parts: number[] = [];
+    let used = 0;
+    milestones.forEach((m, i) => {
+      const part = i === milestones.length - 1 ? roundMoney(amount - used) : roundMoney((amount * m.percent) / 100);
+      used = roundMoney(used + part);
+      parts.push(part);
+    });
+    return parts;
+  });
 
   const db = getDb();
-  const baseDocNumber = await nextDocNumber('INV');
   const groupId = randomUUID();
-
   return db.transaction(async (tx) => {
+    await requireCustomer(tx, customerId);
+    await requireProducts(tx, lines.map((l) => l.itemId));
+    const base = await nextDocNumber(tx, 'invoice', 'INV');
     const created: Invoice[] = [];
-    for (let i = 0; i < input.milestones.length; i++) {
-      const milestone = input.milestones[i];
-      const scaledLines: LineItemInput[] = input.lines.map((line) => ({
-        ...line,
-        unitPrice: round2(line.unitPrice * (milestone.percent / 100)),
-      }));
+    for (let i = 0; i < milestones.length; i++) {
+      const milestone = milestones[i];
       const [row] = await tx
         .insert(invoices)
         .values({
-          docNumber: `${baseDocNumber}-M${i + 1}`,
-          customerId: input.customerId,
-          txnDate: new Date().toISOString().slice(0, 10),
-          dueDate: milestone.dueDate || null,
-          billEmail: input.email || null,
+          docNumber: `${base}-M${i + 1}`,
+          customerId,
+          txnDate: todayIso(),
+          dueDate: milestone.dueDate ?? null,
+          billEmail: email ?? null,
           milestoneGroupId: groupId,
           milestoneLabel: milestone.label,
         })
         .returning();
-      await tx.insert(invoiceLines).values(toLineInsertRows(scaledLines).map((line) => ({ ...line, invoiceId: row.id })));
-      const [invoice] = await attachDetails([row]);
+      await tx.insert(invoiceLines).values(
+        lines.map((line, k) => {
+          const amount = allocation[k][i];
+          return {
+            invoiceId: row.id,
+            productId: line.itemId || null,
+            description: line.description || null,
+            qty: line.quantity.toFixed(4),
+            unitPrice: (line.quantity ? amount / line.quantity : amount).toFixed(4),
+            amount: amount.toFixed(2),
+            lineNumber: k + 1,
+          };
+        }),
+      );
+      const [invoice] = await attachDetails([row], tx);
       created.push(invoice);
     }
     return created;
@@ -231,54 +326,81 @@ export interface UpdateInvoiceInput {
 }
 
 export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice> {
-  if (input.lines) validateLines(input.lines);
+  const raw = asRecord(input, 'The invoice');
+  const id = uuid(raw.id, 'Invoice');
+  const lines = raw.lines !== undefined ? parseSalesLines(raw.lines) : undefined;
+  const newTotal = lines ? checkedTotal(lines) : undefined;
+  const dueDate = raw.dueDate !== undefined ? (optIsoDate(raw.dueDate, 'Due date') ?? null) : undefined;
+  const email = raw.email !== undefined ? (optEmail(raw.email, 'Billing email') ?? null) : undefined;
+  const customerId = raw.customerId !== undefined ? uuid(raw.customerId, 'Customer') : undefined;
+
   const db = getDb();
   return db.transaction(async (tx) => {
-    const patch: Partial<InvoiceRow> = { updatedAt: new Date() };
-    if (input.dueDate !== undefined) patch.dueDate = input.dueDate || null;
-    if (input.email !== undefined) patch.billEmail = input.email || null;
-    if (input.customerId !== undefined) patch.customerId = input.customerId;
-
-    const [row] = await tx.update(invoices).set(patch).where(eq(invoices.id, input.id)).returning();
-    if (!row) throw new Error('Invoice not found.');
-
-    if (input.lines) {
-      await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, input.id));
-      await tx.insert(invoiceLines).values(toLineInsertRows(input.lines).map((line) => ({ ...line, invoiceId: row.id })));
+    const { txnDate } = await lockInvoice(tx, id);
+    if (dueDate) dateNotBefore(dueDate, txnDate, 'The due date', 'the invoice date');
+    if (customerId) await requireCustomer(tx, customerId);
+    if (lines) {
+      await requireProducts(tx, lines.map((l) => l.itemId));
+      const [paid] = await tx
+        .select({ total: sql<string>`coalesce(sum(${invoicePayments.amount}), 0)` })
+        .from(invoicePayments)
+        .where(eq(invoicePayments.invoiceId, id));
+      const alreadyPaid = roundMoney(Number(paid?.total ?? 0));
+      if (newTotal !== undefined && newTotal < alreadyPaid) {
+        throw new ConflictError(
+          `${formatCurrency(alreadyPaid)} has already been paid on this invoice, which is more than the new total of ${formatCurrency(newTotal)}. Remove or adjust the payment first.`,
+        );
+      }
     }
-    const [invoice] = await attachDetails([row]);
+
+    const patch: Partial<InvoiceRow> = { updatedAt: new Date() };
+    if (dueDate !== undefined) patch.dueDate = dueDate;
+    if (email !== undefined) patch.billEmail = email;
+    if (customerId !== undefined) patch.customerId = customerId;
+
+    const [row] = await tx.update(invoices).set(patch).where(eq(invoices.id, id)).returning();
+    if (!row) throw new NotFoundError('Invoice not found.');
+
+    if (lines) {
+      await tx.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id));
+      await tx.insert(invoiceLines).values(toLineInsertRows(lines).map((line) => ({ ...line, invoiceId: row.id })));
+    }
+    const [invoice] = await attachDetails([row], tx);
     return invoice;
   });
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  uuid(id, 'Invoice');
   const db = getDb();
-  const existingPayments = await db
-    .select({ id: invoicePayments.id })
-    .from(invoicePayments)
-    .where(eq(invoicePayments.invoiceId, id));
-  if (existingPayments.length > 0) {
-    throw new Error('This invoice has a payment recorded against it — remove the payment first.');
-  }
-  // invoice_lines cascade-deletes via its ON DELETE CASCADE foreign key.
-  const deleted = await db.delete(invoices).where(eq(invoices.id, id)).returning({ id: invoices.id });
-  if (deleted.length === 0) throw new Error('Invoice not found.');
+  await db.transaction(async (tx) => {
+    await lockInvoice(tx, id);
+    const existingPayments = await tx
+      .select({ id: invoicePayments.id })
+      .from(invoicePayments)
+      .where(eq(invoicePayments.invoiceId, id));
+    if (existingPayments.length > 0) {
+      throw new ConflictError('This invoice has a payment recorded against it — remove the payment first.');
+    }
+    // invoice_lines cascade-deletes via its ON DELETE CASCADE foreign key.
+    await tx.delete(invoices).where(eq(invoices.id, id));
+  });
 }
 
 export async function duplicateInvoice(id: string): Promise<Invoice> {
+  uuid(id, 'Invoice');
   const db = getDb();
-  const [original] = await db.select().from(invoices).where(eq(invoices.id, id));
-  if (!original) throw new Error('Invoice not found.');
-  const originalLines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id));
-  const docNumber = await nextDocNumber('INV');
-
   return db.transaction(async (tx) => {
+    const [original] = await tx.select().from(invoices).where(eq(invoices.id, id));
+    if (!original) throw new NotFoundError('Invoice not found.');
+    const originalLines = await tx.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id));
+    const docNumber = await nextDocNumber(tx, 'invoice', 'INV');
     const [row] = await tx
       .insert(invoices)
       .values({
         docNumber,
         customerId: original.customerId,
-        txnDate: new Date().toISOString().slice(0, 10),
+        txnDate: todayIso(),
         dueDate: original.dueDate,
         billEmail: original.billEmail,
       })
@@ -298,7 +420,7 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
           })),
       );
     }
-    const [invoice] = await attachDetails([row]);
+    const [invoice] = await attachDetails([row], tx);
     return invoice;
   });
 }
@@ -321,9 +443,9 @@ function invoiceEmailBody(invoice: Invoice, kind: 'invoice' | 'reminder'): { sub
   ]
     .filter((l): l is string => l !== null)
     .join('\n');
-  const html = `<h2>${heading}</h2>
+  const html = `<h2>${escapeHtml(heading)}</h2>
 <p>Date: ${formatDate(invoice.TxnDate)}${invoice.DueDate ? ` &middot; Due: ${formatDate(invoice.DueDate)}` : ''}</p>
-<ul>${lineRows.map((l) => `<li>${l}</li>`).join('')}</ul>
+<ul>${lineRows.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
 <p><strong>Total: ${formatCurrency(invoice.TotalAmt)}</strong></p>
 <p><strong>Balance due: ${formatCurrency(invoice.Balance)}</strong></p>`;
   return { subject, text, html };
@@ -332,8 +454,8 @@ function invoiceEmailBody(invoice: Invoice, kind: 'invoice' | 'reminder'): { sub
 /** Emails the invoice to the given address (or the customer's address on file if omitted). */
 export async function sendInvoice(id: string, email?: string): Promise<Invoice> {
   const invoice = await getInvoice(id);
-  const to = email || invoice.BillEmail?.Address;
-  if (!to) throw new Error('No email address on file for this customer — add one first.');
+  const to = optEmail(email, 'Email') ?? invoice.BillEmail?.Address;
+  if (!to) throw new ValidationError('No email address on file for this customer — add one first.');
   const { subject, text, html } = invoiceEmailBody(invoice, 'invoice');
   await sendMail({ to, subject, text, html });
   return invoice;
@@ -342,8 +464,8 @@ export async function sendInvoice(id: string, email?: string): Promise<Invoice> 
 /** There's no separate "reminder" concept here either — it's the same email, framed as a nudge. */
 export async function sendInvoiceReminder(id: string, email?: string): Promise<Invoice> {
   const invoice = await getInvoice(id);
-  const to = email || invoice.BillEmail?.Address;
-  if (!to) throw new Error('No email address on file for this customer — add one first.');
+  const to = optEmail(email, 'Email') ?? invoice.BillEmail?.Address;
+  if (!to) throw new ValidationError('No email address on file for this customer — add one first.');
   const { subject, text, html } = invoiceEmailBody(invoice, 'reminder');
   await sendMail({ to, subject, text, html });
   const db = getDb();
@@ -365,6 +487,7 @@ export interface InvoicePayment {
 }
 
 export async function listInvoicePayments(invoiceId: string): Promise<InvoicePayment[]> {
+  uuid(invoiceId, 'Invoice');
   const db = getDb();
   const rows = await db
     .select({
@@ -396,40 +519,64 @@ export interface RecordInvoicePaymentInput {
   memo?: string;
 }
 
+/** A payment can be dated today or in the past. One day of leeway covers a clock or time zone a day ahead of the server. */
+export function assertNotFuture(date: string, field: string): void {
+  const limit = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  if (date > limit) throw new ValidationError(`${field} can't be in the future.`);
+}
+
 export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Promise<InvoicePayment> {
-  if (input.amount <= 0) throw new Error('Payment amount must be greater than zero.');
-  const invoice = await getInvoice(input.invoiceId);
-  if (input.amount > invoice.Balance + 0.005) {
-    throw new Error(`Payment can't exceed the balance due (${formatCurrency(invoice.Balance)}).`);
-  }
+  const raw = asRecord(input, 'The payment');
+  const invoiceId = uuid(raw.invoiceId, 'Invoice');
+  const amount = money(raw.amount, 'Payment amount');
+  const paymentDate = optIsoDate(raw.paymentDate, 'Payment date') ?? todayIso();
+  assertNotFuture(paymentDate, 'The payment date');
+  const depositAccountId = uuid(raw.depositAccountId, 'Deposit account');
+  const memo = optText(raw.memo, 'Memo', 200);
+
   const db = getDb();
-  const [account] = await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, input.depositAccountId));
-  const [row] = await db
-    .insert(invoicePayments)
-    .values({
-      invoiceId: input.invoiceId,
-      amount: input.amount.toFixed(2),
-      paymentDate: input.paymentDate || new Date().toISOString().slice(0, 10),
-      depositAccountId: input.depositAccountId,
-      memo: input.memo || null,
-    })
-    .returning();
-  return {
-    Id: row.id,
-    Amount: Number(row.amount),
-    PaymentDate: row.paymentDate,
-    DepositAccountRef: { value: row.depositAccountId, name: account?.name },
-    Memo: row.memo ?? undefined,
-  };
+  return db.transaction(async (tx) => {
+    // Lock the invoice, then read its balance: two payments arriving together are handled one after the other,
+    // so the second sees the first and cannot push the invoice below zero.
+    await lockInvoice(tx, invoiceId);
+    await requireAccount(tx, depositAccountId, 'The deposit account', BANK_ACCOUNT_TYPES);
+    const [lineTotal] = await tx
+      .select({ total: sql<string>`coalesce(sum(${invoiceLines.amount}), 0)` })
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, invoiceId));
+    const [paidTotal] = await tx
+      .select({ total: sql<string>`coalesce(sum(${invoicePayments.amount}), 0)` })
+      .from(invoicePayments)
+      .where(eq(invoicePayments.invoiceId, invoiceId));
+    const balance = roundMoney(Number(lineTotal?.total ?? 0) - Number(paidTotal?.total ?? 0));
+    if (amount > balance + 0.004) {
+      throw new ConflictError(`Payment can't exceed the balance due (${formatCurrency(balance)}).`);
+    }
+    const [account] = await tx.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, depositAccountId));
+    const [row] = await tx
+      .insert(invoicePayments)
+      .values({ invoiceId, amount: amount.toFixed(2), paymentDate, depositAccountId, memo: memo ?? null })
+      .returning();
+    return {
+      Id: row.id,
+      Amount: Number(row.amount),
+      PaymentDate: row.paymentDate,
+      DepositAccountRef: { value: row.depositAccountId, name: account?.name },
+      Memo: row.memo ?? undefined,
+    };
+  });
 }
 
 export async function deleteInvoicePayment(invoiceId: string, paymentId: string): Promise<void> {
+  uuid(invoiceId, 'Invoice');
+  uuid(paymentId, 'Payment');
   const db = getDb();
+  // Match the invoice in the same statement, so a payment that belongs to a different invoice is left alone.
   const deleted = await db
     .delete(invoicePayments)
-    .where(eq(invoicePayments.id, paymentId))
-    .returning({ id: invoicePayments.id, invoiceId: invoicePayments.invoiceId });
-  if (deleted.length === 0 || deleted[0].invoiceId !== invoiceId) throw new Error('Payment not found.');
+    .where(and(eq(invoicePayments.id, paymentId), eq(invoicePayments.invoiceId, invoiceId)))
+    .returning({ id: invoicePayments.id });
+  if (deleted.length === 0) throw new NotFoundError('Payment not found.');
 }
 
 export type { GlAccount as DepositAccount } from '@/lib/accounting/chartOfAccounts';

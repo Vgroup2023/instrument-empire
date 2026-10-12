@@ -30,11 +30,14 @@ export function PaymentsPageClient({
   customers,
   initialLinks,
   overdueInvoices,
+  overdueTotal,
   isDemoPayments,
 }: {
   customers: Customer[];
   initialLinks: PaymentLink[];
   overdueInvoices: Invoice[];
+  /** How many invoices are overdue in all — the table shows the oldest few hundred. */
+  overdueTotal: number;
   isDemoPayments: boolean;
 }) {
   const { notify } = useToast();
@@ -215,6 +218,11 @@ export function PaymentsPageClient({
                 ))}
               </Tbody>
             </Table>
+          )}
+        {overdueTotal > overdueInvoices.length && (
+            <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+              Showing the oldest {overdueInvoices.length.toLocaleString()} of {overdueTotal.toLocaleString()} overdue invoices. Settle or remind these to see the rest.
+            </p>
           )}
         </CardBody>
       </Card>

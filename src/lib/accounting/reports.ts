@@ -1,7 +1,7 @@
+import { getDb } from '@/db/client';
+import { sql } from 'drizzle-orm';
 import { resolvePeriod, type PeriodKey, type DateRange } from '@/lib/dateRanges';
 import { sumBalancesByAccountType } from '@/lib/accounting/chartOfAccounts';
-import { listInvoices } from '@/lib/accounting/invoices';
-import { listBills } from '@/lib/accounting/bills';
 
 // This is the standalone, database-backed reports engine — the app's own
 // source of truth, computed from the local ledger (Chart of Accounts +
@@ -113,26 +113,54 @@ const CURRENT_LIABILITY_TYPES = ['Credit Card', 'Other Current Liability'];
 const NON_CURRENT_LIABILITY_TYPES = ['Long Term Liability'];
 
 /**
+ * Accounts Receivable/Payable balance = (sum of every line's amount) minus
+ * (sum of every payment's amount), across ALL invoices/bills at once rather
+ * than per document — there's no void/soft-delete concept here, a deleted
+ * invoice or bill cascade-deletes its own lines and payments, so this global
+ * aggregate is exactly equivalent to summing each document's own Balance.
+ * It replaces what used to be a full listInvoices()/listBills() call here —
+ * each ~5 queries joining customer names, product names, and line items the
+ * balance sheet never uses — with one trivial aggregate query apiece. Worth
+ * it because this runs on every Dashboard load.
+ */
+async function sumArBalance(): Promise<number> {
+  const db = getDb();
+  const [row] = await db.execute<{ balance: string | null }>(sql`
+    SELECT (COALESCE((SELECT SUM(amount) FROM invoice_lines), 0)
+          - COALESCE((SELECT SUM(amount) FROM invoice_payments), 0))::text AS balance
+  `);
+  return Number(row.balance ?? 0);
+}
+
+async function sumApBalance(): Promise<number> {
+  const db = getDb();
+  const [row] = await db.execute<{ balance: string | null }>(sql`
+    SELECT (COALESCE((SELECT SUM(amount) FROM bill_lines), 0)
+          - COALESCE((SELECT SUM(amount) FROM bill_payments), 0))::text AS balance
+  `);
+  return Number(row.balance ?? 0);
+}
+
+/**
  * Accounts Receivable and Accounts Payable aren't posted to the ledger as GL
  * accounts (there's no arAccountId/apAccountId on invoices/bills) — instead
- * they're computed directly from unpaid invoice/bill balances, reusing
- * Invoices/Bills' already-correct current-balance logic. Since
- * resolvePeriod's endDate is always today, those "current" balances are
- * already exactly "as of endDate".
+ * they're computed directly from unpaid invoice/bill balances (see
+ * sumArBalance/sumApBalance above). Since resolvePeriod's endDate is always
+ * today, those "current" balances are already exactly "as of endDate".
  */
 export async function getBalanceSheet(period: PeriodKey = 'this-year'): Promise<BalanceSheetSummary> {
   const { endDate } = resolvePeriod(period);
   const asOfRange: DateRange = { startDate: EPOCH, endDate };
 
-  const [typeTotals, invoicesList, billsList] = await Promise.all([
+  const [typeTotals, arBalanceRaw, apBalanceRaw] = await Promise.all([
     sumBalancesByAccountType(asOfRange),
-    listInvoices(),
-    listBills(),
+    sumArBalance(),
+    sumApBalance(),
   ]);
   const profitToDate = cumulativeNetIncome(typeTotals);
 
-  const arBalance = round2(invoicesList.reduce((sum, inv) => sum + inv.Balance, 0));
-  const apBalance = round2(billsList.reduce((sum, bill) => sum + bill.Balance, 0));
+  const arBalance = round2(arBalanceRaw);
+  const apBalance = round2(apBalanceRaw);
 
   const totalCurrentAssets = round2(sumTypes(typeTotals, CURRENT_ASSET_TYPES) + arBalance);
   const totalAssets = round2(totalCurrentAssets + sumTypes(typeTotals, NON_CURRENT_ASSET_TYPES));
@@ -210,26 +238,40 @@ function buildAgingSummary(rows: { name: string; balance: number; dueDate: strin
   return [...byName.values()].sort((a, b) => b.total - a.total);
 }
 
+/**
+ * Aging is worked out by the database: it adds up each invoice's lines and
+ * payments and returns only the open balances, grouped by customer and due
+ * date. Loading every invoice with its lines, customer and product names
+ * just to bucket a handful of totals took seconds on a large ledger.
+ */
 export async function getArAgingSummary(): Promise<AgingBucketRow[]> {
-  const invoicesList = await listInvoices();
-  return buildAgingSummary(
-    invoicesList.map((inv) => ({
-      name: inv.CustomerRef.name ?? 'Unknown',
-      balance: inv.Balance,
-      dueDate: inv.DueDate ?? inv.TxnDate,
-    })),
-  );
+  const db = getDb();
+  const rows = await db.execute<{ name: string; due: string; balance: string }>(sql`
+    SELECT c.display_name AS name, COALESCE(i.due_date, i.txn_date)::text AS due,
+           SUM(t.total - COALESCE(p.paid, 0))::text AS balance
+    FROM invoices i
+    JOIN customers c ON c.id = i.customer_id
+    JOIN (SELECT invoice_id, SUM(amount) AS total FROM invoice_lines GROUP BY invoice_id) t ON t.invoice_id = i.id
+    LEFT JOIN (SELECT invoice_id, SUM(amount) AS paid FROM invoice_payments GROUP BY invoice_id) p ON p.invoice_id = i.id
+    WHERE t.total - COALESCE(p.paid, 0) > 0
+    GROUP BY c.display_name, COALESCE(i.due_date, i.txn_date)
+  `);
+  return buildAgingSummary(rows.map((r) => ({ name: r.name ?? 'Unknown', balance: Number(r.balance), dueDate: r.due })));
 }
 
 export async function getApAgingSummary(): Promise<AgingBucketRow[]> {
-  const billsList = await listBills();
-  return buildAgingSummary(
-    billsList.map((bill) => ({
-      name: bill.VendorRef.name ?? 'Unknown',
-      balance: bill.Balance,
-      dueDate: bill.DueDate ?? bill.TxnDate,
-    })),
-  );
+  const db = getDb();
+  const rows = await db.execute<{ name: string; due: string; balance: string }>(sql`
+    SELECT v.display_name AS name, COALESCE(b.due_date, b.txn_date)::text AS due,
+           SUM(t.total - COALESCE(p.paid, 0))::text AS balance
+    FROM bills b
+    JOIN vendors v ON v.id = b.vendor_id
+    JOIN (SELECT bill_id, SUM(amount) AS total FROM bill_lines GROUP BY bill_id) t ON t.bill_id = b.id
+    LEFT JOIN (SELECT bill_id, SUM(amount) AS paid FROM bill_payments GROUP BY bill_id) p ON p.bill_id = b.id
+    WHERE t.total - COALESCE(p.paid, 0) > 0
+    GROUP BY v.display_name, COALESCE(b.due_date, b.txn_date)
+  `);
+  return buildAgingSummary(rows.map((r) => ({ name: r.name ?? 'Unknown', balance: Number(r.balance), dueDate: r.due })));
 }
 
 export interface SalesBreakdownRow {
@@ -249,18 +291,47 @@ function buildSalesBreakdown(rows: { name: string; amount: number }[]): SalesBre
 }
 
 export async function getSalesByCustomer(period: PeriodKey = 'this-year'): Promise<SalesBreakdownRow[]> {
-  const { startDate, endDate } = resolvePeriod(period);
-  const invoicesList = await listInvoices();
-  const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
-  return buildSalesBreakdown(inPeriod.map((inv) => ({ name: inv.CustomerRef.name ?? 'Unknown', amount: inv.TotalAmt })));
+  return (await getSalesBreakdown(period)).byCustomer;
 }
 
 export async function getSalesByProduct(period: PeriodKey = 'this-year'): Promise<SalesBreakdownRow[]> {
+  return (await getSalesBreakdown(period)).byProduct;
+}
+
+/**
+ * The Sales breakdown page shows both of these together, so this fetches
+ * invoices once and derives both groupings from it — getSalesByCustomer()
+ * and getSalesByProduct() used to each independently call listInvoices()
+ * (itself ~5 joined queries), silently doubling that page's DB round trips
+ * every time it loaded.
+ */
+export async function getSalesBreakdown(
+  period: PeriodKey = 'this-year',
+): Promise<{ byCustomer: SalesBreakdownRow[]; byProduct: SalesBreakdownRow[] }> {
   const { startDate, endDate } = resolvePeriod(period);
-  const invoicesList = await listInvoices();
-  const inPeriod = invoicesList.filter((inv) => inv.TxnDate >= startDate && inv.TxnDate <= endDate);
-  const rows = inPeriod.flatMap((inv) =>
-    inv.Line.map((line) => ({ name: line.SalesItemLineDetail.ItemRef.name ?? line.Description ?? 'Custom item', amount: line.Amount })),
-  );
-  return buildSalesBreakdown(rows);
+  const db = getDb();
+  // Totals per customer and per product/description are added up in the database
+  // (only a row per name comes back), not by loading every invoice and line.
+  const [customerRows, productRows] = await Promise.all([
+    db.execute<{ name: string; amount: string }>(sql`
+      SELECT c.display_name AS name, SUM(il.amount)::text AS amount
+      FROM invoice_lines il
+      JOIN invoices i ON i.id = il.invoice_id
+      JOIN customers c ON c.id = i.customer_id
+      WHERE i.txn_date >= ${startDate}::date AND i.txn_date <= ${endDate}::date
+      GROUP BY c.display_name
+    `),
+    db.execute<{ name: string; amount: string }>(sql`
+      SELECT COALESCE(p.name, il.description, 'Custom item') AS name, SUM(il.amount)::text AS amount
+      FROM invoice_lines il
+      JOIN invoices i ON i.id = il.invoice_id
+      LEFT JOIN products p ON p.id = il.product_id
+      WHERE i.txn_date >= ${startDate}::date AND i.txn_date <= ${endDate}::date
+      GROUP BY COALESCE(p.name, il.description, 'Custom item')
+    `),
+  ]);
+  return {
+    byCustomer: buildSalesBreakdown(customerRows.map((r) => ({ name: r.name ?? 'Unknown', amount: Number(r.amount) }))),
+    byProduct: buildSalesBreakdown(productRows.map((r) => ({ name: r.name, amount: Number(r.amount) }))),
+  };
 }

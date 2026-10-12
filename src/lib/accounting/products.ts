@@ -1,6 +1,8 @@
 import { getDb } from '@/db/client';
 import { products, accounts } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { NotFoundError, oneOf, optMoney, optText, text, uuid } from '@/lib/validation';
+import { requireAccount } from '@/lib/accounting/entryRules';
 
 // This is the standalone, database-backed Products & services list — the
 // app's own source of truth, not QuickBooks. See src/lib/quickbooks/items.ts
@@ -78,9 +80,10 @@ export async function listProducts(): Promise<Product[]> {
 }
 
 export async function getProduct(id: string): Promise<Product> {
+  uuid(id, 'Product or service');
   const db = getDb();
   const [row] = await db.select().from(products).where(eq(products.id, id));
-  if (!row) throw new Error('Product/service not found.');
+  if (!row) throw new NotFoundError('Product/service not found.');
   const namesById = await incomeAccountNamesByProduct([row]);
   return toProduct(row, row.incomeAccountId ? namesById.get(row.incomeAccountId) : undefined);
 }
@@ -96,15 +99,20 @@ export interface CreateProductInput {
 
 export async function createProduct(input: CreateProductInput): Promise<Product> {
   const db = getDb();
+  const name = text(input.name, 'Product or service name', { max: 120 });
+  const type = oneOf(input.type, 'Type', ['Service', 'Inventory', 'NonInventory'] as const);
+  const price = optMoney(input.unitPrice, 'Unit price', { allowZero: true });
+  const incomeAccountId = uuid(input.incomeAccountId, 'Income account');
+  await requireAccount(db, incomeAccountId, 'The income account', ['Income']);
   const [row] = await db
     .insert(products)
     .values({
-      name: input.name,
-      description: input.description || null,
-      type: input.type,
-      unitPrice: input.unitPrice !== undefined ? input.unitPrice.toFixed(2) : null,
-      qtyOnHand: input.type === 'Inventory' ? '0' : null,
-      incomeAccountId: input.incomeAccountId,
+      name,
+      description: optText(input.description, 'Description', 500) ?? null,
+      type,
+      unitPrice: price !== undefined ? price.toFixed(2) : null,
+      qtyOnHand: type === 'Inventory' ? '0' : null,
+      incomeAccountId,
     })
     .returning();
   const namesById = await incomeAccountNamesByProduct([row]);
@@ -126,14 +134,18 @@ export interface UpdateProductInput {
 export async function updateProduct(input: UpdateProductInput): Promise<Product> {
   const db = getDb();
   const patch: Partial<ProductRow> = { updatedAt: new Date() };
-  if (input.name !== undefined) patch.name = input.name;
-  if (input.description !== undefined) patch.description = input.description || null;
-  if (input.unitPrice !== undefined) patch.unitPrice = input.unitPrice.toFixed(2);
-  if (input.incomeAccountId !== undefined) patch.incomeAccountId = input.incomeAccountId;
+  uuid(input.id, 'Product or service');
+  if (input.name !== undefined) patch.name = text(input.name, 'Product or service name', { max: 120 });
+  if (input.description !== undefined) patch.description = optText(input.description, 'Description', 500) ?? null;
+  if (input.unitPrice !== undefined) patch.unitPrice = optMoney(input.unitPrice, 'Unit price', { allowZero: true })?.toFixed(2) ?? null;
+  if (input.incomeAccountId !== undefined) {
+    await requireAccount(db, input.incomeAccountId, 'The income account', ['Income']);
+    patch.incomeAccountId = input.incomeAccountId;
+  }
   if (input.active !== undefined) patch.active = input.active;
 
   const [row] = await db.update(products).set(patch).where(eq(products.id, input.id)).returning();
-  if (!row) throw new Error('Product/service not found.');
+  if (!row) throw new NotFoundError('Product/service not found.');
   const namesById = await incomeAccountNamesByProduct([row]);
   return toProduct(row, row.incomeAccountId ? namesById.get(row.incomeAccountId) : undefined);
 }

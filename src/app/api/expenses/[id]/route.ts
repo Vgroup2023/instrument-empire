@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteExpense, getExpense, updateExpense, type UpdateExpenseInput } from '@/lib/accounting/expenses';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as Omit<UpdateExpenseInput, 'id'>;
+    const body = (await readJson(request)) as unknown as Omit<UpdateExpenseInput, 'id'>;
     const expense = await updateExpense({ id, ...body });
     return NextResponse.json({ expense });
   } catch (err) {

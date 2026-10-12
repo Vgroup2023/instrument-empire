@@ -30,6 +30,13 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: 'Quoting',
+    items: [
+      { href: '/dashboard/rfqs', label: 'RFQs to quotes', icon: '📥', description: 'Read incoming RFQs, cost them with your rules, flag stale inputs, approve before anything goes out.' },
+      { href: '/dashboard/quoting-rules', label: 'Quoting rules', icon: '⚙️', description: 'Pricing policy, material prices, routing rules and job history behind every quote.' },
+    ],
+  },
+  {
     title: 'Insights',
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊', description: 'Profitability, cash flow and balance sheet health.' },

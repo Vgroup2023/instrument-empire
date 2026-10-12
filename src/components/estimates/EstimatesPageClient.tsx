@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -28,15 +30,18 @@ const statusTone: Record<string, 'neutral' | 'success' | 'warning' | 'danger'> =
 
 export function EstimatesPageClient({
   initialEstimates,
+  initialTotal,
   customers,
   products,
 }: {
   initialEstimates: Estimate[];
+  initialTotal: number;
   customers: Customer[];
   products: Product[];
 }) {
   const { notify } = useToast();
-  const [estimates, setEstimates] = useState(initialEstimates);
+  const list = usePagedList<Estimate>('/api/estimates', 'estimates', initialEstimates, initialTotal);
+  const estimates = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<Estimate | undefined>(undefined);
   const [sendTarget, setSendTarget] = useState<Estimate | null>(null);
@@ -47,11 +52,7 @@ export function EstimatesPageClient({
   const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
-    const res = await fetch('/api/estimates', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setEstimates(data.estimates);
-    }
+    return list.refresh();
   }
 
   async function handleDuplicate(estimate: Estimate) {
@@ -156,6 +157,7 @@ export function EstimatesPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={estimates.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="estimates" />
         </CardBody>
       </Card>
 

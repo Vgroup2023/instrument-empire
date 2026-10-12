@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { restrictedParties } from '@/db/schema';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 /** Bulk add: one party name per line. */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { names?: string; listName?: string };
+    const body = (await readJson(request)) as unknown as { names?: string; listName?: string };
     const names = [...new Set((body.names ?? '').split('\n').map((n) => n.trim()).filter(Boolean))];
     if (!names.length) return NextResponse.json({ error: 'Enter at least one name.' }, { status: 400 });
     await getDb()

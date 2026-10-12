@@ -1,8 +1,25 @@
 import { getDb } from '@/db/client';
+import type { Page } from '@/lib/paging';
 import { bills, billLines, billPayments, vendors, accounts } from '@/db/schema';
-import { eq, inArray, desc, sql } from 'drizzle-orm';
+import { and, eq, inArray, desc, sql } from 'drizzle-orm';
 import { formatCurrency } from '@/lib/format';
 import type { AccountExpenseLine, ExpenseLineInput } from '@/lib/quickbooks/expenseLineTypes';
+import {
+  ConflictError,
+  MAX_MONEY,
+  NotFoundError,
+  ValidationError,
+  asRecord,
+  dateNotBefore,
+  money,
+  optIsoDate,
+  round2 as roundMoney,
+  todayIso,
+  uuid,
+} from '@/lib/validation';
+import { requireAccounts, requireAccount, requireVendor, parseExpenseLines, BANK_ACCOUNT_TYPES, EXPENSE_ACCOUNT_TYPES, type Executor, type Tx } from '@/lib/accounting/entryRules';
+import { nextDocNumber } from '@/lib/accounting/docNumbers';
+import { assertNotFuture } from '@/lib/accounting/invoices';
 
 export type { ExpenseLineInput };
 
@@ -33,15 +50,10 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-async function nextDocNumber(): Promise<string> {
-  const db = getDb();
-  const [row] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(bills);
-  return `BILL-${String((row?.count ?? 0) + 1).padStart(4, '0')}`;
-}
-
-async function attachDetails(rows: BillRow[]): Promise<Bill[]> {
+// Pass the open transaction as `ex` when reading back something just written inside it (see invoices.ts).
+async function attachDetails(rows: BillRow[], ex: Executor = getDb()): Promise<Bill[]> {
   if (rows.length === 0) return [];
-  const db = getDb();
+  const db = ex;
   const ids = rows.map((r) => r.id);
   const vendorIds = [...new Set(rows.map((r) => r.vendorId))];
 
@@ -104,28 +116,44 @@ export async function listBills(): Promise<Bill[]> {
   return attachDetails(rows);
 }
 
-export async function getBill(id: string): Promise<Bill> {
+/** The newest `limit` rows after skipping `offset`, plus the overall count, so a tab can open fast and load more on request. */
+export async function listBillsPage(limit: number, offset: number): Promise<Page<Bill>> {
   const db = getDb();
-  const [row] = await db.select().from(bills).where(eq(bills.id, id));
-  if (!row) throw new Error('Bill not found.');
-  const [bill] = await attachDetails([row]);
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(bills).orderBy(desc(bills.txnDate), desc(bills.createdAt)).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(bills),
+  ]);
+  return { items: await attachDetails(rows), total: n };
+}
+
+export async function getBill(id: string, ex: Executor = getDb()): Promise<Bill> {
+  uuid(id, 'Bill');
+  const [row] = await ex.select().from(bills).where(eq(bills.id, id));
+  if (!row) throw new NotFoundError('Bill not found.');
+  const [bill] = await attachDetails([row], ex);
   return bill;
 }
 
-function validateLines(lines: ExpenseLineInput[]): void {
-  const valid = lines.filter((l) => l.accountId && l.amount > 0);
-  if (valid.length === 0) throw new Error('Add at least one expense line with an amount.');
+function toLineInsertRows(lines: ExpenseLineInput[]) {
+  return lines.map((line, index) => ({
+    accountId: line.accountId,
+    description: line.description || null,
+    amount: line.amount.toFixed(2),
+    lineNumber: index + 1,
+  }));
 }
 
-function toLineInsertRows(lines: ExpenseLineInput[]) {
-  return lines
-    .filter((l) => l.accountId && l.amount > 0)
-    .map((line, index) => ({
-      accountId: line.accountId,
-      description: line.description || null,
-      amount: line.amount.toFixed(2),
-      lineNumber: index + 1,
-    }));
+function checkedTotal(lines: ExpenseLineInput[]): number {
+  const total = roundMoney(lines.reduce((sum, l) => sum + l.amount, 0));
+  if (total > MAX_MONEY) throw new ValidationError('The bill total is too large.');
+  return total;
+}
+
+/** Takes the row for update, so nothing else can change, approve or pay this bill while we check and write. */
+async function lockBill(tx: Tx, id: string): Promise<{ txnDate: string; approved: boolean }> {
+  const rows = await tx.execute<{ txn_date: string; approved: boolean }>(sql`select txn_date, approved from bills where id = ${id} for update`);
+  if (!rows[0]) throw new NotFoundError('Bill not found.');
+  return { txnDate: String(rows[0].txn_date), approved: Boolean(rows[0].approved) };
 }
 
 export interface CreateBillInput {
@@ -137,21 +165,22 @@ export interface CreateBillInput {
 }
 
 export async function createBill(input: CreateBillInput): Promise<Bill> {
-  validateLines(input.lines);
+  const raw = asRecord(input, 'The bill');
+  const vendorId = uuid(raw.vendorId, 'Vendor');
+  const lines = parseExpenseLines(raw.lines);
+  checkedTotal(lines);
+  const txnDate = optIsoDate(raw.txnDate, 'Bill date') ?? todayIso();
+  const dueDate = optIsoDate(raw.dueDate, 'Due date');
+  dateNotBefore(dueDate, txnDate, 'The due date', 'the bill date');
+
   const db = getDb();
-  const docNumber = await nextDocNumber();
   return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(bills)
-      .values({
-        docNumber,
-        vendorId: input.vendorId,
-        txnDate: input.txnDate || new Date().toISOString().slice(0, 10),
-        dueDate: input.dueDate || null,
-      })
-      .returning();
-    await tx.insert(billLines).values(toLineInsertRows(input.lines).map((line) => ({ ...line, billId: row.id })));
-    const [bill] = await attachDetails([row]);
+    await requireVendor(tx, vendorId);
+    await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this bill', EXPENSE_ACCOUNT_TYPES);
+    const docNumber = await nextDocNumber(tx, 'bill', 'BILL');
+    const [row] = await tx.insert(bills).values({ docNumber, vendorId, txnDate, dueDate: dueDate ?? null }).returning();
+    await tx.insert(billLines).values(toLineInsertRows(lines).map((line) => ({ ...line, billId: row.id })));
+    const [bill] = await attachDetails([row], tx);
     return bill;
   });
 }
@@ -167,52 +196,78 @@ export interface UpdateBillInput {
 }
 
 export async function updateBill(input: UpdateBillInput): Promise<Bill> {
-  if (input.lines) validateLines(input.lines);
+  const raw = asRecord(input, 'The bill');
+  const id = uuid(raw.id, 'Bill');
+  const lines = raw.lines !== undefined ? parseExpenseLines(raw.lines) : undefined;
+  const newTotal = lines ? checkedTotal(lines) : undefined;
+  const dueDate = raw.dueDate !== undefined ? (optIsoDate(raw.dueDate, 'Due date') ?? null) : undefined;
+  const vendorId = raw.vendorId !== undefined ? uuid(raw.vendorId, 'Vendor') : undefined;
+
   const db = getDb();
   return db.transaction(async (tx) => {
+    const current = await lockBill(tx, id);
+    if (dueDate) dateNotBefore(dueDate, current.txnDate, 'The due date', 'the bill date');
+    if (vendorId) await requireVendor(tx, vendorId);
     const patch: Partial<BillRow> = { updatedAt: new Date() };
-    if (input.dueDate !== undefined) patch.dueDate = input.dueDate || null;
-    if (input.vendorId !== undefined) patch.vendorId = input.vendorId;
+    if (dueDate !== undefined) patch.dueDate = dueDate;
+    if (vendorId !== undefined) patch.vendorId = vendorId;
 
-    const [row] = await tx.update(bills).set(patch).where(eq(bills.id, input.id)).returning();
-    if (!row) throw new Error('Bill not found.');
-
-    if (input.lines) {
-      await tx.delete(billLines).where(eq(billLines.billId, input.id));
-      await tx.insert(billLines).values(toLineInsertRows(input.lines).map((line) => ({ ...line, billId: row.id })));
+    if (lines) {
+      await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this bill', EXPENSE_ACCOUNT_TYPES);
+      const [paid] = await tx
+        .select({ total: sql<string>`coalesce(sum(${billPayments.amount}), 0)` })
+        .from(billPayments)
+        .where(eq(billPayments.billId, id));
+      const alreadyPaid = roundMoney(Number(paid?.total ?? 0));
+      if (newTotal !== undefined && newTotal < alreadyPaid) {
+        throw new ConflictError(
+          `${formatCurrency(alreadyPaid)} has already been paid on this bill, which is more than the new total of ${formatCurrency(newTotal)}. Remove or adjust the payment first.`,
+        );
+      }
+      // Changing what an approved bill says it costs means it must be approved again.
+      if (current.approved) {
+        patch.approved = false;
+        patch.scheduledPaymentDate = null;
+      }
     }
-    const [bill] = await attachDetails([row]);
+
+    const [row] = await tx.update(bills).set(patch).where(eq(bills.id, id)).returning();
+    if (!row) throw new NotFoundError('Bill not found.');
+    if (lines) {
+      await tx.delete(billLines).where(eq(billLines.billId, id));
+      await tx.insert(billLines).values(toLineInsertRows(lines).map((line) => ({ ...line, billId: row.id })));
+    }
+    const [bill] = await attachDetails([row], tx);
     return bill;
   });
 }
 
 export async function deleteBill(id: string): Promise<void> {
+  uuid(id, 'Bill');
   const db = getDb();
-  const existingPayments = await db.select({ id: billPayments.id }).from(billPayments).where(eq(billPayments.billId, id));
-  if (existingPayments.length > 0) {
-    throw new Error('This bill has a payment recorded against it — remove the payment first.');
-  }
-  // bill_lines cascade-deletes via its ON DELETE CASCADE foreign key.
-  const deleted = await db.delete(bills).where(eq(bills.id, id)).returning({ id: bills.id });
-  if (deleted.length === 0) throw new Error('Bill not found.');
+  await db.transaction(async (tx) => {
+    await lockBill(tx, id);
+    const existingPayments = await tx.select({ id: billPayments.id }).from(billPayments).where(eq(billPayments.billId, id));
+    if (existingPayments.length > 0) {
+      throw new ConflictError('This bill has a payment recorded against it — remove the payment first.');
+    }
+    // bill_lines cascade-deletes via its ON DELETE CASCADE foreign key.
+    await tx.delete(bills).where(eq(bills.id, id));
+  });
 }
 
 export async function duplicateBill(id: string): Promise<Bill> {
+  uuid(id, 'Bill');
   const db = getDb();
-  const [original] = await db.select().from(bills).where(eq(bills.id, id));
-  if (!original) throw new Error('Bill not found.');
-  const originalLines = await db.select().from(billLines).where(eq(billLines.billId, id));
-  const docNumber = await nextDocNumber();
-
   return db.transaction(async (tx) => {
+    const [original] = await tx.select().from(bills).where(eq(bills.id, id));
+    if (!original) throw new NotFoundError('Bill not found.');
+    const originalLines = await tx.select().from(billLines).where(eq(billLines.billId, id));
+    const docNumber = await nextDocNumber(tx, 'bill', 'BILL');
+    // A copy is a new bill: it starts unapproved and dated today.
     const [row] = await tx
       .insert(bills)
-      .values({
-        docNumber,
-        vendorId: original.vendorId,
-        txnDate: new Date().toISOString().slice(0, 10),
-        dueDate: original.dueDate,
-      })
+      .values({ docNumber, vendorId: original.vendorId, txnDate: todayIso(), dueDate: original.dueDate })
       .returning();
     if (originalLines.length > 0) {
       await tx.insert(billLines).values(
@@ -227,7 +282,7 @@ export async function duplicateBill(id: string): Promise<Bill> {
           })),
       );
     }
-    const [bill] = await attachDetails([row]);
+    const [bill] = await attachDetails([row], tx);
     return bill;
   });
 }
@@ -245,27 +300,39 @@ export interface ApproveBillInput {
 }
 
 export async function approveBill(input: ApproveBillInput): Promise<Bill> {
+  const raw = asRecord(input, 'The approval');
+  const id = uuid(raw.id, 'Bill');
+  const scheduled = optIsoDate(raw.scheduledPaymentDate, 'Planned payment date');
   const db = getDb();
-  const [row] = await db
-    .update(bills)
-    .set({ approved: true, scheduledPaymentDate: input.scheduledPaymentDate || null, updatedAt: new Date() })
-    .where(eq(bills.id, input.id))
-    .returning();
-  if (!row) throw new Error('Bill not found.');
-  const [bill] = await attachDetails([row]);
-  return bill;
+  return db.transaction(async (tx) => {
+    await lockBill(tx, id);
+    const [row] = await tx
+      .update(bills)
+      .set({ approved: true, scheduledPaymentDate: scheduled ?? null, updatedAt: new Date() })
+      .where(eq(bills.id, id))
+      .returning();
+    if (!row) throw new NotFoundError('Bill not found.');
+    const [bill] = await attachDetails([row], tx);
+    return bill;
+  });
 }
 
 export async function unapproveBill(id: string): Promise<Bill> {
+  uuid(id, 'Bill');
   const db = getDb();
-  const [row] = await db
-    .update(bills)
-    .set({ approved: false, scheduledPaymentDate: null, updatedAt: new Date() })
-    .where(eq(bills.id, id))
-    .returning();
-  if (!row) throw new Error('Bill not found.');
-  const [bill] = await attachDetails([row]);
-  return bill;
+  return db.transaction(async (tx) => {
+    await lockBill(tx, id);
+    const [paid] = await tx.select({ id: billPayments.id }).from(billPayments).where(eq(billPayments.billId, id)).limit(1);
+    if (paid) throw new ConflictError('This bill already has a payment recorded, so its approval can no longer be withdrawn.');
+    const [row] = await tx
+      .update(bills)
+      .set({ approved: false, scheduledPaymentDate: null, updatedAt: new Date() })
+      .where(eq(bills.id, id))
+      .returning();
+    if (!row) throw new NotFoundError('Bill not found.');
+    const [bill] = await attachDetails([row], tx);
+    return bill;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -282,21 +349,34 @@ export interface PayBillInput {
 }
 
 export async function payBill(input: PayBillInput): Promise<Bill> {
-  if (input.amount <= 0) throw new Error('Payment amount must be greater than zero.');
-  const bill = await getBill(input.billId);
-  if (!bill.Approved) {
-    throw new Error('This bill must be approved before it can be paid.');
-  }
-  if (input.amount > bill.Balance + 0.005) {
-    throw new Error(`Payment can't exceed the balance due (${formatCurrency(bill.Balance)}).`);
-  }
+  const raw = asRecord(input, 'The payment');
+  const billId = uuid(raw.billId, 'Bill');
+  const amount = money(raw.amount, 'Payment amount');
+  const paymentDate = optIsoDate(raw.paymentDate, 'Payment date') ?? todayIso();
+  assertNotFuture(paymentDate, 'The payment date');
+  const bankAccountId = uuid(raw.bankAccountId, 'Bank account');
+
   const db = getDb();
-  await db.insert(billPayments).values({
-    billId: input.billId,
-    vendorId: bill.VendorRef.value,
-    amount: input.amount.toFixed(2),
-    paymentDate: input.paymentDate || new Date().toISOString().slice(0, 10),
-    bankAccountId: input.bankAccountId,
+  return db.transaction(async (tx) => {
+    // Lock the bill, then read its balance: simultaneous payments are handled one at a time, so the second
+    // one sees the first and cannot take the bill below zero.
+    const { approved } = await lockBill(tx, billId);
+    if (!approved) throw new ConflictError('This bill must be approved before it can be paid.');
+    await requireAccount(tx, bankAccountId, 'The bank account', BANK_ACCOUNT_TYPES);
+    const [lineTotal] = await tx
+      .select({ total: sql<string>`coalesce(sum(${billLines.amount}), 0)` })
+      .from(billLines)
+      .where(eq(billLines.billId, billId));
+    const [paidTotal] = await tx
+      .select({ total: sql<string>`coalesce(sum(${billPayments.amount}), 0)` })
+      .from(billPayments)
+      .where(eq(billPayments.billId, billId));
+    const balance = roundMoney(Number(lineTotal?.total ?? 0) - Number(paidTotal?.total ?? 0));
+    if (amount > balance + 0.004) {
+      throw new ConflictError(`Payment can't exceed the balance due (${formatCurrency(balance)}).`);
+    }
+    const [bill] = await tx.select({ vendorId: bills.vendorId }).from(bills).where(eq(bills.id, billId));
+    await tx.insert(billPayments).values({ billId, vendorId: bill.vendorId, amount: amount.toFixed(2), paymentDate, bankAccountId });
+    return getBill(billId, tx);
   });
-  return getBill(input.billId);
 }

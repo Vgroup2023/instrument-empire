@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
+import { MAX_PAGE_SIZE, PAGE_SIZE } from '@/lib/paging';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -35,10 +37,13 @@ function Step({ done, label, onMark }: { done: boolean; label: string; onMark: (
   );
 }
 
-export function ShipmentsPageClient({ shipments, customers }: { shipments: ShipmentRow[]; customers: { id: string; name: string }[] }) {
+export function ShipmentsPageClient({ shipments, total, customers }: { shipments: ShipmentRow[]; total: number; customers: { id: string; name: string }[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
+  // The page re-renders on the server with a larger limit; "loading" lasts until those extra rows arrive.
+  const [requested, setRequested] = useState(0);
+  const loadingMore = requested > shipments.length;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     reference: '',
@@ -181,6 +186,17 @@ export function ShipmentsPageClient({ shipments, customers }: { shipments: Shipm
             </Tbody>
           </Table>
         )}
+        <LoadMoreBar
+          shown={shipments.length}
+          total={total}
+          loading={loadingMore}
+          onLoadMore={() => {
+            const next = Math.min(shipments.length + PAGE_SIZE, MAX_PAGE_SIZE);
+            setRequested(next);
+            router.replace(`/dashboard/shipments?limit=${next}`, { scroll: false });
+          }}
+          noun="shipments"
+        />
       </Card>
 
       <Modal

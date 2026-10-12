@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncHts, syncScreeningList } from '@/lib/refdata/sync';
+import { readOptionalJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const maxDuration = 300;
 
 /** Signed-in users refresh the official tariff and screening list. Body: { dataset: "hts" | "csl" | "all" }. */
 export async function POST(request: NextRequest) {
-  const b = (await request.json().catch(() => ({}))) as { dataset?: string };
+  const b = (await readOptionalJson(request)) as { dataset?: string };
   const want = b.dataset ?? 'all';
   if (!['hts', 'csl', 'all'].includes(want)) return NextResponse.json({ error: 'dataset must be "hts", "csl" or "all".' }, { status: 400 });
   const results: unknown[] = [];

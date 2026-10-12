@@ -1,7 +1,8 @@
+import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listBills } from '@/lib/accounting/bills';
+import { listBillsPage } from '@/lib/accounting/bills';
 import { listVendors } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listBankAccounts } from '@/lib/accounting/chartOfAccounts';
 import { BillsPageClient } from '@/components/bills/BillsPageClient';
@@ -31,7 +32,8 @@ export default async function BillsPage() {
 
   return (
     <BillsPageClient
-      initialBills={data.bills}
+      initialBills={data.bills.items}
+      initialTotal={data.bills.total}
       vendors={data.vendors}
       expenseAccounts={data.expenseAccounts}
       bankAccounts={data.bankAccounts}
@@ -42,7 +44,7 @@ export default async function BillsPage() {
 
 async function loadBillsData() {
   const [bills, vendors, expenseAccounts, bankAccounts] = await Promise.all([
-    listBills(),
+    listBillsPage(PAGE_SIZE, 0),
     listVendors(),
     listExpenseAccounts(),
     listBankAccounts(),

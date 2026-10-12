@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccount, updateAccount, type UpdateAccountInput } from '@/lib/accounting/chartOfAccounts';
 import { apiErrorResponse } from '@/lib/apiError';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as Omit<UpdateAccountInput, 'id'>;
+    const body = (await readJson(request)) as unknown as Omit<UpdateAccountInput, 'id'>;
     if (!body.syncToken) {
       return NextResponse.json({ error: 'A syncToken is required to update an account.' }, { status: 400 });
     }

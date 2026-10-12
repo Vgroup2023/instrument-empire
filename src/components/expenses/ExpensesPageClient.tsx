@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -16,26 +18,25 @@ import type { Expense } from '@/lib/accounting/expenses';
 
 export function ExpensesPageClient({
   initialExpenses,
+  initialTotal,
   vendors,
   expenseAccounts,
   paymentAccounts,
 }: {
   initialExpenses: Expense[];
+  initialTotal: number;
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   paymentAccounts: GlAccount[];
 }) {
-  const [expenses, setExpenses] = useState(initialExpenses);
+  const list = usePagedList<Expense>('/api/expenses', 'expenses', initialExpenses, initialTotal);
+  const expenses = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
 
   async function refresh() {
-    const res = await fetch('/api/expenses', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setExpenses(data.expenses);
-    }
+    return list.refresh();
   }
 
   return (
@@ -107,6 +108,7 @@ export function ExpensesPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={expenses.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="expenses" />
         </CardBody>
       </Card>
 

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -14,22 +16,21 @@ import type { Transfer } from '@/lib/accounting/transfers';
 
 export function TransfersPageClient({
   initialTransfers,
+  initialTotal,
   accounts,
 }: {
   initialTransfers: Transfer[];
+  initialTotal: number;
   accounts: GlAccount[];
 }) {
-  const [transfers, setTransfers] = useState(initialTransfers);
+  const list = usePagedList<Transfer>('/api/transfers', 'transfers', initialTransfers, initialTotal);
+  const transfers = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<Transfer | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Transfer | null>(null);
 
   async function refresh() {
-    const res = await fetch('/api/transfers', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setTransfers(data.transfers);
-    }
+    return list.refresh();
   }
 
   return (
@@ -97,6 +98,7 @@ export function TransfersPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={transfers.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="transfers" />
         </CardBody>
       </Card>
 

@@ -5,6 +5,7 @@ import { shipmentDocuments, shipmentLines, shipments } from '@/db/schema';
 import { apiErrorResponse } from '@/lib/apiError';
 import type { ExtractedInvoice } from '@/lib/documents/extract';
 import { isValidHts } from '@/lib/agents/hts';
+import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
   try {
     const { id, docId } = await params;
-    const { action } = (await request.json()) as { action?: string };
+    const { action } = (await readJson(request)) as unknown as { action?: string };
     const db = getDb();
     const [doc] = await db.select().from(shipmentDocuments).where(and(eq(shipmentDocuments.id, docId), eq(shipmentDocuments.shipmentId, id)));
     if (!doc) return NextResponse.json({ error: 'Document not found.' }, { status: 404 });

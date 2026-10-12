@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { getDb } from '@/db/client';
-import { orderLines, orders, serviceMessages } from '@/db/schema';
+import { orderEvents, orderLines, orders, serviceMessages } from '@/db/schema';
+import { MAX_QTY, ValidationError, optEmail, optText, text, unitPrice } from '@/lib/validation';
 import { logEvent } from './actions';
 
 export interface StructuredLine {
@@ -30,42 +31,61 @@ function newOrderNumber(): string {
 }
 
 export async function createOrder(input: NewOrderInput): Promise<{ id: string; orderNumber: string }> {
-  const raw = input.rawText?.trim();
-  if (!raw && !input.lines?.length) throw new Error('Provide the order text or at least one line.');
+  const raw = typeof input.rawText === 'string' ? input.rawText.trim() : undefined;
+  const email = optEmail(input.email, 'Customer email')?.toLowerCase();
+  const name = optText(input.name, 'Customer name', 200);
+  const poNumber = optText(input.poNumber, 'PO number', 100);
+  const channel = text(input.channel, 'Channel', { max: 40 });
+  const lines = (input.lines ?? [])
+    .filter((l) => l.description?.trim())
+    .map((l, index) => {
+      const n = index + 1;
+      const qty = Math.trunc(l.quantity);
+      if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY) throw new ValidationError(`Line ${n} quantity must be a whole number of at least 1.`);
+      return {
+        sku: optText(l.sku, `Line ${n} SKU`, 100),
+        description: l.description.trim().slice(0, 200),
+        quantity: qty,
+        unitPrice: l.unitPrice === undefined ? undefined : unitPrice(l.unitPrice, `Line ${n} unit price`),
+      };
+    });
+  if (!raw && !lines.length) throw new ValidationError('Provide the order text or at least one line.');
   const db = getDb();
   for (let attempt = 0; attempt < 5; attempt++) {
     const orderNumber = newOrderNumber();
     try {
-      const [o] = await db
-        .insert(orders)
-        .values({
-          orderNumber,
-          channel: input.channel,
-          customerEmail: input.email?.trim().toLowerCase() || null,
-          customerName: input.name?.trim() || null,
-          poNumber: input.poNumber?.trim() || null,
-          rawText: raw?.slice(0, 20_000) ?? null,
-          shipLine1: input.shipTo?.line1?.trim() || null,
-          shipCity: input.shipTo?.city?.trim() || null,
-          shipRegion: input.shipTo?.region?.trim() || null,
-          shipPostal: input.shipTo?.postal?.trim() || null,
-          shipCountry: input.shipTo?.country?.trim().toUpperCase() || null,
-        })
-        .returning({ id: orders.id });
-      const lines = (input.lines ?? []).filter((l) => l.description?.trim());
-      if (lines.length) {
-        await db.insert(orderLines).values(
-          lines.map((l) => ({
-            orderId: o.id,
-            sku: l.sku?.trim() || null,
-            description: l.description.trim().slice(0, 200),
-            quantity: Math.trunc(l.quantity),
-            unitPrice: l.unitPrice === undefined ? null : String(l.unitPrice),
-          })),
-        );
-      }
-      await logEvent({ orderId: o.id, agent: 'order-intake', action: 'received', detail: `via ${input.channel}` });
-      return { id: o.id, orderNumber };
+      // The order, its lines and the "received" event land together or not at all.
+      return await db.transaction(async (tx) => {
+        const [o] = await tx
+          .insert(orders)
+          .values({
+            orderNumber,
+            channel,
+            customerEmail: email ?? null,
+            customerName: name ?? null,
+            poNumber: poNumber ?? null,
+            rawText: raw?.slice(0, 20_000) ?? null,
+            shipLine1: optText(input.shipTo?.line1, 'Ship-to address', 200) ?? null,
+            shipCity: optText(input.shipTo?.city, 'Ship-to city', 100) ?? null,
+            shipRegion: optText(input.shipTo?.region, 'Ship-to region', 100) ?? null,
+            shipPostal: optText(input.shipTo?.postal, 'Ship-to postal code', 30) ?? null,
+            shipCountry: optText(input.shipTo?.country, 'Ship-to country', 60)?.toUpperCase() ?? null,
+          })
+          .returning({ id: orders.id });
+        if (lines.length) {
+          await tx.insert(orderLines).values(
+            lines.map((l) => ({
+              orderId: o.id,
+              sku: l.sku ?? null,
+              description: l.description,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice === undefined ? null : l.unitPrice.toFixed(2),
+            })),
+          );
+        }
+        await tx.insert(orderEvents).values({ orderId: o.id, agent: 'order-intake', action: 'received', detail: `via ${channel}` });
+        return { id: o.id, orderNumber };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       if (!/order_number|unique|duplicate/i.test(message)) throw err;

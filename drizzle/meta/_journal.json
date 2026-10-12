@@ -78,6 +78,20 @@
       "when": 1790943921986,
       "tag": "0010_natural_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791540656574,
+      "tag": "0011_integrity_and_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791815152592,
+      "tag": "0012_rfq_quoting",
+      "breakpoints": true
     }
   ]
 }

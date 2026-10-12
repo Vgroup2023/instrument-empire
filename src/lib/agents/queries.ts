@@ -65,13 +65,20 @@ export interface ShipmentRow {
   lineCount: number;
 }
 
-export async function listShipments(): Promise<ShipmentRow[]> {
+export async function countShipments(): Promise<number> {
+  const [row] = await getDb().select({ n: sql<number>`cast(count(*) as int)` }).from(shipments);
+  return row?.n ?? 0;
+}
+
+/** Newest first. Pass `limit` to open the tab with just the newest files; omit it for every file. */
+export async function listShipments(limit?: number): Promise<ShipmentRow[]> {
   const db = getDb();
-  const rows = await db
+  const query = db
     .select({ s: shipments, customerName: customers.displayName })
     .from(shipments)
     .leftJoin(customers, eq(shipments.customerId, customers.id))
     .orderBy(desc(shipments.createdAt));
+  const rows = await (limit ? query.limit(limit) : query);
   const ids = rows.map((r) => r.s.id);
   const counts = ids.length
     ? await db

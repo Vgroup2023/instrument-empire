@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { documents } from '@/db/schema';
 import { and, desc, eq, isNull } from 'drizzle-orm';
+import { ValidationError, NotFoundError, asRecord, oneOf, optUuid, text, uuid } from '@/lib/validation';
 
 // Files attached to a record — an invoice, estimate, customer, product, or
 // payment link — or, when entityId is omitted, general documents filed under
@@ -28,6 +29,7 @@ export interface DocumentContent extends DocumentMeta {
 
 /** Lists documents attached to one record, or general documents for a tab when entityId is omitted — metadata only, so this stays fast even with several large attachments. */
 export async function listDocuments(entityType: DocumentEntityType, entityId?: string): Promise<DocumentMeta[]> {
+  if (entityId !== undefined) uuid(entityId, 'Record');
   const db = getDb();
   const rows = await db
     .select({
@@ -62,23 +64,34 @@ export interface UploadDocumentInput {
   contentBase64: string;
 }
 
-export async function uploadDocument(input: UploadDocumentInput): Promise<DocumentMeta> {
-  if (!input.fileName.trim()) throw new Error('File name is required.');
+const ENTITY_TYPES = ['invoice', 'estimate', 'customer', 'product', 'payment_link'] as const;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+export async function uploadDocument(rawInput: UploadDocumentInput): Promise<DocumentMeta> {
+  const raw = asRecord(rawInput, 'The upload');
+  const entityType = oneOf(raw.entityType, 'Attach to', ENTITY_TYPES);
+  const entityId = optUuid(raw.entityId, 'Record');
+  const fileName = text(raw.fileName, 'File name', { max: 255 });
+  const contentType = typeof raw.contentType === 'string' ? raw.contentType.trim().slice(0, 120) : '';
+  if (typeof raw.contentBase64 !== 'string' || raw.contentBase64.length === 0) throw new ValidationError('A file is required.');
+  const contentBase64 = raw.contentBase64;
+  // Check the size before running a regex over a multi-megabyte string.
   // Base64 encodes 3 bytes as 4 characters, so this approximates the original file size.
-  const fileSize = Math.floor((input.contentBase64.length * 3) / 4);
+  const fileSize = Math.floor((contentBase64.length * 3) / 4);
   if (fileSize > MAX_DOCUMENT_SIZE_BYTES) {
-    throw new Error(`File is too large — the limit is ${MAX_DOCUMENT_SIZE_BYTES / (1024 * 1024)}MB.`);
+    throw new ValidationError(`File is too large — the limit is ${MAX_DOCUMENT_SIZE_BYTES / (1024 * 1024)}MB.`);
   }
+  if (!BASE64.test(contentBase64) || contentBase64.length % 4 !== 0) throw new ValidationError('The file content is not valid.');
   const db = getDb();
   const [row] = await db
     .insert(documents)
     .values({
-      entityType: input.entityType,
-      entityId: input.entityId ?? null,
-      fileName: input.fileName,
-      contentType: input.contentType || 'application/octet-stream',
+      entityType,
+      entityId: entityId ?? null,
+      fileName,
+      contentType: contentType || 'application/octet-stream',
       fileSize,
-      contentBase64: input.contentBase64,
+      contentBase64,
     })
     .returning({
       id: documents.id,
@@ -98,9 +111,10 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Docume
 
 /** Fetches a document's full content for download — kept separate from listDocuments() so listing stays cheap. */
 export async function getDocumentContent(id: string): Promise<DocumentContent> {
+  uuid(id, 'Document');
   const db = getDb();
   const [row] = await db.select().from(documents).where(eq(documents.id, id));
-  if (!row) throw new Error('Document not found.');
+  if (!row) throw new NotFoundError('Document not found.');
   return {
     Id: row.id,
     FileName: row.fileName,
@@ -112,7 +126,8 @@ export async function getDocumentContent(id: string): Promise<DocumentContent> {
 }
 
 export async function deleteDocument(id: string): Promise<void> {
+  uuid(id, 'Document');
   const db = getDb();
   const deleted = await db.delete(documents).where(eq(documents.id, id)).returning({ id: documents.id });
-  if (deleted.length === 0) throw new Error('Document not found.');
+  if (deleted.length === 0) throw new NotFoundError('Document not found.');
 }

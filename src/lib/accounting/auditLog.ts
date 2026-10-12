@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { auditLog } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
+import type { Executor } from '@/lib/accounting/entryRules';
 
 // A change-history trail for month-end/audit review — what changed, the
 // before/after snapshot, and when. This app has a single shared login (no
@@ -30,7 +31,22 @@ export interface RecordAuditLogInput {
   after?: unknown;
 }
 
-export async function recordAuditLog(input: RecordAuditLogInput): Promise<void> {
+/**
+ * With no executor this is best-effort (see above). Pass the open transaction
+ * and the row is written atomically with the change itself: both land or
+ * neither does, so the trail can never silently miss a committed change.
+ */
+export async function recordAuditLog(input: RecordAuditLogInput, ex?: Executor): Promise<void> {
+  if (ex) {
+    await ex.insert(auditLog).values({
+      entityType: input.entityType,
+      entityId: input.entityId,
+      action: input.action,
+      before: input.before ?? null,
+      after: input.after ?? null,
+    });
+    return;
+  }
   try {
     const db = getDb();
     await db.insert(auditLog).values({

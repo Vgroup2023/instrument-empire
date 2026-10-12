@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { approveReview, cancelOrder, deliverOrder, shipOrder } from '@/lib/desk/actions';
 import { runDesk } from '@/lib/desk/agents';
 import { deskError } from '@/lib/desk/api';
+import { readJson } from '@/lib/http';
+import { uuid } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,7 +11,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const b = (await request.json()) as { action?: string; carrier?: string; trackingNo?: string };
+    uuid(id, 'Record');
+    const b = (await readJson(request)) as unknown as { action?: string; carrier?: string; trackingNo?: string };
     switch (b.action) {
       case 'approve':
         await approveReview(id);

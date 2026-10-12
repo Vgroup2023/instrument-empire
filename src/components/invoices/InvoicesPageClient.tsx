@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -30,19 +32,22 @@ const REMINDER_TONE_TEXT: Record<ReminderTone, string> = {
 
 export function InvoicesPageClient({
   initialInvoices,
+  initialTotal,
   customers,
   products,
   depositAccounts,
   homeCurrencyCode,
 }: {
   initialInvoices: Invoice[];
+  initialTotal: number;
   customers: Customer[];
   products: Product[];
   depositAccounts: DepositAccount[];
   homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
-  const [invoices, setInvoices] = useState(initialInvoices);
+  const list = usePagedList<Invoice>('/api/invoices', 'invoices', initialInvoices, initialTotal);
+  const invoices = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | undefined>(undefined);
   const [sendTarget, setSendTarget] = useState<Invoice | null>(null);
@@ -56,13 +61,7 @@ export function InvoicesPageClient({
   const [milestonePlanOpen, setMilestonePlanOpen] = useState(false);
 
   async function refresh() {
-    const res = await fetch('/api/invoices', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setInvoices(data.invoices);
-      return data.invoices as Invoice[];
-    }
-    return null;
+    return list.refresh();
   }
 
   async function handlePaymentsChanged() {
@@ -212,6 +211,7 @@ export function InvoicesPageClient({
               </Tbody>
             </Table>
           )}
+        <LoadMoreBar shown={invoices.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="invoices" />
         </CardBody>
       </Card>
 

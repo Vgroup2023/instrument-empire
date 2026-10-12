@@ -61,8 +61,8 @@ export async function approveReview(orderId: string): Promise<void> {
 }
 
 export async function shipOrder(orderId: string, input: { carrier: string; trackingNo: string }): Promise<{ emailed: string }> {
-  const carrier = input.carrier.trim();
-  const trackingNo = input.trackingNo.trim();
+  const carrier = typeof input.carrier === 'string' ? input.carrier.trim().slice(0, 120) : '';
+  const trackingNo = typeof input.trackingNo === 'string' ? input.trackingNo.trim().slice(0, 120) : '';
   if (!carrier || !trackingNo) throw new Error('Carrier and tracking number are required.');
   const db = getDb();
   const [row] = await db
@@ -98,7 +98,8 @@ export async function sendServiceReply(messageId: string, text: string): Promise
   const [m] = await db.select().from(serviceMessages).where(eq(serviceMessages.id, messageId));
   if (!m) throw new Error('Message not found.');
   if (!['awaiting_approval', 'escalated'].includes(m.status)) throw new Error('This message does not have a reply waiting.');
-  if (!text.trim()) throw new Error('The reply cannot be empty.');
+  if (typeof text !== 'string' || !text.trim()) throw new Error('The reply cannot be empty.');
+  if (text.length > 20_000) throw new Error('The reply must be under 20,000 characters.');
   const result = await sendCustomerMail(m.fromEmail, m.subject?.startsWith('Re:') ? m.subject : `Re: ${m.subject ?? 'your message'}`, text);
   if (!result.ok) throw new Error(result.reason);
   await db.update(serviceMessages).set({ status: 'closed', replyDraft: text, repliedAt: new Date(), handledBy: 'human', updatedAt: new Date() }).where(eq(serviceMessages.id, messageId));

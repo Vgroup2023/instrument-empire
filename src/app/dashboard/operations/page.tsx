@@ -11,6 +11,9 @@ import { DEPARTMENTS, STAGES, stageOf, type ShipmentCtx } from '@/lib/agents/typ
 
 export const dynamic = 'force-dynamic';
 
+// A column shows its newest cards; the count in its header is still the full number. Thousands of cards made the board slow to open.
+const CARDS_PER_COLUMN = 25;
+
 export default async function OperationsPage() {
   let data: [Awaited<ReturnType<typeof loadContext>>, Record<string, number>] | null = null;
   let loadError: unknown = null;
@@ -34,7 +37,9 @@ export default async function OperationsPage() {
   const byStage = new Map<string, ShipmentCtx[]>();
   for (const s of active) {
     const st = stageOf(s, ctx.now);
-    byStage.set(st, [...(byStage.get(st) ?? []), s]);
+    const column = byStage.get(st);
+    if (column) column.push(s);
+    else byStage.set(st, [s]);
   }
 
   return (
@@ -71,7 +76,7 @@ export default async function OperationsPage() {
                   <span>{items.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {items.map((s) => (
+                  {items.slice(0, CARDS_PER_COLUMN).map((s) => (
                     <Link prefetch={false} key={s.id} href={`/dashboard/shipments/${s.id}`} className="block">
                       <Card>
                         <CardBody className="space-y-1 px-3 py-2.5">
@@ -87,6 +92,11 @@ export default async function OperationsPage() {
                       </Card>
                     </Link>
                   ))}
+                  {items.length > CARDS_PER_COLUMN ? (
+                    <Link prefetch={false} href="/dashboard/shipments" className="block rounded-lg px-2 py-1.5 text-center text-xs font-medium text-brand-700 hover:underline">
+                      + {items.length - CARDS_PER_COLUMN} more in Shipments
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             );

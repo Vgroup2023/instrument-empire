@@ -661,3 +661,129 @@ export const shipmentDocuments = pgTable('shipment_documents', {
   status: text('status').notNull().default('extracted'),
   ...timestamps,
 });
+
+// ---------------------------------------------------------------------------
+// RFQ-to-quote. An incoming request for quote is read, costed against the
+// shop's own rules, and held for an estimator to approve before anything goes out.
+// ---------------------------------------------------------------------------
+export const rfqStatusEnum = pgEnum('rfq_status', [
+  'estimator_review',
+  'approved',
+  'returned',
+  'declined',
+  'won',
+  'lost',
+]);
+
+// One row: the shop's pricing policy.
+export const quoteSettings = pgTable('quote_settings', {
+  id: integer('id').primaryKey().default(1),
+  targetMarginPct: numeric('target_margin_pct', { precision: 6, scale: 2 }).notNull().default('28'),
+  overheadPct: numeric('overhead_pct', { precision: 6, scale: 2 }).notNull().default('12'),
+  scrapPct: numeric('scrap_pct', { precision: 6, scale: 2 }).notNull().default('5'),
+  // A material price older than this many days is flagged as stale.
+  priceStaleDays: integer('price_stale_days').notNull().default(30),
+  // Fewest days the shop needs between receiving an order and shipping it.
+  minLeadDays: integer('min_lead_days').notNull().default(10),
+  quoteValidDays: integer('quote_valid_days').notNull().default(30),
+  // Certifications the shop actually holds, e.g. ISO 9001:2015, AS9100D.
+  certifications: jsonb('certifications').$type<string[]>().notNull().default([]),
+  ...timestamps,
+});
+
+export const materialPrices = pgTable('material_prices', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  material: text('material').notNull(),
+  vendor: text('vendor').notNull(),
+  price: numeric('price', { precision: 14, scale: 4 }).notNull(),
+  unit: text('unit').notNull().default('LB'),
+  priceDate: date('price_date').notNull(),
+  notes: text('notes'),
+  ...timestamps,
+});
+
+// How the shop routes work: what an operation costs in setup and run time.
+export const routingRules = pgTable('routing_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  operation: text('operation').notNull(),
+  keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+  setupHours: numeric('setup_hours', { precision: 8, scale: 2 }).notNull().default('0'),
+  runMinutes: numeric('run_minutes', { precision: 8, scale: 2 }).notNull().default('0'),
+  ratePerHour: numeric('rate_per_hour', { precision: 10, scale: 2 }).notNull().default('0'),
+  notes: text('notes'),
+  ...timestamps,
+});
+
+// Job history the quoting engine learns from.
+export const priorJobs = pgTable('prior_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  partNumber: text('part_number'),
+  description: text('description').notNull(),
+  customerName: text('customer_name'),
+  material: text('material'),
+  operations: jsonb('operations').$type<string[]>().notNull().default([]),
+  qty: integer('qty').notNull().default(1),
+  laborHoursPerPart: numeric('labor_hours_per_part', { precision: 10, scale: 4 }),
+  materialCostPerPart: numeric('material_cost_per_part', { precision: 14, scale: 4 }),
+  unitPrice: numeric('unit_price', { precision: 14, scale: 4 }),
+  completedOn: date('completed_on'),
+  ...timestamps,
+});
+
+export const rfqs = pgTable('rfqs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  rfqNumber: text('rfq_number').notNull(),
+  customerId: uuid('customer_id').references(() => customers.id),
+  customerName: text('customer_name').notNull(),
+  contactEmail: text('contact_email'),
+  subject: text('subject'),
+  source: text('source').notNull().default('manual'),
+  status: rfqStatusEnum('status').notNull().default('estimator_review'),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  dueDate: date('due_date'),
+  rawText: text('raw_text'),
+  certifications: jsonb('certifications').$type<string[]>().notNull().default([]),
+  // Blank means "use the shop's target margin".
+  targetMarginPct: numeric('target_margin_pct', { precision: 6, scale: 2 }),
+  costTotal: numeric('cost_total', { precision: 14, scale: 2 }).notNull().default('0'),
+  priceTotal: numeric('price_total', { precision: 14, scale: 2 }).notNull().default('0'),
+  flags: jsonb('flags').$type<unknown[]>().notNull().default([]),
+  estimatorNotes: text('estimator_notes'),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  estimateId: uuid('estimate_id'),
+  ...timestamps,
+});
+
+export const rfqFiles = pgTable('rfq_files', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  rfqId: uuid('rfq_id')
+    .notNull()
+    .references(() => rfqs.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type').notNull().default('application/octet-stream'),
+  fileSize: integer('file_size').notNull(),
+  kind: text('kind').notNull().default('other'),
+  contentBase64: text('content_base64').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const rfqParts = pgTable('rfq_parts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  rfqId: uuid('rfq_id')
+    .notNull()
+    .references(() => rfqs.id, { onDelete: 'cascade' }),
+  lineNumber: integer('line_number').notNull(),
+  partNumber: text('part_number'),
+  description: text('description').notNull(),
+  material: text('material'),
+  qty: integer('qty').notNull().default(1),
+  operations: jsonb('operations').$type<string[]>().notNull().default([]),
+  // Finished weight per part in pounds. Raw stock is worked out from it plus scrap.
+  weightLb: numeric('weight_lb', { precision: 12, scale: 4 }),
+  finish: text('finish'),
+  notes: text('notes'),
+  // The computed breakdown the estimator reviews (see src/lib/quoting/costing.ts).
+  costing: jsonb('costing').$type<Record<string, unknown>>().notNull().default({}),
+  unitCost: numeric('unit_cost', { precision: 14, scale: 4 }).notNull().default('0'),
+  unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull().default('0'),
+});

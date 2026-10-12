@@ -414,6 +414,76 @@ async function main() {
   const okDoc = await call('POST', '/api/documents', doc({ contentBase64: Buffer.alloc(3 * 1024 * 1024, 1).toString('base64') }));
   check('Documents: a 3 MB file is accepted', okDoc.status === 200 && okDoc.json?.document?.Id, okDoc.text);
 
+  group('RFQ to quote: intake, costing, approval and rules');
+  const seeded = await call('POST', '/api/quoting/seed');
+  check('Sample rules can be loaded', seeded.status === 200, seeded.text);
+  const rule = (over = {}) => ({ kind: 'routing', operation: `QA Op ${stamp}`, keywords: 'qa', setupHours: 1, runMinutes: 5, ratePerHour: 60, ...over });
+  refused('Rules: unknown kind refused', await call('POST', '/api/quoting/rules', { kind: 'bogus' }));
+  refused('Rules: negative rate refused', await call('POST', '/api/quoting/rules', rule({ ratePerHour: -1 })));
+  refused('Rules: blank operation refused', await call('POST', '/api/quoting/rules', rule({ operation: ' ' })));
+  refused('Rules: price in an unsupported unit refused', await call('POST', '/api/quoting/rules', { kind: 'price', material: 'Zinc', vendor: 'QA', price: 1, unit: 'FURLONG' }));
+  refused('Rules: margin of 120% refused', await call('POST', '/api/quoting/rules', { kind: 'settings', targetMarginPct: 120 }));
+  refused('Rules: delete of an id that is not an id refused', await call('DELETE', '/api/quoting/rules/price/abc'));
+  const csvRes = await call('POST', '/api/quoting/import', { kind: 'prices', csv: 'material,vendor,price,unit\nQA Brass,QA Vendor,3.5,LB\nQA Bad,QA Vendor,abc,LB' });
+  check('CSV import saves good rows and reports bad ones', csvRes.json?.saved === 1 && csvRes.json?.errors?.length === 1, csvRes.text);
+  refused('CSV import with no data rows refused', await call('POST', '/api/quoting/import', { kind: 'prices', csv: 'material,vendor' }));
+
+  const requestText = `Subject: QA RFQ\nMaterial: 6061-T6 aluminum\nOperations: milling, drilling\nDue date: ${new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)}\nCertifications: AS9100D\n\n1023-001 Flange bracket housing, qty 12, 1.8 lb\n1023-009 Plate x 40`;
+  refused('RFQ: nothing supplied refused', await call('POST', '/api/rfqs', { customerName: 'QA' }));
+  refused('RFQ: no customer refused', await call('POST', '/api/rfqs', { rawText: requestText }));
+  refused('RFQ: bad contact email refused', await call('POST', '/api/rfqs', { customerName: 'QA', contactEmail: 'nope', rawText: requestText }));
+  refused('RFQ: customer id that does not exist refused', await call('POST', '/api/rfqs', { customerId: '00000000-0000-4000-8000-000000000000', rawText: requestText }));
+  refused('RFQ: file that is not base64 refused', await call('POST', '/api/rfqs', { customerName: 'QA', files: [{ fileName: 'a.pdf', contentBase64: 'not base64!!' }] }));
+  refused('RFQ: file over 4 MB refused', await call('POST', '/api/rfqs', { customerName: 'QA', files: [{ fileName: 'big.pdf', contentBase64: Buffer.alloc(4.6 * 1024 * 1024, 1).toString('base64') }] }));
+  refused('RFQ: part with quantity zero refused', await call('POST', '/api/rfqs', { customerName: 'QA', parts: [{ description: 'x', qty: 0 }] }));
+  refused('RFQ: impossible due date refused', await call('POST', '/api/rfqs', { customerName: 'QA', rawText: requestText, dueDate: '2030-02-30' }));
+
+  const made = await call('POST', '/api/rfqs', { customerId: cust, rawText: requestText, files: [{ fileName: 'drawing.step', contentType: 'application/octet-stream', contentBase64: Buffer.from('ISO-10303').toString('base64') }] });
+  check('RFQ: a request is read, costed and numbered', made.status === 200 && /^RFQ-\d{4}$/.test(made.json?.rfqNumber ?? ''), made.text);
+  const rfqId = made.json?.id;
+  const detail = rfqId ? (await call('GET', `/api/rfqs/${rfqId}`)).json?.rfq : null;
+  check('RFQ: both parts were read from the text', detail?.parts?.length === 2, JSON.stringify(detail?.parts?.length));
+  check('RFQ: the customer name comes from the customer record', detail?.customerName === `QA Customer ${stamp}`);
+  const codes = (detail?.flags ?? []).map((f) => f.code);
+  check('RFQ: a certification the shop does not hold is flagged', codes.includes('CERT_GAP'), codes.join(','));
+  check('RFQ: a close due date is flagged', codes.includes('TIGHT_DUE'), codes.join(','));
+  check('RFQ: a part with no weight is flagged rather than priced at zero material', codes.includes('NO_WEIGHT') || codes.includes('NO_PRICE'), codes.join(','));
+  check('RFQ: unread drawing files are flagged for the estimator', codes.includes('FILES_NOT_READ'), codes.join(','));
+  check('RFQ: totals add up', Math.abs((detail?.parts ?? []).reduce((t, p) => t + p.costing.unitPrice * p.qty, 0) - detail?.priceTotal) < 0.02);
+  check('RFQ: price is above cost', detail?.priceTotal > detail?.costTotal);
+  const numbers = await Promise.all(Array.from({ length: burst(10) }, () => call('POST', '/api/rfqs', { customerName: 'QA Burst', parts: [{ description: 'Burst part', qty: 1, material: '6061-T6 aluminum', weightLb: 1, operations: 'Milling' }] })));
+  const rfqNums = numbers.map((r) => r.json?.rfqNumber);
+  check('RFQ: simultaneous intakes all succeed with different numbers', rfqNums.every(Boolean) && new Set(rfqNums).size === rfqNums.length, JSON.stringify(rfqNums));
+
+  if (rfqId) {
+    refused('RFQ: approving with must-review flags and no acknowledgement refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'approve' }));
+    refused('RFQ: returning without saying why refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'return' }));
+    refused('RFQ: unknown action refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'ship-it' }));
+    refused('RFQ: creating an estimate before approval refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'to-estimate' }));
+    const patched = await call('PATCH', `/api/rfqs/${rfqId}`, { targetMarginPct: 35, parts: detail.parts.map((p) => ({ partNumber: p.partNumber, description: p.description, material: p.material, qty: p.qty, weightLb: p.weightLb ?? 2, operations: p.operations })) });
+    check('RFQ: editing parts and margin re-costs the quote', patched.status === 200 && patched.json?.rfq?.effectiveMarginPct === 35 && patched.json.rfq.parts.every((p) => p.weightLb > 0), patched.text);
+    refused('RFQ: margin of 100% refused', await call('PATCH', `/api/rfqs/${rfqId}`, { targetMarginPct: 100 }));
+    refused('RFQ: edit with a bad quantity refused', await call('PATCH', `/api/rfqs/${rfqId}`, { parts: [{ description: 'x', qty: -2 }] }));
+    const approved = await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'approve', acknowledgedFlags: true });
+    check('RFQ: approval works once the flags are acknowledged', approved.status === 200 && approved.json?.rfq?.status === 'approved', approved.text);
+    refused('RFQ: an approved quote cannot be edited', await call('PATCH', `/api/rfqs/${rfqId}`, { targetMarginPct: 10 }));
+    refused('RFQ: approving twice refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'approve', acknowledgedFlags: true }));
+    const conv = await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'to-estimate' });
+    check('RFQ: an approved quote becomes a draft estimate', conv.status === 200 && Boolean(conv.json?.rfq?.estimateId), conv.text);
+    refused('RFQ: a second estimate from the same quote refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'to-estimate' }));
+    refused('RFQ: reopening after an estimate exists refused', await call('POST', `/api/rfqs/${rfqId}/action`, { action: 'reopen' }));
+    const est = conv.json?.rfq?.estimateId ? (await call('GET', `/api/estimates/${conv.json.rfq.estimateId}`)).json?.estimate : null;
+    check('RFQ: the estimate total equals the approved quote total', est && Math.abs(est.TotalAmt - conv.json.rfq.priceTotal) < 0.05, `${est?.TotalAmt} vs ${conv.json?.rfq?.priceTotal}`);
+    const fileId = detail.files?.[0]?.id;
+    const dl = fileId ? await call('GET', `/api/rfqs/${rfqId}/files/${fileId}`, undefined, { raw: true }) : null;
+    check('RFQ: an attached file can be downloaded', dl?.status === 200, dl?.status);
+    refused('RFQ: a file id from another RFQ is not found', await call('GET', `/api/rfqs/${rfqId}/files/00000000-0000-4000-8000-000000000000`));
+  }
+  const noKey = await call('POST', '/api/integrations/rfq', { customerName: 'QA', rawText: requestText }, { auth: false });
+  check('RFQ feed: refused without the integration key', noKey.status === 401, noKey.status);
+  const listed = await call('GET', '/api/rfqs?limit=5');
+  check('RFQ: the list pages', listed.status === 200 && listed.json?.rfqs?.length === 5 && listed.json.total >= 11, listed.text?.slice(0, 120));
+
   group('Lists: paging and audit trail');
   const pg = await call('GET', '/api/invoices?limit=5&offset=0');
   check('Invoices: ?limit=5 returns 5 rows and the overall total', pg.json?.invoices?.length === 5 && pg.json?.total >= 25, pg.text?.slice(0, 120));

@@ -58,6 +58,79 @@ canvas#dust{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:
 .sheen{position:absolute;top:0;bottom:0;width:240px;background:linear-gradient(100deg,transparent,rgba(246,217,131,.16),transparent);transform:translateX(-400px) skewX(-18deg);pointer-events:none}
 #replay{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);z-index:60;font-size:24px;letter-spacing:.2em;color:var(--mute);opacity:0;transition:opacity .4s;text-transform:uppercase}
 #hint{position:absolute;right:84px;bottom:112px;z-index:60;font-size:22px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase;transition:opacity .6s}
+
+:root{--silverblack:repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0,rgba(255,255,255,.035) 1px,rgba(0,0,0,0) 1px,rgba(0,0,0,0) 3px),linear-gradient(135deg,#07080a 0%,#1c1f25 24%,#4a4f5a 50%,#1c1f25 76%,#07080a 100%)}
+#stage{background:linear-gradient(180deg,#0a1a35 0%,#122a55 55%,#0a1a35 100%)}
+.appwrap{position:absolute;width:1560px;height:672px;border-radius:22px;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.08),0 0 80px rgba(217,169,58,.08);background:#fff}
+.app{width:1200px;height:517px;display:flex;transform:scale(1.3);transform-origin:0 0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#0f172a;background:#fff;font-size:14px}
+.side{width:256px;flex:none;background:linear-gradient(180deg,#0a1a35,#1e3a6e);border-right:1px solid rgba(255,255,255,.1);overflow:hidden}
+.logoblk{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.logoblk .lg{width:180px;height:120px;background:var(--logo) center/cover}
+.logoblk .nm{font-size:12px;font-weight:600;letter-spacing:.05em;color:#f1f5f9;text-transform:uppercase}
+.tgl2{font-size:11px;color:#7c828c}
+.grp{padding:16px 12px 0}.gl{font-size:11px;font-weight:600;letter-spacing:.08em;color:#7c828c;padding:0 8px 6px}
+.it{display:flex;gap:12px;align-items:center;padding:8px 12px;border-radius:8px;font-size:14px;color:#e2e8f0;white-space:nowrap}.it.on{background:rgba(255,255,255,.12);color:#fff}
+.mainc{flex:1;display:flex;flex-direction:column;min-width:0}
+.topb{height:64px;flex:none;background:linear-gradient(180deg,#0a1a35,#1e3a6e);display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff}
+.topb b{display:block;font-size:14px;font-weight:600}.topb span{font-size:12px;color:#94a3b8}.topb em{font-style:normal;font-size:14px;color:#e2e8f0}
+.page{flex:1;overflow:hidden;position:relative;background:#fff}
+.pg{padding:26px 28px}
+.hd{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}
+.h1{font-size:20px;font-weight:600;color:#0f172a}.ds{font-size:13px;color:#64748b;margin-top:4px;max-width:560px;line-height:1.35}
+.hb{display:flex;gap:8px;flex:none}
+.bt{display:inline-block;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;white-space:nowrap}
+.bt.p{background:#0070e6;color:#fff}.bt.s{background:#fff;border:1px solid #cbd5e1;color:#334155}.bt.n{color:#475569}
+.apc{background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 6px -1px rgba(0,0,0,.06)}
+.bd{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:500;white-space:nowrap}
+.bd.g{background:#faf0cb;color:#6f481c}.bd.r{background:#fee2e2;color:#b91c1c}.bd.e{background:#d1fae5;color:#047857}.bd.n{background:#f1f5f9;color:#475569}.bd.b{background:#cdedff;color:#0059b8}
+.bd i{font-style:normal}
+small{font-size:11px;color:#64748b}
+.rw{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.on{font-size:11px;color:#059669;display:inline-flex;align-items:center;gap:4px}.on i{width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.agc{padding:11px 13px;min-height:96px}.agc b{font-size:13px}.agc p{font-size:11px;color:#64748b;margin:5px 0 6px;line-height:1.3}
+.stats{display:flex;gap:8px;margin-top:12px}.stc{padding:8px 14px;text-align:center;min-width:92px;border-radius:12px}.stc b{display:block;font-size:17px;font-weight:600}.stc span{font-size:11px;color:#64748b}
+.resl{margin-top:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;font-size:12.5px;color:#475569;border-color:#d9a93a}
+.resl b{color:#0f172a}
+.dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.dpc{padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px}.dpc b{font-weight:600;font-size:12px}
+.board{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px;height:188px}
+.bcol{border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px}
+.bh{display:flex;justify-content:space-between;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#475569}.bh i{font-style:normal}
+.bcards{position:absolute;inset:0;pointer-events:none}
+.bc{position:absolute;width:108px;height:52px;padding:8px 10px;border-radius:12px}
+.bc b{display:block;font-size:12px;font-weight:600}.bc small{font-size:11px}
+.bc.hero{border-color:#d9a93a;background:#fffbeb;box-shadow:0 0 0 2px #d9a93a,0 6px 24px rgba(217,169,58,.4)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.agc2{padding:9px 12px}.agc2 b{font-size:12.5px}.agc2 p{font-size:10.5px;color:#64748b;margin:3px 0 4px;line-height:1.25;min-height:26px}
+.fcard{margin-top:10px;padding:0;overflow:hidden}
+.fh{padding:10px 14px;border-bottom:1px solid #e2e8f0}.fh b{display:block;font-size:13px}
+.fwin{height:150px;overflow:hidden;padding:0 14px}
+.frow{padding:9px 0;border-bottom:1px solid #eef2f7;height:66px;position:relative}
+.fl1{display:flex;gap:8px;align-items:center}.frow b{display:block;font-size:12.5px;margin-top:3px}.frow p{font-size:11px;color:#64748b;margin-top:1px}
+.fbt{position:absolute;right:0;top:12px;display:flex;gap:6px}.fbt .bt{padding:4px 10px;font-size:11px}
+.rfh small{color:#0059b8}.row2{display:flex;gap:12px;align-items:center;margin-top:2px}
+.steps2{display:flex;gap:6px;margin:10px 0 12px}.sx{flex:1;padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:11.5px;font-weight:600}
+.sx.dn2{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.sx.cur{background:#faf0cb;border-color:#deac37;color:#6f481c}
+.grid3b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.rc{padding:11px 14px;min-height:128px}.rc b{font-size:13px;display:block}.rc ul{margin-top:8px;list-style:none;font-size:12px}.rc li{display:flex;justify-content:space-between;padding:4px 0;gap:6px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0}.kv i{display:block;font-style:normal;font-size:20px;font-weight:700}
+.rc p.mt{font-size:13px;font-weight:600;margin:1px 0 4px}.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px}
+.costb,.quoteb{margin-top:6px;padding:7px 10px;border-radius:10px}.costb{background:#f1f5f9}.quoteb{background:#0a1a35;color:#fff}.quoteb small{color:#cbd5e1}
+.costb i,.quoteb i{display:block;font-style:normal;font-size:19px;font-weight:700}
+.rvc{margin-top:12px}.fls{list-style:none;padding:8px 14px}.fls li{display:flex;gap:9px;align-items:flex-start;font-size:12px;padding:5px 0;color:#334155;line-height:1.35}.fls .bd{flex:none;margin-top:1px}
+.erv{margin-top:12px;padding:12px 16px}.erv b{display:block;font-size:13px}.ack{display:block;margin:8px 0;font-size:12px;color:#334155}.cb{font-style:normal;font-size:15px}
+.rw2{display:flex;gap:8px;margin-top:6px}
+.grid4b{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.big4{padding:10px 14px}.big4 small{display:block;font-size:10.5px;letter-spacing:.04em}.big4 b{display:block;font-size:19px;font-weight:700;margin-top:3px}
+.agt{margin-top:0;overflow:hidden}.agt table{width:100%;border-collapse:collapse}.agt th{background:#f8fafc;font-size:10.5px;text-align:right;color:#64748b;padding:7px 12px;letter-spacing:.04em}.agt th:first-child{text-align:left}
+.agt td{font-size:12px;padding:8px 12px;text-align:right;border-bottom:1px solid #eef2f7;color:#334155}.agt td:first-child{text-align:left}
+.fu{background:#fee2e2;color:#b91c1c;border-radius:999px;padding:1px 8px;font-size:10px;margin-left:6px;display:inline-block}
+.att{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.atc{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:12.5px}.atc b{font-size:22px}.atc.rd{background:#fef2f2;border-color:#fecaca}.atc.rd b{color:#b91c1c}.atc.am{background:#fffbeb;border-color:#fde68a}.atc.am b{color:#92400e}
+.tt{font-size:11px;font-weight:700;letter-spacing:.08em;color:#64748b;margin-bottom:8px}.tg4{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{padding:10px 12px}.tr{display:flex;align-items:center;gap:8px}.tr b{font-size:13px}.ti{width:26px;height:26px;border-radius:8px;background:#eaf7ff;display:inline-flex;align-items:center;justify-content:center;font-size:14px}.tile p{font-size:11px;color:#64748b;margin-top:4px;line-height:1.3}
+.phr{box-shadow:0 1px 2px rgba(0,0,0,.04)}
 </style></head>
 <body><div id="viewport"><div id="stage">
 <canvas id="dust" width="1920" height="1080"></canvas>
@@ -71,7 +144,7 @@ canvas#dust{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:
 const TOTAL = 45;
 const SC = [0, 7.5, 15, 22.5, 30, 37.5, 45];           // six scenes, 7.5 s each
 const NAMES = ['Order desk', 'Operations board', 'AI trade agents', 'RFQ to quote', 'Invoices & books', 'Insights, anywhere'];
-const SUBS = ['Orders read, checked and staged by agents', 'Every shipment, every department, one file', 'Six agents watch the clock and the rules', 'Requests become costed quotes for approval', 'Billing, payments and books that balance', 'On every device, from one workspace'];
+const SUBS = ['Orders read, checked and staged by agents', 'Every shipment, every department, one file', 'Six agents watch the clock and the rules', 'Requests become costed quotes for approval', 'Aging, reminders and billing in one place', 'On every device, from one workspace'];
 const E = 'cubic-bezier(.16,1,.3,1)';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -116,235 +189,233 @@ function scene(i, build) {
   ping(st);
 }
 
+/* ===================== The real app chrome, rebuilt from the product's own styles ===================== */
+const NAV = [
+  ['TRADE & AI AGENTS', [['📬', 'Order desk'], ['🧭', 'Operations board'], ['🤖', 'AI agents'], ['🚢', 'Shipments']]],
+  ['QUOTING', [['📥', 'RFQs to quotes'], ['⚙️', 'Quoting rules']]],
+  ['INSIGHTS', [['📊', 'Overview'], ['⏱️', 'A/R & A/P aging'], ['📈', 'Sales breakdown'], ['🚨', 'Anomaly detection'], ['📐', 'Flux analysis']]],
+  ['ACTIONS', [['🧾', 'Invoices'], ['📝', 'Estimates'], ['👥', 'Customers'], ['📦', 'Products & services'], ['🔗', 'Payment links & reminders']]],
+];
+function appFrame(cam, active, left = 180, top = 122) {
+  const nav = NAV.map(([g, items]) => `<div class="grp"><div class="gl">${g}</div>${items.map(([i, n]) => `<div class="it${n === active ? ' on' : ''}"><span>${i}</span>${n}</div>`).join('')}</div>`).join('');
+  const w = add(cam, `<div class="appwrap" style="left:${left}px;top:${top}px"><div class="app">
+    <aside class="side"><div class="logoblk"><div class="lg"></div><div class="nm">GLOBLEXAI OFFICE ERP</div><div class="tgl2">AI-Powered Copilot</div></div>${nav}</aside>
+    <div class="mainc"><header class="topb"><div><b>GloblexAI Office ERP</b><span>AI-Powered Copilot</span></div><em>Sign out</em></header>
+    <div class="page"><div class="pg"></div></div></div></div></div>`);
+  return { wrap: w, pg: $('.pg', w), page: $('.page', w) };
+}
+const head = (title, desc, btns = '') => `<div class="hd"><div><div class="h1">${title}</div><div class="ds">${desc}</div></div><div class="hb">${btns}</div></div>`;
+const press = (el, at) => A(el, [{ transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,112,230,0)' }, { transform: 'scale(.94)', boxShadow: '0 0 0 6px rgba(0,112,230,.35)', offset: .4 }, { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,112,230,0)' }], at, .5, 'ease-out');
+const ring = (el, at) => A(el, [{ boxShadow: '0 1px 2px rgba(0,0,0,.04)', borderColor: '#e2e8f0' }, { boxShadow: '0 0 0 3px rgba(217,169,58,.85), 0 8px 30px rgba(217,169,58,.35)', borderColor: '#d9a93a' }], at, .35, 'ease-out');
+const scrollTo = (el, at, dy, dur = 1.0) => A(el, [{ transform: 'translateY(0)' }, { transform: `translateY(${-dy}px)` }], at, dur, 'cubic-bezier(.65,0,.35,1)');
+
 /* ============================ SCENE 1 · ORDER DESK ============================ */
 scene(0, (c) => {
-  const intro = add(c, `<div class="abs" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px">
-    <div style="width:420px;height:280px;border-radius:34px;background:#030814 var(--logo) center/cover;border:2px solid rgba(217,169,58,.75);box-shadow:0 0 140px rgba(217,169,58,.35)"></div>
-    <div class="big wm" style="font-size:104px;text-transform:uppercase;white-space:nowrap">GloblexAI Office ERP</div>
-    <div class="tg" style="font-size:44px;letter-spacing:.5em;color:var(--gold2);font-weight:700;padding-left:.5em">AI-POWERED COPILOT</div>
-    <div class="hl" style="font-size:42px;color:var(--mute)">Run the business. Let AI run the busywork.</div>
-    <div class="sheen"></div></div>`);
-  const [logo, wm, tg, hl, sheen] = [intro.children[0], $('.wm', intro), $('.tg', intro), $('.hl', intro), $('.sheen', intro)];
-  A(logo, [{ opacity: 0, transform: 'scale(.82)' }, { opacity: 1, transform: 'scale(1)' }], .15, 1.3);
-  A(wm, [{ opacity: 0, letterSpacing: '.45em' }, { opacity: 1, letterSpacing: '.12em' }], .5, 1.6);
-  A(tg, [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], 1.2, .8);
-  up(hl, 1.8, .7, 20);
-  A(sheen, [{ transform: 'translateX(-600px) skewX(-18deg)' }, { transform: 'translateX(2400px) skewX(-18deg)' }], .6, 1.8, 'ease-in-out');
-  A(intro, [{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(18px)' }], 2.55, .55, 'ease-in');
+  // Opening card: the same brushed silver-and-black plate as the sign-in page
+  const intro = add(c, `<div class="abs introbg" style="inset:-40px;background:var(--silverblack);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:26px">
+    <div class="lgo" style="width:380px;height:253px;background:var(--logo) center/cover;border-radius:6px;box-shadow:0 0 120px rgba(217,169,58,.25)"></div>
+    <div class="tgl" style="font-size:30px;letter-spacing:.3em;font-weight:700;color:#65c6ff">AI-POWERED COPILOT</div>
+    <div class="nmx" style="font-size:44px;font-weight:700;letter-spacing:.02em">GloblexAI Office ERP</div>
+    <div class="hdl" style="font-size:88px;line-height:1.05;font-weight:800;max-width:1500px">Run the business.<br><span class="gold">Let AI run the busywork.</span></div>
+    <div class="trust" style="font-size:36px;color:#cbd5e1;letter-spacing:.04em"><b style="color:#fff">AI drafts. You decide.</b> Agents flag and prepare. People approve.</div></div>`);
+  const k = intro.children;
+  A(k[0], [{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'scale(1)' }], .1, 1.0);
+  fade(k[1], .5, .5); fade(k[2], .7, .5); up(k[3], .95, .8, 30); up(k[4], 1.55, .6, 20);
+  out(intro, 2.35, .5);
 
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1640px;height:630px">
-    <div class="tb"><i></i><i></i><i></i>Order desk<em>4 agents on duty</em></div>
-    <div style="display:flex;gap:26px;padding:28px 30px 0">
-      <div class="card em" style="width:640px;height:318px"><div class="lbl">Inbound email</div><div class="mail" style="font-size:30px;line-height:1.5;margin-top:14px;white-space:pre-wrap;color:var(--ink)"></div></div>
-      <div class="arrow" style="align-self:center;font-size:70px;color:var(--gold)">➜</div>
-      <div class="card ord" style="flex:1;height:318px"><div class="row" style="justify-content:space-between"><div class="lbl">Order SO-261014-4F2A</div><span class="pill p-gold">Parsed</span></div>
-        <div class="ln" style="margin-top:18px;font-size:30px;display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span>12 × Steel bracket</span><span class="gold">✓ In catalog</span></div>
-        <div class="ln" style="font-size:30px;display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span>40 × Hex bolt M8</span><span class="gold">✓ In catalog</span></div>
-        <div class="ln" style="font-size:30px;display:flex;justify-content:space-between;padding:12px 0"><span>3 × Gadget Pro</span><span class="gold">✓ In catalog</span></div></div>
-    </div>
-    <div class="agents" style="display:flex;gap:18px;padding:24px 30px 0;align-items:center">
-      ${['Order Intake', 'Customer Service', 'Order Processing', 'Shipping'].map((n) => `<div class="card ag" style="flex:1;display:flex;align-items:center;gap:16px;padding:18px 22px"><span class="dot"></span><span style="font-size:27px;font-weight:700">${n}</span><span class="ck" style="margin-left:auto;opacity:0"><span class="check">✓</span></span></div>`).join('')}
-    </div>
-    <div class="done" style="position:absolute;left:30px;right:30px;bottom:26px;text-align:center"><span class="pill p-gold" style="font-size:30px;padding:12px 30px">Confirmed · stock reserved · customer notified</span></div>
-  </div>`);
-  up(w, 2.95, .9, 60);
-  const mail = $('.mail', w);
-  typeText(mail, 'Hello, please ship:\n12 × Steel bracket\n40 × Hex bolt M8\n3 × Gadget Pro\nPO AB-7781 · Springfield, IL', 3.5, 2.0);
-  slide($('.arrow', w), 5.0, -30, .5);
-  up($('.ord', w), 5.1, .7, 30);
-  $$('.ln', w).forEach((l, k) => fade(l, 5.4 + k * .25, .4));
-  $$('.ag', w).forEach((a, k) => { up(a, 4.2 + k * .12, .5, 24); const t = 5.8 + k * .38; glow(a, t); A($('.dot', a), [{ background: 'rgba(255,255,255,.18)' }, { background: '#d9a93a' }], t, .3); pop($('.ck', a), t + .1, .4); ping(t + .1); });
-  pop($('.done', w), 7.0, .45); ping(7.0);
+  const f = appFrame(c, 'Order desk');
+  up(f.wrap, 2.3, .8, 50);
+  const pg = f.pg;
+  const btnA = '<span class="bt s">Add customer message</span><span class="bt p addbtn">Add order</span>';
+  add(pg, head('Order desk', 'Four agents take an order from the inbox to the carrier and answer customers along the way. They stop and ask a person only when something needs judgement.', btnA));
+  const agents = [['Order Intake', 'Reads incoming orders, checks them and confirms the clean ones.'], ['Customer Service', 'Answers order questions from the order record and escalates the rest.'], ['Order Processing', 'Checks credit and stock, then reserves stock for confirmed orders.'], ['Shipping Processing', 'Picks the shipping method and ship-by date, and watches late and in-transit orders.']];
+  const row = add(pg, `<div class="grid4">${agents.map(([n, d]) => `<div class="apc agc"><div class="rw"><b>${n}</b><span class="on"><i></i>Online</span></div><p>${d}</p><small>Last run <span class="lr">12m</span> ago</small></div>`).join('')}</div>`);
+  const stats = [['Needs Review', 2], ['On Hold', 1], ['Confirmed', 0], ['Processing', 1], ['Ready To Ship', 4], ['Shipped', 18], ['Delivered', 31]];
+  const st = add(pg, `<div class="stats">${stats.map(([n, v]) => `<div class="apc stc"><b class="sv" data-v="${v}">${v}</b><span>${n}</span></div>`).join('')}</div>`);
+  const done = add(pg, `<div class="apc resl"><span class="bd g">Ready to ship</span><b>Order SO-261014-3338</b><span>12 × Steel bracket, 40 × Hex bolt M8 · stock reserved · ship-by date set</span></div>`);
+  $$('.agc', row).forEach((a, i) => up(a, 2.6 + i * .1, .5, 20));
+  fade(st, 3.0, .4);
+  // click "Add order": panel with the incoming email typed in
+  const addb = $('.addbtn', pg); press(addb, 3.4);
+  const modal = add(f.page, `<div class="abs mdl" style="inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center">
+    <div class="apc" style="width:520px;padding:20px 24px;background:#fff"><div style="font-size:16px;font-weight:600">Add an order</div><div style="font-size:12px;color:#64748b;margin:4px 0 10px">Paste the email or order text. The intake agent reads it.</div>
+    <div class="mailx" style="border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.5;min-height:112px;white-space:pre-wrap;color:#0f172a"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><span class="bt s">Cancel</span><span class="bt p subm">Read and process</span></div></div></div>`);
+  A(modal, [{ opacity: 0 }, { opacity: 1, offset: .08 }, { opacity: 1, offset: .9 }, { opacity: 0 }], 3.7, 2.1, 'linear');
+  typeText($('.mailx', modal), 'Hello, please ship:\n12 x Steel bracket\n40 x Hex bolt M8\nPO AB-7781 · Springfield, IL', 3.9, 1.3);
+  press($('.subm', modal), 5.35);
+  // agents work: intake, processing, shipping
+  [0, 2, 3].forEach((i, k) => { const a = $$('.agc', row)[i]; const t = 5.9 + k * .45; ring(a, t); count($('.lr', a), 12, 0, t, .3, (v) => (v < 1 ? '0m' : Math.round(v) + 'm')); ping(t); });
+  A($$('.sv', st)[4], [{ transform: 'scale(1)', color: '#0f172a' }, { transform: 'scale(1.35)', color: '#0059b8' }, { transform: 'scale(1)', color: '#0059b8' }], 7.0, .6, 'ease-out');
+  typers.push({ el: $$('.sv', st)[4], text: '5', at: 7.0, dur: .01, swap: '4' });
+  fade(done, 6.8, .4); ping(6.9);
 });
 
 /* ============================ SCENE 2 · OPERATIONS BOARD ============================ */
 scene(1, (c, st) => {
-  const stages = ['Booked', 'In transit', 'Arrived', 'Customs cleared', 'In warehouse', 'Delivered', 'Invoiced'];
-  const depts = [['Customs', 3], ['Compliance', 5], ['Shipping', 4], ['Logistics', 2], ['Warehouse', 1], ['Accounts', 6], ['Service', 2]];
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1640px;height:630px">
-    <div class="tb"><i></i><i></i><i></i>Operations board<em class="files">0 files tracked</em></div>
-    <div class="depts" style="display:flex;gap:14px;padding:26px 30px 0">
-      ${depts.map(([n, v]) => `<div class="card dp" style="flex:1;padding:14px 16px;text-align:center"><div class="lbl" style="font-size:19px;letter-spacing:.08em">${n}</div><div class="big gold dn" data-v="${v}" style="font-size:46px;line-height:1.1">0</div></div>`).join('')}
-    </div>
-    <div class="board" style="position:relative;margin:24px 30px 0;height:380px;display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
-      ${stages.map((s) => `<div class="col" style="background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:14px 10px"><div class="lbl" style="font-size:19px;letter-spacing:.06em;text-align:center;white-space:nowrap">${s}</div></div>`).join('')}
-      <div class="cards" style="position:absolute;inset:0;pointer-events:none"></div>
-    </div></div>`);
-  up(w, st + .15, .9, 60);
-  $$('.dn', w).forEach((e, k) => count(e, 0, +e.dataset.v, st + .7 + k * .1, 1.0));
-  count($('.files', w), 0, 148, st + .6, 1.6, (v) => Math.round(v) + ' files tracked');
-  ping(st + .8);
-  const cards = $('.cards', w);
-  const colW = (1640 - 60 - 12 * 6) / 7; // grid column width
-  const X = (k) => k * (colW + 12) + 8, Y = (r) => 66 + r * 92;
-  const fill = [[0, 0, 'Import'], [0, 1, 'Export'], [1, 0, 'Import'], [1, 2, 'Import'], [2, 1, 'Export'], [3, 0, 'Import'], [4, 0, 'Import'], [4, 1, 'Export'], [5, 0, 'Import'], [5, 1, 'Import'], [6, 0, 'Export'], [3, 2, 'Export']];
-  fill.forEach(([col, row, kind], k) => {
-    const el = add(cards, `<div class="card" style="position:absolute;left:${X(col)}px;top:${Y(row)}px;width:${colW - 16}px;height:76px;padding:12px 14px"><div style="font-size:24px;font-weight:700">SH-${k < 11 ? 2030 + k : 2060}</div><div style="font-size:20px;color:var(--mute)">${kind}</div></div>`);
-    up(el, st + 1.2 + k * .09, .5, 24);
-  });
-  const hero = add(cards, `<div class="card glow" style="position:absolute;left:0;top:${Y(2)}px;width:${colW - 16}px;height:76px;padding:12px 14px;background:rgba(217,169,58,.14);border-color:var(--gold)"><div style="font-size:24px;font-weight:800;color:var(--gold2)">SH-2041</div><div style="font-size:20px;color:var(--ink)">Import</div></div>`);
-  const pts = [0, 1, 2, 3, 4, 5, 6].map((k) => X(k));
-  const t0 = st + 2.4, step = 0.82;
-  const kf = [];
-  pts.forEach((x, k) => kf.push({ transform: `translateX(${x}px)`, offset: k / 6, easing: 'cubic-bezier(.65,0,.25,1)' }));
-  A(hero, [{ opacity: 0, transform: `translateX(${pts[0]}px) scale(.8)`, offset: 0 }, { opacity: 1, transform: `translateX(${pts[0]}px) scale(1)`, offset: .02 }, ...kf.slice(1)].map((f, k, arr) => (k === 0 ? f : f)), t0 - .3, step * 6 + .3, 'linear');
+  const f = appFrame(c, 'Operations board');
+  up(f.wrap, st + .15, .8, 50);
+  const pg = f.pg;
+  add(pg, head('Operations board', 'Customs, shipping, logistics, warehouse and accounts all work from the same file. Each file moves left to right.'));
+  const depts = [['Customs brokerage', 3], ['Trade compliance', 5], ['Shipping & documentation', 4], ['Logistics & transport', 2], ['Warehouse', 1], ['Accounts', 6], ['Customer service', 2]];
+  const dg = add(pg, `<div class="dgrid">${depts.map(([n, v]) => `<div class="apc dpc"><b>${n}</b><span class="bd g"><i class="dn" data-v="${v}">0</i> open</span></div>`).join('')}</div>`);
+  $$('.dpc', dg).forEach((d, i) => up(d, st + .6 + i * .07, .45, 16));
+  $$('.dn', dg).forEach((e, k) => count(e, 0, +e.dataset.v, st + .9 + k * .08, .8));
+  ping(st + .9);
+  const stages = ['BOOKED', 'IN TRANSIT', 'ARRIVED', 'CUSTOMS CLEARED', 'IN WAREHOUSE', 'DELIVERED', 'INVOICED'];
+  const board = add(pg, `<div class="board">${stages.map((s) => `<div class="bcol"><div class="bh"><span>${s}</span><i class="bn">0</i></div></div>`).join('')}<div class="bcards"></div></div>`);
+  fade(board, st + 1.2, .5);
+  const cards = $('.bcards', board);
+  const COLW = 118.5 + 6, X = (k) => k * COLW + 5, Y = (r) => 30 + r * 62;
+  const layout = [[0, 0, 'SHP-00036', 'import'], [0, 1, 'SHP-00037', 'export'], [1, 0, 'SHP-00033', 'import'], [2, 0, 'SHP-00031', 'import'], [2, 1, 'SHP-00032', 'export'], [3, 0, 'SHP-00028', 'import'], [4, 0, 'SHP-00024', 'import'], [5, 0, 'SHP-00019', 'import'], [5, 1, 'SHP-00020', 'export'], [6, 0, 'SHP-00015', 'import']];
+  const counts = [2, 1, 2, 1, 1, 2, 1];
+  layout.forEach(([col, row, ref, kind], i) => { const e = add(cards, `<div class="apc bc" style="left:${X(col)}px;top:${Y(row)}px"><b>${ref}</b><small>${kind}</small></div>`); up(e, st + 1.5 + i * .08, .4, 14); });
+  $$('.bn', board).forEach((e, k) => count(e, 0, counts[k], st + 1.6 + k * .1, .6));
+  const hero = add(cards, `<div class="apc bc hero" style="left:0;top:${Y(2)}px"><b>SHP-00041</b><small>import</small></div>`);
+  const t0 = st + 2.3, step = .78;
+  const kf = [0, 1, 2, 3, 4, 5, 6].map((k) => ({ transform: `translateX(${X(k)}px)`, offset: k / 6, easing: 'cubic-bezier(.65,0,.25,1)' }));
+  A(hero, [{ opacity: 0, transform: `translateX(${X(0)}px) scale(.8)`, offset: 0 }, { opacity: 1, transform: `translateX(${X(0)}px) scale(1)`, offset: .015 }, ...kf.slice(1)], t0 - .3, step * 6 + .3, 'linear');
   for (let k = 1; k <= 6; k++) ping(t0 - .3 + .3 + k * step);
-  const toast = add(c, `<div class="abs" style="left:0;right:0;top:700px;text-align:center"><span class="pill p-gold" style="font-size:28px;padding:10px 26px">SH-2041 delivered · invoice ready to send</span></div>`);
-  pop(toast, st + 6.95, .45);
+  const toast = add(f.page, `<div class="abs" style="left:0;right:0;bottom:14px;text-align:center"><span class="bd b" style="font-size:13px;padding:6px 14px">SHP-00041 invoiced · every department worked from the same file</span></div>`);
+  pop(toast, st + 7.0, .4);
 });
 
-/* ============================ SCENE 3 · AI TRADE AGENTS ============================ */
+/* ============================ SCENE 3 · AI AGENTS ============================ */
 scene(2, (c, st) => {
-  const ag = [['HO', 'HTS Oracle', 'Tariff codes'], ['CS', 'CBP Sentinel', 'ISF & entry clock'], ['ES', 'Export Shield', 'Party screening'], ['DP', 'DocuPilot', 'Document checks'], ['RR', 'Risk Radar', 'File risk score'], ['BB', 'BillBot', 'Billing & dues']];
-  const fd = [['p-bad', 'Critical', 'Export Shield', 'Consignee matches a restricted-party listing. Hold file.'], ['p-warn', 'High', 'CBP Sentinel', 'ISF due in 18 hours. Not yet filed.'], ['p-warn', 'High', 'DocuPilot', 'Packing list shows 44 pieces; invoice shows 40.'], ['p-gold', 'Suggested', 'HTS Oracle', 'Line 2 has no tariff code. Draft code ready for review.']];
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1640px;height:660px">
-    <div class="tb"><i></i><i></i><i></i>AI agents<em>Watching 148 files</em></div>
-    <div style="display:flex;gap:28px;padding:22px 30px">
-      <div class="grid" style="display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:136px;gap:14px;width:760px;align-content:start">
-        ${ag.map(([i, n, r]) => `<div class="card ac" style="display:flex;align-items:center;gap:18px;padding:14px 22px"><div style="width:64px;height:64px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:var(--gold2);flex:none">${i}</div><div><div style="font-size:30px;font-weight:700">${n}</div><div style="font-size:22px;color:var(--mute)">${r}</div></div></div>`).join('')}
-      </div>
-      <div class="feed" style="flex:1;display:flex;flex-direction:column;gap:12px">
-        <div class="lbl">Findings</div>
-        ${fd.map(([cl, sv, who, tx]) => `<div class="card fi" style="padding:12px 20px"><div class="row" style="gap:14px"><span class="pill ${cl}" style="font-size:19px;padding:4px 12px">${sv}</span><span style="font-size:22px;color:var(--gold2);font-weight:700">${who}</span></div><div style="font-size:24px;line-height:1.25;margin-top:6px">${tx}</div></div>`).join('')}
-      </div>
-    </div>
-    <div class="foot" style="position:absolute;left:30px;right:30px;bottom:14px;text-align:center;font-size:30px;font-weight:800;letter-spacing:.12em;text-transform:uppercase"><span class="gold">Agents flag.</span> People decide.</div>
-  </div>`);
-  up(w, st + .15, .9, 60);
-  $$('.ac', w).forEach((a, k) => { up(a, st + .7 + k * .12, .5, 24); const t = st + 1.5 + k * .3; glow(a, t); ping(t); });
-  $$('.fi', w).forEach((f, k) => { slide(f, st + 3.0 + k * .8, 70, .7); ping(st + 3.0 + k * .8); });
-  glow($$('.fi', w)[0], st + 3.5);
-  fade($('.foot', w), st + 6.4, .6);
+  const f = appFrame(c, 'AI agents');
+  up(f.wrap, st + .15, .8, 50);
+  const pg = f.pg;
+  add(pg, head('AI agents', 'Six agents check your shipments and accounts every day and queue what needs a person.', '<span class="bt p runb">Run all now</span>'));
+  const ag = [['HTS Oracle', 'Checks tariff codes and suggests starting points for unclassified lines.'], ['CBP Sentinel', 'Watches ISF and entry filing deadlines.'], ['Export Shield', 'Screens parties and destinations and checks EEI timing.'], ['DocuPilot', 'Checks each file has its documents and consistent values.'], ['Risk Radar', 'Scores each file by the open issues the other agents found.'], ['BillBot', 'Flags overdue invoices, unbilled files, bills due and the CBP statement date.']];
+  const grid = add(pg, `<div class="grid3">${ag.map(([n, d]) => `<div class="apc agc2"><div class="rw"><b>${n}</b><span class="on"><i></i>Online</span></div><p>${d}</p><div class="rw"><small>Last run <span class="lr">1d</span> ago</small><span class="bd g"><i class="opn">0</i> open</span></div></div>`).join('')}</div>`);
+  $$('.agc2', grid).forEach((a, i) => up(a, st + .6 + i * .09, .45, 18));
+  press($('.runb', pg), st + 1.5);
+  $$('.agc2', grid).forEach((a, i) => { const t = st + 1.9 + i * .22; ring(a, t); count($('.lr', a), 1, 0, t, .2, (v) => (v < 1 ? '0m' : '1d')); count($('.opn', a), 0, [2, 1, 1, 3, 2, 4][i], t, .5); ping(t); });
+  const fcard = add(pg, `<div class="apc fcard"><div class="fh"><b>Open findings</b><small>Most urgent first. Resolve what you've handled, dismiss what doesn't apply.</small></div><div class="fwin"><div class="flist"></div></div></div>`);
+  fade(fcard, st + 3.3, .4);
+  const fl = $('.flist', fcard);
+  const items = [['r', 'critical', 'CBP Sentinel · Customs brokerage', 'SHP-00068: ISF is past due', 'The 24-hour deadline has passed. Exposure is up to $5,000 per violation.'], ['g', 'high', 'DocuPilot · Shipping & documentation', 'SHP-00820: 3 documents missing', 'Still needed: Commercial invoice, Packing list, Bill of lading / air waybill.'], ['g', 'medium', 'HTS Oracle · Trade compliance', 'SHP-02029: "Cotton knit shirts" has no HTS code', 'Open the file for a suggested starting point.'], ['g', 'high', 'BillBot · Accounts', 'Invoice INV-06522 for Customer 57 is 12d overdue', 'A reminder is ready for you to review and send.'], ['r', 'critical', 'Risk Radar · Trade compliance', 'SHP-00004: exposure score 88/100', '4 open issues across the agents. Clear the critical items first.']];
+  items.forEach(([cl, sv, who, t, d], i) => add(fl, `<div class="frow"><div class="fl1"><span class="bd ${cl}">${sv}</span><small>${who}</small></div><b>${t}</b><p>${d}</p><div class="fbt"><span class="bt s">Resolve</span><span class="bt n">Dismiss</span></div></div>`));
+  const rows = $$('.frow', fl);
+  rows.forEach((r, i) => { fade(r, st + 3.6 + i * .8, .4); ping(st + 3.6 + i * .8); });
+  scrollTo(fl, st + 5.0, 66 * 1, .7); scrollTo; A(fl, [{ transform: 'translateY(0)' }, { transform: 'translateY(-66px)', offset: .4 }, { transform: 'translateY(-132px)', offset: .8 }, { transform: 'translateY(-132px)' }], st + 4.7, 2.5, 'ease-in-out');
+  const foot = add(f.page, `<div class="abs" style="left:0;right:0;bottom:12px;text-align:center"><span class="bd b" style="font-size:13px;padding:6px 14px">Agents flag and prepare. People approve.</span></div>`);
+  pop(foot, st + 6.5, .4);
 });
 
 /* ============================ SCENE 4 · RFQ TO QUOTE ============================ */
 scene(3, (c, st) => {
-  const steps = ['RFQ received', 'Review package', 'Cost & quote', 'Estimator review'];
-  const files = ['drawing.pdf', 'model.step', 'notes.pdf', 'tolerances.pdf', 'qty-breakdown.xlsx', 'history.pdf'];
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1640px;height:660px">
-    <div class="tb"><i></i><i></i><i></i>Custom RFQ-to-quote workflow<em>RFQ-0042</em></div>
-    <div class="steps" style="display:flex;gap:10px;padding:22px 30px 0">
-      ${steps.map((s, k) => `<div class="st" style="flex:1;padding:14px 18px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:24px;font-weight:700;letter-spacing:.04em">${s}</div>`).join('')}
-    </div>
-    <div style="display:flex;gap:22px;padding:22px 30px 0">
-      <div class="card" style="width:430px;height:430px"><div class="lbl">Incoming RFQ package</div>
-        <div style="margin-top:14px">${files.map((f) => `<div class="fl" style="font-size:27px;padding:9px 0;border-bottom:1px solid var(--line);color:var(--ink)">${f}</div>`).join('')}</div></div>
-      <div class="card" style="width:470px;height:430px"><div class="lbl">RFQ summary</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
-          <div class="sm"><div class="lbl" style="font-size:18px">Part count</div><div class="big" style="font-size:52px"><span class="pc">0</span></div></div>
-          <div class="sm"><div class="lbl" style="font-size:18px">Due in</div><div class="big" style="font-size:52px"><span class="dd">0</span> days</div></div>
-        </div>
-        <div class="sm" style="margin-top:12px"><div class="lbl" style="font-size:18px">Material</div><div style="font-size:30px;font-weight:700">6061-T6 ALUMINUM</div></div>
-        <div class="sm" style="margin-top:10px"><div class="lbl" style="font-size:18px">Operations</div><div style="font-size:26px">Milling · Drilling · Tapping · Finishing</div></div>
-        <div class="sm row" style="margin-top:12px;gap:10px;flex-wrap:wrap"><span class="pill p-ok" style="font-size:19px">ISO 9001 held</span><span class="pill p-bad" style="font-size:19px">AS9100D not held</span></div></div>
-      <div class="card" style="flex:1;height:430px;position:relative"><div class="lbl">Costing</div>
-        <div class="cs1 card" style="margin-top:10px;padding:9px 18px;font-size:23px">Similar prior jobs matched: <b class="gold">8</b></div>
-        <div class="cs2 card" style="margin-top:8px;padding:9px 18px;font-size:23px;display:flex;justify-content:space-between"><span>6061-T6 · Reliable Metals</span><b>$4.28/lb</b></div>
-        <div class="flag" style="margin-top:8px;padding:9px 18px;border-radius:12px;background:rgba(255,179,71,.14);border:1px solid rgba(255,179,71,.6);color:var(--warn);font-size:23px;font-weight:800;letter-spacing:.06em">⚠ MATERIAL PRICE OUTDATED</div>
-        <div class="cs3" style="margin-top:10px;display:flex;justify-content:space-between;align-items:flex-end"><div><div class="lbl" style="font-size:18px">Estimated cost</div><div class="big" style="font-size:40px"><span class="cost">$0.00</span></div></div><div style="text-align:right"><div class="lbl" style="font-size:18px">Quote @ 28%</div><div class="big gold" style="font-size:40px"><span class="quote">$0.00</span></div></div></div>
-        <div class="btn" style="position:absolute;left:18px;right:18px;bottom:16px;text-align:center"><span class="gbtn ebtn" style="display:block;font-size:26px;padding:12px 20px">Estimator review</span></div></div>
-    </div></div>`);
-  up(w, st + .15, .9, 60);
-  const stEls = $$('.st', w);
-  stEls.forEach((s, k) => {
-    const t = st + .8 + k * .75;
-    fade(s, st + .5 + k * .1, .4);
-    A(s, [{ background: 'rgba(255,255,255,.04)', color: '#eef3ff', borderColor: 'rgba(255,255,255,.09)' }, { background: k === 3 ? 'linear-gradient(180deg,#f6d983,#d9a93a)' : 'rgba(217,169,58,.2)', color: k === 3 ? '#1a1204' : '#f6d983', borderColor: 'rgba(217,169,58,.8)' }], t + 2.4, .3, 'ease-out');
-  });
-  $$('.fl', w).forEach((f, k) => slide(f, st + 1.0 + k * .18, -30, .5));
-  count($('.pc', w), 0, 12, st + 1.6, .8); count($('.dd', w), 0, 21, st + 1.8, .8);
-  [['.sm', 0]].forEach(() => {});
-  $$('.sm', w).forEach((e, k) => up(e, st + 1.5 + k * .15, .5, 20));
-  up($('.cs1', w), st + 2.8, .5, 20); up($('.cs2', w), st + 3.2, .5, 20);
-  pop($('.flag', w), st + 3.8, .5); ping(st + 3.8);
-  A($('.flag', w), [{ boxShadow: '0 0 0 0 rgba(255,179,71,0)' }, { boxShadow: '0 0 40px rgba(255,179,71,.55)' }, { boxShadow: '0 0 0 0 rgba(255,179,71,0)' }], st + 4.2, 1.2, 'ease-in-out');
-  fade($('.cs3', w), st + 4.5, .4);
-  count($('.cost', w), 0, 2842.75, st + 4.6, 1.4, money); count($('.quote', w), 0, 3948.26, st + 4.9, 1.4, money);
-  up($('.btn', w), st + 5.6, .5, 20);
-  // approve: button flips to Approved
-  const eb = $('.ebtn', w);
-  A(eb, [{ transform: 'scale(1)' }, { transform: 'scale(1.04)' }, { transform: 'scale(1)' }], st + 6.0, .6, 'ease-in-out');
-  typers.push({ el: eb, text: 'Approved ✓', at: st + 6.6, dur: .01, swap: 'Estimator review' });
+  const f = appFrame(c, 'RFQs to quotes');
+  up(f.wrap, st + .15, .8, 50);
+  const pg = f.pg;
+  add(pg, `<div class="rfh"><small>← All RFQs</small><div class="row2"><div class="h1">RFQ-0001 · Customer</div><span class="bd g stbd">Estimator review</span></div><div class="ds">RFQ 1023 - machined aluminum housings</div></div>`);
+  const steps = ['RFQ received', 'Review package', 'Cost & quote', 'Estimator review', 'Approved'];
+  const sp = add(pg, `<div class="steps2">${steps.map((s, i) => `<span class="sx" data-i="${i}">${i < 3 ? '✓ ' : ''}${s}</span>`).join('')}</div>`);
+  const sx = $$('.sx', sp);
+  sx.forEach((e, i) => { if (i < 3) e.classList.add('dn2'); if (i === 3) e.classList.add('cur'); });
+  fade(sp, st + .7, .4);
+  const cs = add(pg, `<div class="grid3b">
+    <div class="apc rc"><b>Incoming package</b><small>2 files · via manual</small><ul><li>1023-001_DRAWING.pdf <span class="bd b">drawing</span></li><li>1023-001_MODEL.step <span class="bd b">model</span></li></ul></div>
+    <div class="apc rc"><b>RFQ summary</b><div class="kv"><div><small>PART COUNT</small><i class="pcn">0</i></div><div><small>TOTAL PIECES</small><i class="pcs">0</i></div></div><small>MATERIAL</small><p class="mt">6061-T6 ALUMINUM</p><small>CERTIFICATIONS</small><div class="chips"><span class="bd e">ISO 9001:2015 · held</span><span class="bd r">AS9100D · not held</span></div></div>
+    <div class="apc rc"><b>Costing</b><small>From your prices, routing rules and job history.</small><div class="costb"><small>ESTIMATED COST</small><i class="cst">$0.00</i></div><div class="quoteb"><small>QUOTE PRICE AT 28% MARGIN</small><i class="qte">$0.00</i></div></div></div>`);
+  $$('.rc', cs).forEach((e, i) => up(e, st + .9 + i * .15, .5, 22));
+  $$('.rc li', cs).forEach((e, i) => slide(e, st + 1.3 + i * .25, -20, .4));
+  count($('.pcn', cs), 0, 4, st + 1.4, .7); count($('.pcs', cs), 0, 102, st + 1.5, .9);
+  count($('.cst', cs), 0, 5067.56, st + 1.9, 1.3, money); count($('.qte', cs), 0, 7038.17, st + 2.1, 1.3, money);
+  ping(st + 1.4, st + 2.2);
+  const rv = add(pg, `<div class="apc rvc"><div class="fh"><b>Review before this goes out</b><small>1 must-review, 5 to check, 2 notes.</small></div><ul class="fls">
+    <li><span class="bd r">Must review</span>The customer asks for AS9100, which isn't on your list of held certifications. Confirm you can meet it before quoting.</li>
+    <li><span class="bd g">Check</span>1023-001: the 6061-T6 ALUMINUM price of $4.28/lb from Reliable Metals Co. was set 52 days ago; the limit is 30. Confirm today's price.</li>
+    <li><span class="bd g">Check</span>1023-001: the computed price $85.11 is 28% below the $118.50 charged on similar prior jobs. Check cycle times, quantity and recent price moves.</li>
+    <li><span class="bd n">Note</span>2 attached drawing/model files were not read automatically. Open them and check tolerances and requirements before approving.</li></ul></div>`);
+  const fi = $$('.fls li', rv);
+  fade(rv, st + 3.4, .5); fi.forEach((e, i) => { fade(e, st + 3.6 + i * .35, .35); ping(st + 3.6 + i * .35); });
+  scrollTo(pg, st + 3.1, 215, 1.1);
+  // estimator review card
+  const er = add(pg, `<div class="apc erv"><b>Estimator review</b><small>Approving locks the price. Nothing is sent to the customer from here.</small><label class="ack"><i class="cb">☐</i> I have reviewed the 1 must-review flag above and accept this price.</label><div class="rw2"><span class="bt p appr">Approve quote</span><span class="bt s">Return for changes</span><span class="bt s">Decline to quote</span></div></div>`);
+  fade(er, st + 5.0, .4);
+  scrollTo(pg, st + 4.9, 330, 1.0); // second scroll replaces first one's end state
+  typers.push({ el: $('.cb', er), text: '☑', at: st + 5.9, dur: .01, swap: '☐' });
+  press($('.appr', er), st + 6.4);
+  typers.push({ el: $('.stbd', pg), text: 'Approved', at: st + 6.6, dur: .01, swap: 'Estimator review' });
+  A(sx[3], [{ background: '#faf0cb', color: '#6f481c' }, { background: '#d1fae5', color: '#047857' }], st + 6.6, .3, 'ease-out');
+  A(sx[4], [{ background: '#f8fafc', color: '#64748b' }, { background: '#d9a93a', color: '#1a1204' }], st + 6.6, .3, 'ease-out');
   ping(st + 6.6);
-  const note = add(c, `<div class="abs" style="left:900px;right:84px;top:862px;text-align:right;font-size:30px;color:var(--gold2);letter-spacing:.04em;line-height:1.3">Nothing goes out until<br>an estimator approves it.</div>`);
-  fade(note, st + 5.2, .6);
 });
 
-/* ============================ SCENE 5 · INVOICES & BOOKS ============================ */
+/* ============================ SCENE 5 · BOOKS & BILLING ============================ */
 scene(4, (c, st) => {
-  const inv = [['INV-1038', '$4,200.00', 'Paid', 'p-ok'], ['INV-1039', '$2,640.00', 'Open', 'p-mute'], ['INV-1040', '$8,150.00', 'Paid', 'p-ok'], ['INV-1041', '$1,980.00', 'Overdue', 'p-warn'], ['INV-1042', '$3,500.00', 'Open', 'p-mute']];
-  const aging = [['Current', 14.2, 100], ['1–30', 6.8, 48], ['31–60', 2.1, 15], ['90+', 0.9, 7]];
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1640px;height:630px">
-    <div class="tb"><i></i><i></i><i></i>Invoices · A/R aging · Payment links<em>Books balance</em></div>
-    <div style="display:flex;gap:22px;padding:26px 30px 0">
-      <div class="card" style="width:600px;height:430px"><div class="lbl">Invoices</div>
-        ${inv.map(([n, a, s, cl]) => `<div class="ir" style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line);font-size:27px"><span style="font-weight:700">${n}</span><span>${a}</span><span class="pill ${cl}" style="font-size:18px;padding:3px 12px;min-width:120px;justify-content:center">${s}</span></div>`).join('')}</div>
-      <div class="card" style="width:500px;height:430px"><div class="lbl">A/R aging ($ thousands)</div>
-        <div style="display:flex;align-items:flex-end;gap:20px;height:300px;margin-top:20px;padding:0 6px;border-bottom:1px solid var(--line)">
-          ${aging.map(([n, v, p]) => `<div style="flex:1;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div class="bv gold" style="font-size:26px;font-weight:800;margin-bottom:6px">${v.toFixed(1)}</div><div class="bar" data-p="${p}" style="height:${p * 2.3}px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#f6d983,#9a7220);transform-origin:bottom"></div></div>`).join('')}
-        </div>
-        <div style="display:flex;gap:20px;padding:10px 6px 0">${aging.map(([n]) => `<div style="flex:1;text-align:center;font-size:20px;color:var(--mute)">${n}</div>`).join('')}</div></div>
-      <div class="card pl" style="flex:1;height:430px;display:flex;flex-direction:column;justify-content:space-between"><div><div class="lbl">Payment link</div><div style="font-size:30px;margin-top:14px;line-height:1.35">INV-1041 · reminder drafted for your approval</div></div>
-        <div class="big" style="font-size:64px"><span class="amt">$1,980.00</span></div>
-        <div class="paybtn" style="text-align:center"><span class="gbtn pb" style="display:block;font-size:28px;padding:18px 20px">Pay now</span></div></div>
-    </div>
-    <div class="rib" style="position:absolute;left:30px;right:30px;bottom:20px;display:flex;justify-content:center;gap:18px"><span class="pill p-gold" style="font-size:24px">Debits = credits ✓</span><span class="pill p-gold" style="font-size:24px">Every entry validated</span><span class="pill p-gold" style="font-size:24px">Audit trail ✓</span></div>
-  </div>`);
-  up(w, st + .15, .9, 60);
-  $$('.ir', w).forEach((r, k) => slide(r, st + .9 + k * .3, -50, .6));
-  $$('.bar', w).forEach((b, k) => A(b, [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], st + 2.2 + k * .2, .9));
-  $$('.bv', w).forEach((b, k) => fade(b, st + 2.8 + k * .2, .4));
-  up($('.pl', w), st + 3.4, .7, 40);
-  const pb = $('.pb', w);
-  A(pb, [{ transform: 'scale(1)' }, { transform: 'scale(.94)' }, { transform: 'scale(1)' }], st + 5.0, .4, 'ease-in-out');
-  typers.push({ el: pb, text: 'Paid ✓', at: st + 5.3, dur: .01, swap: 'Pay now' });
-  ping(st + 5.3);
-  $$('.rib .pill', w).forEach((p, k) => { pop(p, st + 5.5 + k * .35, .45); ping(st + 5.5 + k * .35); });
+  const f = appFrame(c, 'A/R & A/P aging');
+  up(f.wrap, st + .15, .8, 50);
+  const pg = f.pg;
+  add(pg, head('A/R & A/P aging', 'Who owes you money, and which bills are coming due — grouped by how overdue they are.'));
+  const stc = [['TOTAL RECEIVABLE', 184200], ['OVERDUE RECEIVABLE', 61350], ['TOTAL PAYABLE', 72480], ['OVERDUE PAYABLE', 18900]];
+  const sg = add(pg, `<div class="grid4b">${stc.map(([n, v]) => `<div class="apc big4"><small>${n}</small><b class="bv2" data-v="${v}">$0.00</b></div>`).join('')}</div>`);
+  $$('.big4', sg).forEach((e, i) => up(e, st + .6 + i * .1, .45, 16));
+  $$('.bv2', sg).forEach((e, i) => count(e, 0, +e.dataset.v, st + .9 + i * .12, 1.2, money));
+  ping(st + .9);
+  const rows = [['Customer 12', 0, 0, 2900, 4350, 5800], ['Customer 45', 1450, 0, 0, 1450, 0], ['Customer 31', 2900, 4350, 0, 0, 0], ['Customer 07', 2900, 2900, 0, 0, 0]];
+  const tbl = add(pg, `<div class="apc agt"><div class="fh"><b>Accounts receivable — who owes you</b><small>Grouped by customer, oldest balances first.</small></div><table><thead><tr><th>CUSTOMER</th><th>CURRENT</th><th>1-30 DAYS</th><th>31-60 DAYS</th><th>61-90 DAYS</th><th>90+ DAYS</th><th>TOTAL</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${r[0]} <span class="fu">Follow up</span></td>${r.slice(1).map((v) => `<td>${money(v)}</td>`).join('')}<td><b>${money(r.slice(1).reduce((a, b) => a + b, 0))}</b></td></tr>`).join('')}</tbody></table></div>`);
+  fade(tbl, st + 1.8, .5);
+  $$('tbody tr', tbl).forEach((r, i) => slide(r, st + 2.1 + i * .22, -40, .5));
+  // second page: invoices overdue + reminder
+  const bar = add(f.page, `<div class="abs" style="left:0;right:0;bottom:12px;text-align:center"><span class="bd b" style="font-size:13px;padding:6px 14px">Duplicates, unusual amounts and unbalanced entries are flagged in Anomaly detection · every change to the books is in the Audit log</span></div>`);
+  fade(bar, st + 4.2, .5); ping(st + 4.2);
+  // follow-up chip pulses
+  $$('.fu', tbl).forEach((e, i) => A(e, [{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }, { transform: 'scale(1)' }], st + 3.2 + i * .25, .4, 'ease-out'));
+  // switch to Payment links & reminders for the "Send reminder" step
+  const f2 = appFrame(c, 'Payment links & reminders');
+  A(f2.wrap, [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'none' }], st + 5.0, .6, E);
+  A(f.wrap, [{ opacity: 1 }, { opacity: 0 }], st + 5.2, .5, 'ease-in');
+  add(f2.pg, head('Payment links & reminders', 'Get paid faster — send a payment link, or nudge customers with overdue balances.'));
+  const od = add(f2.pg, `<div class="apc agt"><div class="fh"><b>Overdue invoices</b><small>Send a friendly reminder for balances past their due date.</small></div><table><thead><tr><th>INVOICE</th><th>CUSTOMER</th><th>DUE DATE</th><th>BALANCE</th><th>ACTIONS</th></tr></thead><tbody>${[['INV-1041', 'Customer 57', 'Oct 2', '$1,980.00'], ['INV-1039', 'Customer 12', 'Oct 9', '$2,640.00'], ['INV-1042', 'Customer 31', 'Oct 11', '$3,500.00']].map((r, i) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="bt s rmd" data-i="${i}">Send reminder</span></td></tr>`).join('')}</tbody></table></div>`);
+  $$('tbody tr', od).forEach((r, i) => slide(r, st + 5.5 + i * .2, 30, .4));
+  const rm = $$('.rmd', od);
+  press(rm[0], st + 6.5);
+  const ok = add(f2.page, `<div class="abs" style="left:0;right:0;bottom:14px;text-align:center"><span class="bd e" style="font-size:13px;padding:6px 14px">Reminder drafted from the invoice · you review it, then send</span></div>`);
+  pop(ok, st + 6.9, .4); ping(st + 6.9);
 });
 
-/* ============================ SCENE 6 · INSIGHTS & ANYWHERE + CTA ============================ */
+/* ============================ SCENE 6 · MASTER DASHBOARD + CLOSE ============================ */
 scene(5, (c, st) => {
-  const w = add(c, `<div class="win" style="left:140px;top:140px;width:1130px;height:630px">
-    <div class="tb"><i></i><i></i><i></i>Overview<em>Sample data</em></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:26px 28px 0">
-      ${[['Revenue YTD', 183420, '$'], ['Net income', 71120, '$'], ['Cash', 48230, '$'], ['Quotes open', 7, '']].map(([n, v, p], k) => `<div class="card sc" style="padding:16px 18px"><div class="lbl" style="font-size:18px;letter-spacing:.08em">${n}</div><div class="big gold sv" data-v="${v}" data-p="${p}" style="font-size:44px;margin-top:6px">0</div></div>`).join('')}
-    </div>
-    <div class="card" style="margin:18px 28px 0;height:330px;padding:18px 22px"><div class="lbl">Profit & cash flow</div>
-      <svg viewBox="0 0 1000 250" style="width:100%;height:270px;margin-top:6px"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9a93a" stop-opacity=".45"/><stop offset="1" stop-color="#d9a93a" stop-opacity="0"/></linearGradient></defs>
-        <g stroke="rgba(255,255,255,.07)">${[50, 110, 170, 230].map((y) => `<line x1="0" x2="1000" y1="${y}" y2="${y}"/>`).join('')}</g>
-        <path class="area" d="M0 210 C90 190 140 205 220 160 S360 150 440 120 S600 130 680 80 S860 70 1000 30 L1000 250 L0 250Z" fill="url(#g1)"/>
-        <path class="line" d="M0 210 C90 190 140 205 220 160 S360 150 440 120 S600 130 680 80 S860 70 1000 30" fill="none" stroke="#f6d983" stroke-width="6" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-        <path class="line2" d="M0 230 C120 225 200 215 300 205 S520 190 640 170 S860 140 1000 120" fill="none" stroke="#8ea0cf" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 10" opacity=".8"/></svg></div></div>`);
-  up(w, st + .15, .9, 60);
-  $$('.sv', w).forEach((e, k) => count(e, 0, +e.dataset.v, st + .9 + k * .15, 1.3, (v) => (e.dataset.p || '') + Math.round(v).toLocaleString('en-US')));
-  A($('.line', w), [{ strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: .985, opacity: 1, offset: .02 }, { strokeDashoffset: 0, opacity: 1 }], st + 1.4, 2.0, 'ease-in-out');
-  fade($('.area', w), st + 2.6, 1.0); fade($('.line2', w), st + 2.0, 1.0);
-  ping(st + .9, st + 2.6);
-
-  const ph = add(c, `<div class="abs ph" style="left:1360px;top:120px;width:400px;height:690px;border-radius:56px;border:3px solid rgba(217,169,58,.8);background:linear-gradient(180deg,#0b1a3d,#050d20);box-shadow:0 40px 120px rgba(0,0,0,.65),0 0 80px rgba(217,169,58,.18);padding:22px 20px;overflow:hidden">
-    <div style="width:130px;height:28px;border-radius:14px;background:#000;margin:0 auto 20px"></div>
-    <div class="row" style="gap:12px;font-weight:800;letter-spacing:.14em;color:var(--gold2);font-size:22px"><i style="width:34px;height:34px;border-radius:9px;background:#030814 var(--logo) center/cover;border:1px solid rgba(217,169,58,.6)"></i>OFFICE ERP</div>
-    ${['Order desk · 3 to review', 'Shipments · 12 open', 'Quotes · 7 waiting', 'Invoices · 2 overdue'].map((t) => `<div class="card pr" style="margin-top:14px;padding:16px 18px;font-size:25px">${t}</div>`).join('')}
-    <div class="gbtn inst" style="margin-top:20px;display:block;text-align:center;font-size:24px;padding:16px">Install on your phone</div></div>`);
+  const f = appFrame(c, 'Overview', 150, 122);
+  up(f.wrap, st + .15, .8, 50);
+  const pg = f.pg;
+  add(pg, head('Master dashboard', 'Every tab in one place, with what needs attention today. Financial insights are below.'));
+  const at = [['Critical or high findings', 3, 'rd'], ['Orders to review or on hold', 3, 'am'], ['Quotes waiting for estimator review', 1, 'am']];
+  const ag = add(pg, `<div class="att">${at.map(([n, v, k]) => `<div class="apc atc ${k}"><span>${n}</span><b class="av" data-v="${v}">0</b></div>`).join('')}</div>`);
+  $$('.atc', ag).forEach((e, i) => up(e, st + .6 + i * .12, .45, 16));
+  $$('.av', ag).forEach((e, i) => count(e, 0, +e.dataset.v, st + .9 + i * .12, .6));
+  const tiles = [['📬', 'Order desk', '3 open', 'Order intake, customer replies, processing and shipping, run by four agents.'], ['🧭', 'Operations board', '', 'Every shipment by stage, with open work for each department.'], ['🤖', 'AI agents', '5 open', 'Six trade agents, their findings, and the restricted-party list.'], ['📥', 'RFQs to quotes', '1 open', 'Read incoming RFQs, cost them with your rules, flag stale inputs, approve before anything goes out.']];
+  const tg = add(pg, `<div class="tiles"><div class="tt">TRADE & AI AGENTS · QUOTING</div><div class="tg4">${tiles.map(([i, n, b, d]) => `<div class="apc tile"><div class="tr"><span class="ti">${i}</span><b>${n}</b>${b ? `<span class="bd g">${b}</span>` : ''}</div><p>${d}</p></div>`).join('')}</div></div>`);
+  $$('.tile', tg).forEach((e, i) => up(e, st + 1.2 + i * .12, .45, 16));
+  ping(st + .9, st + 1.4);
+  // phone: the installed app
+  const ph = add(c, `<div class="abs ph" style="left:1370px;top:150px;width:360px;height:640px;border-radius:50px;border:3px solid rgba(217,169,58,.85);background:#fff;box-shadow:0 40px 120px rgba(0,0,0,.65),0 0 80px rgba(217,169,58,.2);overflow:hidden">
+    <div style="height:30px;background:linear-gradient(180deg,#0a1a35,#1e3a6e);position:relative"><div style="position:absolute;left:50%;top:8px;transform:translateX(-50%);width:110px;height:22px;border-radius:12px;background:#000"></div></div>
+    <div style="height:60px;background:linear-gradient(180deg,#0a1a35,#1e3a6e);color:#fff;padding:8px 18px;font-size:15px"><b>GloblexAI Office ERP</b><div style="font-size:12px;color:#94a3b8">AI-Powered Copilot</div></div>
+    <div style="padding:18px;font-family:ui-sans-serif,system-ui,Segoe UI,Arial,sans-serif;color:#0f172a"><div style="font-size:20px;font-weight:600">Master dashboard</div>
+    ${['Order desk · 3 open', 'AI agents · 5 open', 'RFQs to quotes · 1 open', 'Invoices'].map((t) => `<div class="apc phr" style="margin-top:10px;padding:14px 16px;font-size:15px">${t}</div>`).join('')}
+    <div class="phi" style="margin-top:16px;text-align:center;background:#0070e6;color:#fff;border-radius:10px;padding:14px;font-size:15px;font-weight:600">Install app</div></div></div>`);
   slide(ph, st + 1.0, 120, 1.0);
-  $$('.pr', ph).forEach((p, k) => up(p, st + 2.0 + k * .25, .5, 20));
-  pop($('.inst', ph), st + 3.3, .5); ping(st + 3.3);
+  $$('.phr', ph).forEach((p, i) => up(p, st + 2.0 + i * .2, .4, 14));
+  pop($('.phi', ph), st + 3.1, .4);
 
-  // closing lockup
-  const scrim = add(c, `<div class="abs" style="inset:0;background:radial-gradient(900px 600px at 50% 50%,rgba(5,13,32,.97),rgba(3,8,20,.985))"></div>`);
-  fade(scrim, st + 3.55, .7);
-  const cta = add(c, `<div class="abs" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;text-align:center">
-    <div class="lg" style="width:420px;height:280px;border-radius:34px;background:#030814 var(--logo) center/cover;border:2px solid rgba(217,169,58,.75);box-shadow:0 0 140px rgba(217,169,58,.4)"></div>
-    <div class="big nm" style="font-size:96px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap">GloblexAI Office ERP</div>
-    <div class="tgl" style="font-size:42px;letter-spacing:.5em;color:var(--gold2);font-weight:700;padding-left:.5em">AI-POWERED COPILOT</div>
-    <div class="hdl" style="font-size:52px;font-weight:700;margin-top:6px">Run the business. <span class="gold">Let AI run the busywork.</span></div>
-    <div class="url"><span class="gbtn" style="font-size:36px;letter-spacing:.06em;text-transform:none">globlexus.globlexai.com</span></div>
-    <div class="fine" style="font-size:22px;color:var(--mute);letter-spacing:.08em">Screens show sample data.</div></div>`);
-  const kids = [...cta.children];
-  A(kids[0], [{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'scale(1)' }], st + 3.7, .9);
-  up(kids[1], st + 4.0, .8, 30); up(kids[2], st + 4.4, .7, 24); up(kids[3], st + 4.9, .7, 24); pop(kids[4], st + 5.5, .5); fade(kids[5], st + 6.0, .6);
-  A(cta, [{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }], st + 3.7, 3.8, 'linear');
-  ping(st + 3.8, st + 5.5);
+  // closing lockup in the sign-in page's own style
+  const end = add(c, `<div class="abs endbg" style="inset:-40px;background:var(--silverblack);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:24px">
+    <div class="lgo" style="width:360px;height:240px;background:var(--logo) center/cover;border-radius:6px;box-shadow:0 0 120px rgba(217,169,58,.3)"></div>
+    <div style="font-size:28px;letter-spacing:.3em;font-weight:700;color:#65c6ff">AI-POWERED COPILOT</div>
+    <div style="font-size:42px;font-weight:700">GloblexAI Office ERP</div>
+    <div style="font-size:78px;line-height:1.05;font-weight:800;max-width:1500px">Run the business.<br><span class="gold">Let AI run the busywork.</span></div>
+    <div class="pill4" style="display:flex;gap:16px;margin-top:6px">${['Orders on autopilot', 'Compliance that watches the clock', 'Every shipment, one file', 'Books you can trust'].map((t) => `<span style="padding:12px 20px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);border-radius:14px;font-size:24px;font-weight:600">${t}</span>`).join('')}</div>
+    <div style="font-size:34px;color:#cbd5e1"><b style="color:#fff">AI drafts. You decide.</b> Agents flag and prepare. People approve.</div>
+    <div><span class="gbtn" style="font-size:34px;letter-spacing:.06em;text-transform:none;background:#0070e6;color:#fff;box-shadow:0 10px 40px rgba(0,112,230,.4)">globlexus.globlexai.com</span></div>
+    <div style="font-size:21px;color:#94a3b8;letter-spacing:.08em">Screens show sample data.</div></div>`);
+  fade(end, st + 3.6, .8);
+  const ek = end.children;
+  A(ek[0], [{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'scale(1)' }], st + 3.8, .8);
+  up(ek[1], st + 4.1, .6, 18); up(ek[2], st + 4.3, .6, 18); up(ek[3], st + 4.55, .7, 26); up(ek[4], st + 5.1, .6, 16); up(ek[5], st + 5.5, .6, 16); pop(ek[6], st + 6.0, .5); fade(ek[7], st + 6.5, .5);
+  ping(st + 3.8, st + 6.0);
 });
 
 /* ============================ HUD ============================ */

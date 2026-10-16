@@ -28,6 +28,9 @@ jobs:
       - name: Check navigation covers every dashboard page
         run: npm run check:nav
 
+      - name: Counsel (AI lawyer) rule tests
+        run: npm run qa:counsel
+
       - name: Build
         run: npm run build
         env:

@@ -522,6 +522,12 @@ must appear in the order line) and stock comes from `qtyOnHand` on Inventory-typ
 - **Draft a document** writes first drafts (NDA, supply, MSA, distribution, LLC operating agreement,
   international sale, promissory note and security agreement, demand letter, CBP response outline,
   export policy, and more) with `[BRACKETED]` blanks and drafting notes.
+- **Attach documents** (Ask and Review tabs): PDF, Word or text files of any size, up to 8 at a time.
+  Each file is read in the browser (PDF.js and mammoth), and only its text goes to the server, so
+  a 20 MB or 1,000-page file never hits the host's request limit. Up to 500,000 characters (about
+  125,000 tokens) across the attachments are sent; a longer file is shortened and the screen says
+  how many pages fit. Follow-up questions reuse prompt caching so a big file is not re-billed in
+  full. Scanned PDFs with no text layer are rejected with a message to run OCR first.
 - **Business profile and governing state** are typed once and kept in the browser only
   (`localStorage`); they ride along with each question so advice fits every venture.
 

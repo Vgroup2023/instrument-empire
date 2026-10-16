@@ -41,6 +41,25 @@ assert.equal(cleanTurns([{ role: 'system', content: 'x' }]), null, 'only user an
 assert.equal(cleanTurns([{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }]), null, 'must end on a user turn');
 assert.deepEqual(cleanTurns([{ role: 'assistant', content: 'hello' }, { role: 'user', content: 'q1' }, { role: 'user', content: 'q2' }]), [{ role: 'user', content: 'q1\n\nq2' }]);
 
+// attached documents
+import { cleanDocuments, cleanDocName, docBlocks, docNote, MAX_DOCS, MAX_TOTAL_DOC_CHARS } from '../../src/lib/counsel/documents';
+assert.deepEqual(cleanDocuments('nope'), []);
+assert.deepEqual(cleanDocuments([{ name: 'a', text: '   ' }, { name: 'b' }, null]), [], 'empty and malformed documents are dropped');
+assert.equal(cleanDocName('<b>"x"\n.pdf'), 'b x .pdf', 'angle brackets, quotes and control characters cannot break the tag');
+assert.equal(cleanDocuments([{ name: 7, text: 'hello' }])[0].name, 'Document');
+assert.equal(cleanDocuments(Array.from({ length: 20 }, () => ({ name: 'd', text: 'x' }))).length, MAX_DOCS);
+const big = cleanDocuments([{ name: 'one', text: 'a'.repeat(400_000) }, { name: 'two', text: 'b'.repeat(400_000) }, { name: 'three', text: 'c' }]);
+assert.equal(big.reduce((n, d) => n + d.text.length, 0), MAX_TOTAL_DOC_CHARS, 'total text is capped');
+assert.equal(big.length, 2, 'documents past the cap are left out');
+const blocks = docBlocks(cleanDocuments([{ name: 'a', text: 'one' }, { name: 'b', text: 'two' }]));
+assert.equal(blocks.length, 2);
+assert.match(blocks[0].text, /^<document name="a">\none\n<\/document>$/);
+assert.equal((blocks[0] as { cache_control?: unknown }).cache_control, undefined);
+assert.deepEqual((blocks[1] as { cache_control?: unknown }).cache_control, { type: 'ephemeral' }, 'only the last document is marked for caching');
+assert.match(docNote(cleanDocuments([{ name: 'Lease.pdf', text: 'x' }])), /"Lease\.pdf".*untrusted/s);
+assert.equal(docNote([]), '');
+assert.match(buildSystemPrompt({ documents: [{ name: 'Lease.pdf', text: 'x' }] }), /attached 1 document/);
+
 // review validation
 assert.equal(validateReview(null), null);
 const r = validateReview({

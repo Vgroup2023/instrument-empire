@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "qa:entries": "node scripts/qa/entries.mjs",
-    "qa:quoting": "tsx scripts/qa/quoting.test.ts"
+    "qa:quoting": "tsx scripts/qa/quoting.test.ts",
+    "qa:counsel": "tsx scripts/qa/counsel.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

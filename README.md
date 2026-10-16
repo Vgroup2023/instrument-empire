@@ -507,6 +507,32 @@ payment, or a mailbox connector. Tracking numbers are entered by staff or pushed
 `shipment` call above. Product matching uses your product names (every word of a product name
 must appear in the order line) and stock comes from `qtyOnHand` on Inventory-type products.
 
+## Counsel: the AI lawyer
+
+`/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same
+`ANTHROPIC_API_KEY` and model as the order desk, and is off without a key.
+
+- **Ask Counsel** streams answers on business, finance, customs and trade, real estate, family,
+  estate, civil and government matters (27 practice areas in `src/lib/counsel/areas.ts`, each with the
+  U.S. statutes and agencies it must anchor on). Answers follow one structure: bottom line,
+  assumptions, analysis, risks, next steps, and when a licensed attorney is needed.
+- **Review a contract** takes a PDF, a Word file or pasted text and returns findings ranked high,
+  medium or low, with key terms, missing protections and replacement wording. Output is validated
+  field by field before it reaches the screen.
+- **Draft a document** writes first drafts (NDA, supply, MSA, distribution, LLC operating agreement,
+  international sale, promissory note and security agreement, demand letter, CBP response outline,
+  export policy, and more) with `[BRACKETED]` blanks and drafting notes.
+- **Business profile and governing state** are typed once and kept in the browser only
+  (`localStorage`); they ride along with each question so advice fits every venture.
+
+Guardrails, in `src/lib/counsel/guard.ts` and `prompt.ts`: a rule-based urgency banner (served
+papers, subpoenas, CBP/BIS/OFAC notices, arrest, protective orders, limitation periods, and
+requests to evade duties or sanctions) that appears even if the model is down; no invented case
+citations; "confirm the current rule" on fast-moving areas such as tariffs, sanctions and export
+lists; uploaded documents are treated as untrusted data; and a standing notice that Counsel is not a
+law firm, creates no attorney-client relationship, and is not privileged. Conversations are not stored
+on the server. Run the rule tests with `npm run qa:counsel`.
+
 ## Sign-in and the master dashboard
 
 - **Sign-in** (`/login`): one shared passphrase (`APP_PASSWORD`) for the team; there are no per-person

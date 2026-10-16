@@ -26,6 +26,7 @@ export const navGroups: NavGroup[] = [
       { href: '/dashboard/orders', label: 'Order desk', icon: '📬', description: 'Order intake, customer replies, processing and shipping, run by four agents.' },
       { href: '/dashboard/operations', label: 'Operations board', icon: '🧭', description: 'Every shipment by stage, with open work for each department.' },
       { href: '/dashboard/agents', label: 'AI agents', icon: '🤖', description: 'Six trade agents, their findings, and the restricted-party list.' },
+      { href: '/dashboard/counsel', label: 'Counsel (AI lawyer)', icon: '⚖️', description: 'Legal research, contract review and drafting across business, trade, family and civil law.' },
       { href: '/dashboard/shipments', label: 'Shipments', icon: '🚢', description: 'Files, filings, documents, logistics and warehouse receipts.' },
     ],
   },

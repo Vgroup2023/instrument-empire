@@ -110,7 +110,7 @@ export function reviewInstructions(r: ReviewRequest): string {
 export async function reviewContract(r: ReviewRequest, client?: LlmClient): Promise<ContractReview | null> {
   const blocks: Anthropic.ContentBlockParam[] = [];
   if (r.pdfBase64) blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: r.pdfBase64 } });
-  blocks.push({ type: 'text', text: `${reviewInstructions(r)}\n\nDocument text:\n${r.text.slice(0, 120_000) || '(see attached PDF)'}` });
+  blocks.push({ type: 'text', text: `${reviewInstructions(r)}\n\nDocument text:\n${r.text.slice(0, 450_000) || '(see attached PDF)'}` });
   const raw = await askJson(SYSTEM, blocks, { client, maxTokens: 6000, effort: 'medium' });
   return validateReview(raw);
 }

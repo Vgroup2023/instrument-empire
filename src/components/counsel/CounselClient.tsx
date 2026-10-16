@@ -10,7 +10,9 @@ import { AREA_GROUPS, PRACTICE_AREAS, US_STATES } from '@/lib/counsel/areas';
 import { DRAFT_TEMPLATES } from '@/lib/counsel/templates';
 import { DISCLAIMER, detectUrgent } from '@/lib/counsel/guard';
 import type { ContractReview } from '@/lib/counsel/review';
-import { call, readFileBase64 } from '@/components/rfqs/api';
+import { call } from '@/components/rfqs/api';
+import { MAX_DOCS, MAX_TOTAL_DOC_CHARS } from '@/lib/counsel/documents';
+import { ACCEPT, extractFile, type ExtractedFile } from './extract';
 import { Markdown } from './Markdown';
 
 type Tab = 'ask' | 'review' | 'draft' | 'areas';
@@ -156,10 +158,67 @@ function CopyButton({ text, notify }: { text: string; notify: Notify }) {
   );
 }
 
+
+/** Reads files in the browser (large ones included) and keeps the list of attached documents. */
+function useAttachments(notify: Notify) {
+  const [docs, setDocs] = useState<ExtractedFile[]>([]);
+  const [reading, setReading] = useState<string | null>(null);
+
+  async function add(files: FileList | File[] | null) {
+    if (!files) return;
+    for (const f of Array.from(files)) {
+      if (docs.length >= MAX_DOCS) { notify(`You can attach up to ${MAX_DOCS} documents at a time.`, 'error'); break; }
+      setReading(`Reading ${f.name}…`);
+      try {
+        const d = await extractFile(f, (done, total) => setReading(`Reading ${f.name}: page ${done} of ${total}`));
+        setDocs((cur) => [...cur.filter((x) => x.name !== d.name), d]);
+        if (d.note) notify(d.note, 'error');
+      } catch (err) {
+        notify((err as Error).message, 'error');
+      }
+    }
+    setReading(null);
+  }
+  const remove = (name: string) => setDocs((cur) => cur.filter((d) => d.name !== name));
+  const total = docs.reduce((n, d) => n + d.text.length, 0);
+  return { docs, reading, add, remove, clear: () => setDocs([]), total };
+}
+
+function AttachBar({ att, disabled, label = 'Attach documents' }: { att: ReturnType<typeof useAttachments>; disabled?: boolean; label?: string }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => { void att.add(e.target.files); e.target.value = ''; }} />
+        <Button size="sm" variant="secondary" disabled={disabled || Boolean(att.reading)} onClick={() => input.current?.click()}>📎 {label}</Button>
+        <span className="text-xs text-slate-500">PDF, Word, or text files of any size. Big files are read on your computer; only the text is sent.</span>
+      </div>
+      {att.reading ? <p className="text-xs text-slate-600" role="status">{att.reading}</p> : null}
+      {att.docs.length ? (
+        <ul className="space-y-1">
+          {att.docs.map((d) => (
+            <li key={d.name} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm">
+              <span className="min-w-0 truncate">
+                <span className="font-medium text-slate-800">{d.name}</span>
+                <span className="ml-2 text-xs text-slate-500">{d.pages ? (d.pagesRead && d.pagesRead < d.pages ? `first ${d.pagesRead} of ${d.pages} pages · ` : `${d.pages} pages · `) : ''}{d.text.length.toLocaleString()} characters{d.clipped ? ' · shortened' : ''}</span>
+              </span>
+              <button aria-label={`Remove ${d.name}`} className="text-slate-400 hover:text-red-600" onClick={() => att.remove(d.name)}>✕</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {att.total > MAX_TOTAL_DOC_CHARS ? (
+        <p className="text-xs text-red-700">Together these are over the {MAX_TOTAL_DOC_CHARS.toLocaleString()}-character limit. Counsel will read the first {MAX_TOTAL_DOC_CHARS.toLocaleString()}; remove a document or attach the rest separately.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify: Notify }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const att = useAttachments(notify);
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }); }, [turns]);
@@ -174,7 +233,7 @@ function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify
     setBusy(true);
     abort.current = new AbortController();
     try {
-      await streamChat({ messages: next, ...ctx }, (t) => setTurns([...next, { role: 'assistant', content: t }]), abort.current.signal);
+      await streamChat({ messages: next, documents: att.docs.map(({ name, text }) => ({ name, text })), ...ctx }, (t) => setTurns([...next, { role: 'assistant', content: t }]), abort.current.signal);
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         notify((err as Error).message, 'error');
@@ -222,10 +281,18 @@ function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify
           <Textarea rows={4} maxLength={30000} value={input} disabled={!claudeOn} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(input); } }}
             placeholder="Describe the situation: who is involved, what happened, what you signed, dates, amounts, and what outcome you want. Paste emails or clauses if you have them." />
+          <AttachBar att={att} disabled={!claudeOn || busy} />
+          {att.docs.length && !turns.length ? (
+            <div className="flex flex-wrap gap-2">
+              {['Summarize this document in plain English and list the deadlines and money amounts.', 'What are the biggest risks to me in this document, in order?', 'What am I obligated to do, and what happens if I do not?'].map((q) => (
+                <button key={q} disabled={busy} onClick={() => send(q)} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:border-brand-400 hover:bg-brand-50">{q}</button>
+              ))}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-slate-500">Ctrl/⌘ + Enter to send</span>
             <div className="flex gap-2">
-              {turns.length ? <Button variant="ghost" disabled={busy} onClick={() => { setTurns([]); }}>New matter</Button> : null}
+              {turns.length ? <Button variant="ghost" disabled={busy} onClick={() => { setTurns([]); att.clear(); }}>New matter</Button> : null}
               {busy ? <Button variant="secondary" onClick={() => abort.current?.abort()}>Stop</Button> : null}
               <Button loading={busy} disabled={!claudeOn || !input.trim()} onClick={() => send(input)}>Ask Counsel</Button>
             </div>
@@ -238,7 +305,7 @@ function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify
 
 function ReviewTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify: Notify }) {
   const [text, setText] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const att = useAttachments(notify);
   const [side, setSide] = useState('neutral');
   const [goals, setGoals] = useState('');
   const [busy, setBusy] = useState(false);
@@ -248,8 +315,8 @@ function ReviewTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; not
     setBusy(true);
     setReview(null);
     try {
-      const payload: Record<string, unknown> = { text, side, goals, ...ctx };
-      if (file) payload.file = { contentType: file.type, contentBase64: await readFileBase64(file) };
+      const fromFiles = att.docs.map((d) => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+      const payload: Record<string, unknown> = { text: [fromFiles, text].filter(Boolean).join('\n\n'), side, goals, ...ctx };
       const res = await call<{ review: ContractReview }>('POST', '/api/counsel/review', payload);
       setReview(res.review);
     } catch (err) {
@@ -262,7 +329,7 @@ function ReviewTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; not
   return (
     <div className="space-y-3">
       <Card>
-        <CardHeader><div><CardTitle>Contract review</CardTitle><CardDescription>Upload a PDF or Word file, or paste the agreement. Counsel flags risks by severity and proposes fixes.</CardDescription></div></CardHeader>
+        <CardHeader><div><CardTitle>Contract review</CardTitle><CardDescription>Upload a PDF or Word file of any size, or paste the agreement. Counsel flags risks by severity and proposes fixes.</CardDescription></div></CardHeader>
         <CardBody className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -274,8 +341,8 @@ function ReviewTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; not
               </Select>
             </div>
             <div>
-              <Label htmlFor="r-file">File (PDF or .docx, up to 5 MB)</Label>
-              <input id="r-file" type="file" accept=".pdf,.docx,application/pdf" className="block w-full text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <Label>Contract file</Label>
+              <AttachBar att={att} disabled={!claudeOn} label="Upload contract" />
             </div>
           </div>
           <div>
@@ -286,7 +353,7 @@ function ReviewTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; not
             <Label htmlFor="r-goals">What matters most to you in this deal? (optional)</Label>
             <Textarea id="r-goals" rows={2} maxLength={1000} value={goals} onChange={(e) => setGoals(e.target.value)} placeholder="e.g. I need to exit within 12 months. I cannot accept unlimited liability." />
           </div>
-          <Button loading={busy} disabled={!claudeOn || (!text.trim() && !file)} onClick={run}>Review this contract</Button>
+          <Button loading={busy} disabled={!claudeOn || (!text.trim() && !att.docs.length)} onClick={run}>Review this contract</Button>
         </CardBody>
       </Card>
 

@@ -92,6 +92,13 @@
       "when": 1791815152592,
       "tag": "0012_rfq_quoting",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792245225801,
+      "tag": "0013_ai_bookkeeping",
+      "breakpoints": true
     }
   ]
 }

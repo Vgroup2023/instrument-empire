@@ -67,6 +67,7 @@ export const navGroups: NavGroup[] = [
   {
     title: 'Accounting',
     items: [
+      { href: '/dashboard/bookkeeping', label: 'AI bookkeeping', icon: '🧠', description: 'Statements read, matched and categorized for you to approve.' },
       { href: '/dashboard/accounts', label: 'Chart of accounts', icon: '📚', description: 'Your accounts and their balances.' },
       { href: '/dashboard/journal-entries', label: 'Journal entries', icon: '📒', description: 'Post and review manual entries.' },
       { href: '/dashboard/audit-log', label: 'Audit log', icon: '🕵️', description: 'What changed in the books, and when.' },

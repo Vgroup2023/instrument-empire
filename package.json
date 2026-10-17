@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "qa:entries": "node scripts/qa/entries.mjs",
     "qa:quoting": "tsx scripts/qa/quoting.test.ts",
-    "qa:counsel": "tsx scripts/qa/counsel.test.ts"
+    "qa:counsel": "tsx scripts/qa/counsel.test.ts",
+    "qa:bookkeeping": "tsx scripts/qa/bookkeeping.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

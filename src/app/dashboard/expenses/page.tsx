@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { listExpensesPage } from '@/lib/accounting/expenses';
-import { listVendors } from '@/lib/accounting/vendors';
+import { listVendorOptions } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listPaymentAccounts } from '@/lib/accounting/chartOfAccounts';
 import { ExpensesPageClient } from '@/components/expenses/ExpensesPageClient';
 
@@ -47,7 +47,7 @@ export default async function ExpensesPage() {
 async function loadExpensesData() {
   const [expenses, vendors, expenseAccounts, paymentAccounts] = await Promise.all([
     listExpensesPage(PAGE_SIZE, 0),
-    listVendors(),
+    listVendorOptions(),
     listExpenseAccounts(),
     listPaymentAccounts(),
   ]);

@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { getDb } from '@/db/client';
 import type { Page } from '@/lib/paging';
 import { invoices, invoiceLines, invoicePayments, customers, products, accounts } from '@/db/schema';
-import { and, eq, inArray, desc, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, desc, sql } from 'drizzle-orm';
 import { sendMail } from '@/lib/email/mailer';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toLineInsertRows, rowsToSalesDocLines, type LineItemInput, type LineRow } from '@/lib/accounting/salesLines';
@@ -67,8 +67,13 @@ async function attachDetails(rows: InvoiceRow[], ex: Executor = getDb()): Promis
   const ids = rows.map((r) => r.id);
   const customerIds = [...new Set(rows.map((r) => r.customerId))];
 
-  const [lineRows, paymentRows, customerRows] = await Promise.all([
-    db.select().from(invoiceLines).where(inArray(invoiceLines.invoiceId, ids)),
+  // Product names come back with the lines (one query, not a second wave that waits for the first).
+  const [lineJoin, paymentRows, customerRows] = await Promise.all([
+    db
+      .select({ line: invoiceLines, productName: products.name })
+      .from(invoiceLines)
+      .leftJoin(products, eq(products.id, invoiceLines.productId))
+      .where(inArray(invoiceLines.invoiceId, ids)),
     db
       .select({ invoiceId: invoicePayments.invoiceId, amount: invoicePayments.amount })
       .from(invoicePayments)
@@ -76,11 +81,9 @@ async function attachDetails(rows: InvoiceRow[], ex: Executor = getDb()): Promis
     db.select({ id: customers.id, displayName: customers.displayName }).from(customers).where(inArray(customers.id, customerIds)),
   ]);
 
-  const productIds = [...new Set(lineRows.map((l) => l.productId).filter((id): id is string => Boolean(id)))];
-  const productRows = productIds.length
-    ? await db.select({ id: products.id, name: products.name }).from(products).where(inArray(products.id, productIds))
-    : [];
-  const productNameById = new Map(productRows.map((p) => [p.id, p.name]));
+  const lineRows = lineJoin.map((r) => r.line);
+  const productNameById = new Map<string, string>();
+  for (const r of lineJoin) if (r.line.productId && r.productName) productNameById.set(r.line.productId, r.productName);
   const customerNameById = new Map(customerRows.map((c) => [c.id, c.displayName]));
 
   const linesByInvoice = new Map<string, LineRow[]>();
@@ -144,16 +147,16 @@ export async function listOverdueInvoices(limit: number): Promise<Page<Invoice>>
   const open = sql`i.due_date < CURRENT_DATE AND (
       COALESCE((SELECT SUM(amount) FROM invoice_lines WHERE invoice_id = i.id), 0)
       - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0)) > 0`;
-  const [idRows, countRows] = await Promise.all([
-    db.execute<{ id: string }>(sql`SELECT i.id FROM invoices i WHERE ${open} ORDER BY i.due_date ASC, i.created_at ASC LIMIT ${limit}`),
+  // The rows and the count are one wave of queries; looking up ids first and the rows second cost two extra round trips.
+  const openRows = sql`${invoices.dueDate} < CURRENT_DATE AND (
+      COALESCE((SELECT SUM(amount) FROM invoice_lines WHERE invoice_id = ${invoices.id}), 0)
+      - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = ${invoices.id}), 0)) > 0`;
+  const [rows, countRows] = await Promise.all([
+    db.select().from(invoices).where(openRows).orderBy(asc(invoices.dueDate), asc(invoices.createdAt)).limit(limit),
     db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM invoices i WHERE ${open}`),
   ]);
-  const ids = idRows.map((r) => r.id);
-  if (ids.length === 0) return { items: [], total: 0 };
-  const rows = await db.select().from(invoices).where(inArray(invoices.id, ids));
-  const order = new Map(ids.map((id, index) => [id, index]));
-  rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return { items: await attachDetails(rows), total: countRows[0]?.n ?? ids.length };
+  if (rows.length === 0) return { items: [], total: 0 };
+  return { items: await attachDetails(rows), total: countRows[0]?.n ?? rows.length };
 }
 
 export async function getInvoice(id: string, ex: Executor = getDb()): Promise<Invoice> {

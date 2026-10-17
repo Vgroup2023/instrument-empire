@@ -1,7 +1,8 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listCustomers } from '@/lib/accounting/customers';
+import { PAGE_SIZE } from '@/lib/paging';
+import { listCustomersPage } from '@/lib/accounting/customers';
 import { CustomersPageClient } from '@/components/customers/CustomersPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -9,10 +10,10 @@ export const dynamic = 'force-dynamic';
 const HOME_CURRENCY = { code: 'USD', name: 'US Dollar' };
 
 export default async function CustomersPage() {
-  let customers: Awaited<ReturnType<typeof listCustomers>> | null = null;
+  let customers: Awaited<ReturnType<typeof listCustomersPage>> | null = null;
   let loadError: unknown = null;
   try {
-    customers = await listCustomers();
+    customers = await listCustomersPage(PAGE_SIZE, 0);
   } catch (err) {
     loadError = err;
   }
@@ -29,5 +30,5 @@ export default async function CustomersPage() {
     );
   }
 
-  return <CustomersPageClient initialCustomers={customers} currencies={[]} homeCurrency={HOME_CURRENCY} />;
+  return <CustomersPageClient initialCustomers={customers.items} initialTotal={customers.total} currencies={[]} homeCurrency={HOME_CURRENCY} />;
 }

@@ -55,19 +55,22 @@ async function attachDetails(rows: ExpenseRow[], ex: Executor = getDb()): Promis
   const paymentAccountIds = [...new Set(rows.map((r) => r.paymentAccountId))];
   const vendorIds = [...new Set(rows.map((r) => r.vendorId).filter((id): id is string => Boolean(id)))];
 
-  const [lineRows, paymentAccountRows, vendorRows] = await Promise.all([
-    db.select().from(expenseLines).where(inArray(expenseLines.expenseId, ids)),
+  // Account names come back with the lines (one query, not a second wave that waits for the first).
+  const [lineJoin, paymentAccountRows, vendorRows] = await Promise.all([
+    db
+      .select({ line: expenseLines, accountName: accounts.name })
+      .from(expenseLines)
+      .leftJoin(accounts, eq(accounts.id, expenseLines.accountId))
+      .where(inArray(expenseLines.expenseId, ids)),
     db.select({ id: accounts.id, name: accounts.name }).from(accounts).where(inArray(accounts.id, paymentAccountIds)),
     vendorIds.length
       ? db.select({ id: vendors.id, displayName: vendors.displayName }).from(vendors).where(inArray(vendors.id, vendorIds))
       : Promise.resolve([]),
   ]);
 
-  const lineAccountIds = [...new Set(lineRows.map((l) => l.accountId))];
-  const lineAccountRows = lineAccountIds.length
-    ? await db.select({ id: accounts.id, name: accounts.name }).from(accounts).where(inArray(accounts.id, lineAccountIds))
-    : [];
-  const lineAccountNameById = new Map(lineAccountRows.map((a) => [a.id, a.name]));
+  const lineRows = lineJoin.map((r) => r.line);
+  const lineAccountNameById = new Map<string, string>();
+  for (const r of lineJoin) if (r.accountName) lineAccountNameById.set(r.line.accountId, r.accountName);
   const paymentAccountNameById = new Map(paymentAccountRows.map((a) => [a.id, a.name]));
   const vendorNameById = new Map(vendorRows.map((v) => [v.id, v.displayName]));
 

@@ -3,8 +3,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { listEstimatesPage } from '@/lib/accounting/estimates';
-import { listCustomers } from '@/lib/accounting/customers';
-import { listProducts } from '@/lib/accounting/products';
+import { listCustomerOptions } from '@/lib/accounting/customers';
+import { listProductOptions } from '@/lib/accounting/products';
 import { EstimatesPageClient } from '@/components/estimates/EstimatesPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,6 @@ export default async function EstimatesPage() {
 }
 
 async function loadEstimatesData() {
-  const [estimates, customers, products] = await Promise.all([listEstimatesPage(PAGE_SIZE, 0), listCustomers(), listProducts()]);
+  const [estimates, customers, products] = await Promise.all([listEstimatesPage(PAGE_SIZE, 0), listCustomerOptions(), listProductOptions()]);
   return { estimates, customers, products };
 }

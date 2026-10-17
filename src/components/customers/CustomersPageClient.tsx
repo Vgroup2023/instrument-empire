@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -16,15 +18,18 @@ import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function CustomersPageClient({
   initialCustomers,
+  initialTotal,
   currencies,
   homeCurrency,
 }: {
   initialCustomers: Customer[];
+  initialTotal: number;
   currencies: Currency[];
   homeCurrency: Currency | null;
 }) {
   const { notify } = useToast();
-  const [customers, setCustomers] = useState(initialCustomers);
+  const list = usePagedList<Customer>('/api/customers', 'customers', initialCustomers, initialTotal);
+  const customers = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -32,11 +37,7 @@ export function CustomersPageClient({
   const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
-    const res = await fetch('/api/customers', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setCustomers(data.customers);
-    }
+    await list.refresh();
   }
 
   async function toggleActive(customer: Customer) {
@@ -160,6 +161,7 @@ export function CustomersPageClient({
               </Tbody>
             </Table>
           )}
+          <LoadMoreBar shown={customers.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} qualifier="first" noun="customers" />
         </CardBody>
       </Card>
 

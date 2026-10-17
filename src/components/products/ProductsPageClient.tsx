@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -15,13 +17,16 @@ import type { Product, IncomeAccount } from '@/lib/accounting/products';
 
 export function ProductsPageClient({
   initialProducts,
+  initialTotal,
   incomeAccounts,
 }: {
   initialProducts: Product[];
+  initialTotal: number;
   incomeAccounts: IncomeAccount[];
 }) {
   const { notify } = useToast();
-  const [products, setProducts] = useState(initialProducts);
+  const list = usePagedList<Product>('/api/products', 'products', initialProducts, initialTotal);
+  const products = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -29,11 +34,7 @@ export function ProductsPageClient({
   const [generalDocumentsOpen, setGeneralDocumentsOpen] = useState(false);
 
   async function refresh() {
-    const res = await fetch('/api/products', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setProducts(data.products);
-    }
+    await list.refresh();
   }
 
   async function toggleActive(product: Product) {
@@ -142,6 +143,7 @@ export function ProductsPageClient({
               </Tbody>
             </Table>
           )}
+          <LoadMoreBar shown={products.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} qualifier="first" noun="products & services" />
         </CardBody>
       </Card>
 

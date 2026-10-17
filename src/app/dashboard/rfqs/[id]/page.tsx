@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listCustomers } from '@/lib/accounting/customers';
+import { listCustomerOptions } from '@/lib/accounting/customers';
 import { getRfq } from '@/lib/quoting/service';
 import { RfqDetailClient } from '@/components/rfqs/RfqDetailClient';
 
@@ -10,10 +10,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function RfqDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let data: { rfq: Awaited<ReturnType<typeof getRfq>>; customers: Awaited<ReturnType<typeof listCustomers>> } | null = null;
+  let data: { rfq: Awaited<ReturnType<typeof getRfq>>; customers: Awaited<ReturnType<typeof listCustomerOptions>> } | null = null;
   let loadError: unknown = null;
   try {
-    const [rfq, customers] = await Promise.all([getRfq(id), listCustomers()]);
+    const [rfq, customers] = await Promise.all([getRfq(id), listCustomerOptions()]);
     data = { rfq, customers };
   } catch (err) {
     loadError = err;

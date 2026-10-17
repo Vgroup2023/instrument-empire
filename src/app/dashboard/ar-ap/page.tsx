@@ -10,6 +10,10 @@ import { formatCurrency } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
+// Beyond this many rows the table is a wall nobody reads and the page grows to megabytes. The cards
+// above the tables still total every customer and vendor.
+const MAX_ROWS = 100;
+
 export default async function ArApPage() {
   return (
     <div>
@@ -87,7 +91,8 @@ function AgingTable({
   entityLabel: string;
   tone: 'ar' | 'ap';
 }) {
-  const sorted = [...rows].sort((a, b) => b.total - a.total);
+  const all = [...rows].sort((a, b) => b.total - a.total);
+  const sorted = all.slice(0, MAX_ROWS);
 
   return (
     <Card>
@@ -103,6 +108,7 @@ function AgingTable({
             <EmptyState title="Nothing outstanding" description="Nice and clean — no open balances here." />
           </div>
         ) : (
+          <>
           <Table>
             <Thead>
               <Tr>
@@ -139,6 +145,12 @@ function AgingTable({
               })}
             </Tbody>
           </Table>
+          {all.length > sorted.length ? (
+            <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+              Showing the {sorted.length} largest balances of {all.length.toLocaleString()}. The totals at the top include every one.
+            </p>
+          ) : null}
+          </>
         )}
       </CardBody>
     </Card>

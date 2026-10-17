@@ -55,16 +55,19 @@ async function attachDetails(rows: EstimateRow[], ex: Executor = getDb()): Promi
   const ids = rows.map((r) => r.id);
   const customerIds = [...new Set(rows.map((r) => r.customerId))];
 
-  const [lineRows, customerRows] = await Promise.all([
-    db.select().from(estimateLines).where(inArray(estimateLines.estimateId, ids)),
+  // Product names come back with the lines (one query, not a second wave that waits for the first).
+  const [lineJoin, customerRows] = await Promise.all([
+    db
+      .select({ line: estimateLines, productName: products.name })
+      .from(estimateLines)
+      .leftJoin(products, eq(products.id, estimateLines.productId))
+      .where(inArray(estimateLines.estimateId, ids)),
     db.select({ id: customers.id, displayName: customers.displayName }).from(customers).where(inArray(customers.id, customerIds)),
   ]);
 
-  const productIds = [...new Set(lineRows.map((l) => l.productId).filter((id): id is string => Boolean(id)))];
-  const productRows = productIds.length
-    ? await db.select({ id: products.id, name: products.name }).from(products).where(inArray(products.id, productIds))
-    : [];
-  const productNameById = new Map(productRows.map((p) => [p.id, p.name]));
+  const lineRows = lineJoin.map((r) => r.line);
+  const productNameById = new Map<string, string>();
+  for (const r of lineJoin) if (r.line.productId && r.productName) productNameById.set(r.line.productId, r.productName);
   const customerNameById = new Map(customerRows.map((c) => [c.id, c.displayName]));
 
   const linesByEstimate = new Map<string, LineRow[]>();

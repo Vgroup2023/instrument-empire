@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createVendor, listVendors, type CreateVendorInput } from '@/lib/accounting/vendors';
+import { createVendor, listVendors, listVendorsPage, type CreateVendorInput } from '@/lib/accounting/vendors';
+import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const paging = parsePaging(request.nextUrl.searchParams);
+    if (paging) {
+      const { items, total } = await listVendorsPage(paging.limit, paging.offset);
+      return NextResponse.json({ vendors: items, total });
+    }
     const vendors = await listVendors();
     return NextResponse.json({ vendors });
   } catch (err) {

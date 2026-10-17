@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { listBillsPage } from '@/lib/accounting/bills';
-import { listVendors } from '@/lib/accounting/vendors';
+import { listVendorOptions } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listBankAccounts } from '@/lib/accounting/chartOfAccounts';
 import { BillsPageClient } from '@/components/bills/BillsPageClient';
 
@@ -45,7 +45,7 @@ export default async function BillsPage() {
 async function loadBillsData() {
   const [bills, vendors, expenseAccounts, bankAccounts] = await Promise.all([
     listBillsPage(PAGE_SIZE, 0),
-    listVendors(),
+    listVendorOptions(),
     listExpenseAccounts(),
     listBankAccounts(),
   ]);

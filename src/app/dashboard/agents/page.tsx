@@ -9,12 +9,15 @@ import { AgentsPageClient } from '@/components/agents/AgentsPageClient';
 
 export const dynamic = 'force-dynamic';
 
+// More than this is more than anyone reads on one screen, and every row is shipped to the browser.
+const FINDINGS_ON_SCREEN = 200;
+
 export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ dept?: string }> }) {
   const { dept } = await searchParams;
   let data: [Awaited<ReturnType<typeof agentOverview>>, Awaited<ReturnType<typeof listFindings>>, Awaited<ReturnType<typeof listRestrictedParties>>, Awaited<ReturnType<typeof syncStatus>>] | null = null;
   let loadError: unknown = null;
   try {
-    data = await Promise.all([agentOverview(), listFindings('open'), listRestrictedParties(), syncStatus()]);
+    data = await Promise.all([agentOverview(), listFindings('open', FINDINGS_ON_SCREEN), listRestrictedParties(), syncStatus()]);
   } catch (err) {
     loadError = err;
   }

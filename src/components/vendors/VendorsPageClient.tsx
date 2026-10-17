@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { usePagedList } from '@/components/ui/usePagedList';
+import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -15,25 +17,24 @@ import type { Currency } from '@/lib/quickbooks/currencies';
 
 export function VendorsPageClient({
   initialVendors,
+  initialTotal,
   currencies,
   homeCurrency,
 }: {
   initialVendors: Vendor[];
+  initialTotal: number;
   currencies: Currency[];
   homeCurrency: Currency | null;
 }) {
   const { notify } = useToast();
-  const [vendors, setVendors] = useState(initialVendors);
+  const list = usePagedList<Vendor>('/api/vendors', 'vendors', initialVendors, initialTotal);
+  const vendors = list.items;
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function refresh() {
-    const res = await fetch('/api/vendors', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setVendors(data.vendors);
-    }
+    await list.refresh();
   }
 
   async function toggleActive(vendor: Vendor) {
@@ -147,6 +148,7 @@ export function VendorsPageClient({
               </Tbody>
             </Table>
           )}
+          <LoadMoreBar shown={vendors.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} qualifier="first" noun="vendors" />
         </CardBody>
       </Card>
 

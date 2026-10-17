@@ -9,6 +9,8 @@ import {
   date,
   timestamp,
   jsonb,
+  uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 
 // This schema is this app's own ledger — the source of truth when running
@@ -786,4 +788,58 @@ export const rfqParts = pgTable('rfq_parts', {
   costing: jsonb('costing').$type<Record<string, unknown>>().notNull().default({}),
   unitCost: numeric('unit_cost', { precision: 14, scale: 4 }).notNull().default('0'),
   unitPrice: numeric('unit_price', { precision: 14, scale: 4 }).notNull().default('0'),
+});
+
+// ---------------------------------------------------------------------------
+// AI bookkeeping — statement lines the copilot reads, matches and categorizes.
+// Nothing here changes the books until a person approves a line (or a rule the
+// person chose to auto-post fires); posting creates an ordinary Expense.
+// ---------------------------------------------------------------------------
+export const bankTxnStatusEnum = pgEnum('bank_txn_status', ['new', 'matched', 'review', 'posting', 'posted', 'ignored']);
+
+export const bankTransactions = pgTable(
+  'bank_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    txnDate: date('txn_date').notNull(),
+    description: text('description').notNull(),
+    // Signed like a bank statement: money out is negative.
+    amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    // Lets the same statement be uploaded twice without duplicating lines.
+    fingerprint: text('fingerprint').notNull(),
+    merchantKey: text('merchant_key').notNull(),
+    status: bankTxnStatusEnum('status').notNull().default('new'),
+    suggestedAccountId: uuid('suggested_account_id').references(() => accounts.id),
+    suggestedVendorId: uuid('suggested_vendor_id').references(() => vendors.id),
+    confidence: integer('confidence'),
+    // rule | history | ai
+    source: text('source'),
+    reason: text('reason'),
+    matchedRef: text('matched_ref'),
+    postedAccountId: uuid('posted_account_id').references(() => accounts.id),
+    postedExpenseId: uuid('posted_expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('bank_transactions_fingerprint_idx').on(t.accountId, t.fingerprint),
+    index('bank_transactions_status_idx').on(t.status),
+    index('bank_transactions_merchant_idx').on(t.merchantKey),
+  ],
+);
+
+export const bookkeepingRules = pgTable('bookkeeping_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // Matched against the cleaned-up description, case-insensitively.
+  pattern: text('pattern').notNull(),
+  accountId: uuid('account_id')
+    .notNull()
+    .references(() => accounts.id),
+  vendorId: uuid('vendor_id').references(() => vendors.id),
+  // Off by default: the line still waits for a person. On means "post it without asking".
+  autoPost: boolean('auto_post').notNull().default(false),
+  hits: integer('hits').notNull().default(0),
+  ...timestamps,
 });

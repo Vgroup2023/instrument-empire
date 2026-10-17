@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createProduct, listProducts, type CreateProductInput } from '@/lib/accounting/products';
+import { createProduct, listProducts, listProductsPage, type CreateProductInput } from '@/lib/accounting/products';
+import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const paging = parsePaging(request.nextUrl.searchParams);
+    if (paging) {
+      const { items, total } = await listProductsPage(paging.limit, paging.offset);
+      return NextResponse.json({ products: items, total });
+    }
     const products = await listProducts();
     return NextResponse.json({ products });
   } catch (err) {

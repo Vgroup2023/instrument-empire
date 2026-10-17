@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCustomer, listCustomers, type CreateCustomerInput } from '@/lib/accounting/customers';
+import { createCustomer, listCustomers, listCustomersPage, type CreateCustomerInput } from '@/lib/accounting/customers';
+import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const paging = parsePaging(request.nextUrl.searchParams);
+    if (paging) {
+      const { items, total } = await listCustomersPage(paging.limit, paging.offset);
+      return NextResponse.json({ customers: items, total });
+    }
     const customers = await listCustomers();
     return NextResponse.json({ customers });
   } catch (err) {

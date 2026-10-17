@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { customers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import type { Page } from '@/lib/paging';
 import { NotFoundError, ValidationError, optCurrency, optEmail, optText, text, uuid } from '@/lib/validation';
 
 // This is the standalone, database-backed Customers list — the app's own
@@ -42,6 +43,37 @@ export async function listCustomers(): Promise<Customer[]> {
   const db = getDb();
   const rows = await db.select().from(customers).orderBy(customers.displayName);
   return rows.map(toCustomer);
+}
+
+/** The newest-named page of customers plus the overall count, so the tab opens fast on a big list. */
+export async function listCustomersPage(limit: number, offset: number): Promise<Page<Customer>> {
+  const db = getDb();
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(customers).orderBy(customers.displayName, customers.id).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(customers),
+  ]);
+  return { items: rows.map(toCustomer), total: n };
+}
+
+/**
+ * Just what a customer drop-down needs: name, email (to pre-fill the send-to address), currency and active
+ * state. Dropping the phone, company, balance and timestamps keeps every document form's page a fraction of
+ * the size when there are thousands of customers.
+ */
+export async function listCustomerOptions(): Promise<Customer[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: customers.id, displayName: customers.displayName, email: customers.email, currencyCode: customers.currencyCode, active: customers.active })
+    .from(customers)
+    .orderBy(customers.displayName, customers.id);
+  return rows.map((r) => ({
+    Id: r.id,
+    SyncToken: '',
+    DisplayName: r.displayName,
+    PrimaryEmailAddr: r.email ? { Address: r.email } : undefined,
+    Active: r.active,
+    CurrencyRef: { value: r.currencyCode },
+  }));
 }
 
 export async function getCustomer(id: string): Promise<Customer> {

@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { vendors } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import type { Page } from '@/lib/paging';
 import { NotFoundError, ValidationError, optCurrency, optEmail, optText, text, uuid } from '@/lib/validation';
 
 // This is the standalone, database-backed Vendors list — the app's own
@@ -42,6 +43,32 @@ export async function listVendors(): Promise<Vendor[]> {
   const db = getDb();
   const rows = await db.select().from(vendors).orderBy(vendors.displayName);
   return rows.map(toVendor);
+}
+
+export async function listVendorsPage(limit: number, offset: number): Promise<Page<Vendor>> {
+  const db = getDb();
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(vendors).orderBy(vendors.displayName, vendors.id).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(vendors),
+  ]);
+  return { items: rows.map(toVendor), total: n };
+}
+
+/** Just what a vendor drop-down needs (see listCustomerOptions). */
+export async function listVendorOptions(): Promise<Vendor[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: vendors.id, displayName: vendors.displayName, email: vendors.email, currencyCode: vendors.currencyCode, active: vendors.active })
+    .from(vendors)
+    .orderBy(vendors.displayName, vendors.id);
+  return rows.map((r) => ({
+    Id: r.id,
+    SyncToken: '',
+    DisplayName: r.displayName,
+    PrimaryEmailAddr: r.email ? { Address: r.email } : undefined,
+    Active: r.active,
+    CurrencyRef: { value: r.currencyCode },
+  }));
 }
 
 export async function getVendor(id: string): Promise<Vendor> {

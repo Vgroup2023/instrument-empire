@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { products, accounts } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import type { Page } from '@/lib/paging';
 import { NotFoundError, oneOf, optMoney, optText, text, uuid } from '@/lib/validation';
 import { requireAccount } from '@/lib/accounting/entryRules';
 
@@ -61,7 +62,7 @@ async function incomeAccountNamesByProduct(rows: ProductRow[]): Promise<Map<stri
   const ids = [...new Set(rows.map((r) => r.incomeAccountId).filter((id): id is string => Boolean(id)))];
   if (ids.length === 0) return new Map();
   const db = getDb();
-  const accountRows = await db.select({ id: accounts.id, name: accounts.name }).from(accounts);
+  const accountRows = await db.select({ id: accounts.id, name: accounts.name }).from(accounts).where(inArray(accounts.id, ids));
   const byId = new Map(accountRows.map((a) => [a.id, a.name]));
   const result = new Map<string, string>();
   for (const id of ids) {
@@ -148,4 +149,32 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
   if (!row) throw new NotFoundError('Product/service not found.');
   const namesById = await incomeAccountNamesByProduct([row]);
   return toProduct(row, row.incomeAccountId ? namesById.get(row.incomeAccountId) : undefined);
+}
+
+export async function listProductsPage(limit: number, offset: number): Promise<Page<Product>> {
+  const db = getDb();
+  const [rows, [{ n }]] = await Promise.all([
+    db.select().from(products).orderBy(products.name, products.id).limit(limit).offset(offset),
+    db.select({ n: sql<number>`count(*)::int` }).from(products),
+  ]);
+  const namesById = await incomeAccountNamesByProduct(rows);
+  return { items: rows.map((row) => toProduct(row, row.incomeAccountId ? namesById.get(row.incomeAccountId) : undefined)), total: n };
+}
+
+/** What the line-item picker needs: name, price, type, stock and active state. No income-account lookup. */
+export async function listProductOptions(): Promise<Product[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: products.id, name: products.name, type: products.type, unitPrice: products.unitPrice, qtyOnHand: products.qtyOnHand, active: products.active })
+    .from(products)
+    .orderBy(products.name, products.id);
+  return rows.map((r) => ({
+    Id: r.id,
+    SyncToken: '',
+    Name: r.name,
+    Type: r.type,
+    UnitPrice: r.unitPrice !== null ? Number(r.unitPrice) : undefined,
+    QtyOnHand: r.qtyOnHand !== null ? Number(r.qtyOnHand) : undefined,
+    Active: r.active,
+  }));
 }

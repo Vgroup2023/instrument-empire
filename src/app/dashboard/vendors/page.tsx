@@ -1,7 +1,8 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listVendors } from '@/lib/accounting/vendors';
+import { PAGE_SIZE } from '@/lib/paging';
+import { listVendorsPage } from '@/lib/accounting/vendors';
 import { VendorsPageClient } from '@/components/vendors/VendorsPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -9,10 +10,10 @@ export const dynamic = 'force-dynamic';
 const HOME_CURRENCY = { code: 'USD', name: 'US Dollar' };
 
 export default async function VendorsPage() {
-  let vendors: Awaited<ReturnType<typeof listVendors>> | null = null;
+  let vendors: Awaited<ReturnType<typeof listVendorsPage>> | null = null;
   let loadError: unknown = null;
   try {
-    vendors = await listVendors();
+    vendors = await listVendorsPage(PAGE_SIZE, 0);
   } catch (err) {
     loadError = err;
   }
@@ -29,5 +30,5 @@ export default async function VendorsPage() {
     );
   }
 
-  return <VendorsPageClient initialVendors={vendors} currencies={[]} homeCurrency={HOME_CURRENCY} />;
+  return <VendorsPageClient initialVendors={vendors.items} initialTotal={vendors.total} currencies={[]} homeCurrency={HOME_CURRENCY} />;
 }

@@ -57,17 +57,20 @@ async function attachDetails(rows: BillRow[], ex: Executor = getDb()): Promise<B
   const ids = rows.map((r) => r.id);
   const vendorIds = [...new Set(rows.map((r) => r.vendorId))];
 
-  const [lineRows, paymentRows, vendorRows] = await Promise.all([
-    db.select().from(billLines).where(inArray(billLines.billId, ids)),
+  // Account names come back with the lines (one query, not a second wave that waits for the first).
+  const [lineJoin, paymentRows, vendorRows] = await Promise.all([
+    db
+      .select({ line: billLines, accountName: accounts.name })
+      .from(billLines)
+      .leftJoin(accounts, eq(accounts.id, billLines.accountId))
+      .where(inArray(billLines.billId, ids)),
     db.select({ billId: billPayments.billId, amount: billPayments.amount }).from(billPayments).where(inArray(billPayments.billId, ids)),
     db.select({ id: vendors.id, displayName: vendors.displayName }).from(vendors).where(inArray(vendors.id, vendorIds)),
   ]);
 
-  const accountIds = [...new Set(lineRows.map((l) => l.accountId))];
-  const accountRows = accountIds.length
-    ? await db.select({ id: accounts.id, name: accounts.name }).from(accounts).where(inArray(accounts.id, accountIds))
-    : [];
-  const accountNameById = new Map(accountRows.map((a) => [a.id, a.name]));
+  const lineRows = lineJoin.map((r) => r.line);
+  const accountNameById = new Map<string, string>();
+  for (const r of lineJoin) if (r.accountName) accountNameById.set(r.line.accountId, r.accountName);
   const vendorNameById = new Map(vendorRows.map((v) => [v.id, v.displayName]));
 
   const linesByBill = new Map<string, typeof lineRows>();

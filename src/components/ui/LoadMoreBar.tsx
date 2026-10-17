@@ -9,18 +9,21 @@ export function LoadMoreBar({
   loading,
   onLoadMore,
   noun,
+  qualifier = 'newest',
 }: {
   shown: number;
   total: number;
   loading: boolean;
   onLoadMore: () => void;
   noun: string;
+  /** Which rows are shown first: the newest by default, or the first alphabetically. */
+  qualifier?: string;
 }) {
   if (total <= shown) return null;
   return (
     <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
       <span>
-        Showing the newest {shown.toLocaleString()} of {total.toLocaleString()} {noun}
+        Showing the {qualifier} {shown.toLocaleString()} of {total.toLocaleString()} {noun}
       </span>
       <Button variant="secondary" onClick={onLoadMore} disabled={loading}>
         {loading ? 'Loading…' : 'Load more'}

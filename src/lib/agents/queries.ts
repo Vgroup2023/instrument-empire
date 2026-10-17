@@ -2,9 +2,10 @@ import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { agentFindings, agentRuns, customers, restrictedParties, shipmentDocuments, shipmentEvents, shipmentLines, shipments, warehouseReceipts } from '@/db/schema';
 
-export async function listFindings(status: 'open' | 'resolved' | 'dismissed' = 'open') {
+/** Most urgent first. Pass `limit` for a screen; leave it off when counting. */
+export async function listFindings(status: 'open' | 'resolved' | 'dismissed' = 'open', limit?: number) {
   const db = getDb();
-  return db
+  const query = db
     .select({
       id: agentFindings.id,
       agent: agentFindings.agent,
@@ -22,6 +23,7 @@ export async function listFindings(status: 'open' | 'resolved' | 'dismissed' = '
       sql`case ${agentFindings.severity} when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end`,
       desc(agentFindings.updatedAt),
     );
+  return limit ? query.limit(limit) : query;
 }
 
 /** Latest run per agent plus its open-finding count. */

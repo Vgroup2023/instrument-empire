@@ -3,8 +3,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { listInvoicesPage, listDepositAccounts } from '@/lib/accounting/invoices';
-import { listCustomers } from '@/lib/accounting/customers';
-import { listProducts } from '@/lib/accounting/products';
+import { listCustomerOptions } from '@/lib/accounting/customers';
+import { listProductOptions } from '@/lib/accounting/products';
 import { InvoicesPageClient } from '@/components/invoices/InvoicesPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -45,8 +45,8 @@ export default async function InvoicesPage() {
 async function loadInvoicesData() {
   const [invoices, customers, products, depositAccounts] = await Promise.all([
     listInvoicesPage(PAGE_SIZE, 0),
-    listCustomers(),
-    listProducts(),
+    listCustomerOptions(),
+    listProductOptions(),
     listDepositAccounts(),
   ]);
   return { invoices, customers, products, depositAccounts };

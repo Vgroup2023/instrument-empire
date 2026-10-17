@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listCustomers } from '@/lib/accounting/customers';
+import { listCustomerOptions } from '@/lib/accounting/customers';
 import { listOverdueInvoices } from '@/lib/accounting/invoices';
 import { listPaymentLinks } from '@/lib/quickbooks/payments';
 import { providers } from '@/lib/config';
@@ -47,6 +47,6 @@ export default async function PaymentsPage() {
 const OVERDUE_LIMIT = 200;
 
 async function loadPaymentsData() {
-  const [customers, overdue, links] = await Promise.all([listCustomers(), listOverdueInvoices(OVERDUE_LIMIT), listPaymentLinks()]);
+  const [customers, overdue, links] = await Promise.all([listCustomerOptions(), listOverdueInvoices(OVERDUE_LIMIT), listPaymentLinks()]);
   return { customers, overdueInvoices: overdue.items, overdueTotal: overdue.total, links };
 }

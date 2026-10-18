@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Public, no sign-in: answers "can the server reach its database?" in under
  * 5 seconds, so a timeout on the site can be told apart from a dead database.
- * It reveals only a status word, never a connection string or error text.
+ * It reveals only a status word and the build's commit id, never a connection string or error text.
  */
 export async function GET() {
   const started = Date.now();
@@ -25,5 +25,7 @@ export async function GET() {
     database = /DATABASE_URL is not configured/.test(msg) ? 'not_configured' : msg === 'timeout' ? 'timeout' : 'unreachable';
   }
   const ok = database === 'ok' && schema === 'ok';
-  return NextResponse.json({ ok, database, schema, ms: Date.now() - started }, { status: ok ? 200 : 503, headers: { 'Cache-Control': 'no-store' } });
+  // The commit this build came from. Empty on a local build.
+  const commit = process.env.BUILD_COMMIT || '';
+  return NextResponse.json({ ok, database, schema, ms: Date.now() - started, version: commit ? commit.slice(0, 7) : 'local', commit }, { status: ok ? 200 : 503, headers: { 'Cache-Control': 'no-store' } });
 }

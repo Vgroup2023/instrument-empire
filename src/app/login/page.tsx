@@ -15,6 +15,7 @@ export default async function LoginPage({
   const next = safeNext(params.next);
   const isRateLimited = params.error === 'rate_limited';
   const hasError = params.error === '1';
+  const isConfigError = params.error === 'config';
 
   // Already signed in: skip the form.
   let signedIn = false;
@@ -54,7 +55,11 @@ export default async function LoginPage({
             <input type="hidden" name="next" value={next} />
             <PasswordField invalid={hasError} />
             <div aria-live="polite">
-              {isRateLimited ? (
+              {isConfigError ? (
+                <p id="login-error" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                  Sign-in is not set up on the server (APP_PASSWORD or SESSION_SECRET is missing). Ask your administrator to check the environment settings and redeploy.
+                </p>
+              ) : isRateLimited ? (
                 <p id="login-error" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                   Too many attempts. Wait a few minutes before trying again.
                 </p>

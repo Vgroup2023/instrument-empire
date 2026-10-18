@@ -1,0 +1,36 @@
+name: Check production deploy
+
+# After every merge to main, wait for the live site to report the new commit on /api/health.
+# If it never does, the deploy was skipped or failed (for example Netlify pausing production
+# deploys when the account is out of credits, which leaves the old version live and silently
+# ignores new settings such as a changed passphrase). The run fails, and GitHub emails you.
+#
+# Optional repository secret: APP_BASE_URL (the same one the agent workflow uses).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Wait for the live site to run this commit
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+        run: |
+          BASE="${APP_BASE_URL:-https://globlexus.globlexai.com}"
+          BASE="${BASE%/}"
+          echo "Looking for commit $GITHUB_SHA at $BASE/api/health"
+          for i in $(seq 1 45); do
+            live=$(curl -s -m 20 "$BASE/api/health" | sed -n 's/.*"commit":"\([0-9a-f]*\)".*/\1/p')
+            if [ -n "$live" ] && [ "$live" = "$GITHUB_SHA" ]; then
+              echo "Live site is running $GITHUB_SHA."
+              exit 0
+            fi
+            echo "Attempt $i: live commit is '${live:-unknown}'. Waiting 30 s."
+            sleep 30
+          done
+          echo "::error title=Production did not update::The live site is still running '${live:-unknown}', not $GITHUB_SHA. Open the latest production deploy in Netlify. If it says Skipped or credit usage exceeded, the account needs credits or a plan change, or a support ticket if credits remain. Environment changes only apply after a successful production deploy."
+          exit 1

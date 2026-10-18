@@ -5,7 +5,8 @@ import { MobileNavDrawer } from './MobileNavDrawer';
 import { BRAND } from '@/lib/brand';
 
 export async function TopBar() {
-  const tokens = await getQboTokens();
+  // The QuickBooks badge is optional: a problem reading it must never take the whole page down.
+  const tokens = await getQboTokens().catch(() => null);
 
   return (
     <header className="safe-top flex min-h-16 items-center justify-between border-b border-white/10 bg-header-gradient px-4 lg:px-6">

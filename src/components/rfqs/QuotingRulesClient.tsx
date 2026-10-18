@@ -10,11 +10,11 @@ import { Input, Label, Textarea, FieldGroup } from '@/components/ui/Field';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
-import type { loadRules } from '@/lib/quoting/service';
+import type { loadRulesView } from '@/lib/quoting/service';
 import { daysBetween } from '@/lib/quoting/costing';
 import { call } from './api';
 
-type Rules = Awaited<ReturnType<typeof loadRules>>;
+type Rules = Awaited<ReturnType<typeof loadRulesView>>;
 type Tab = 'policy' | 'prices' | 'routing' | 'jobs';
 
 const TABS: { id: Tab; label: string }[] = [
@@ -310,7 +310,7 @@ export function QuotingRulesClient({ initial, today }: { initial: Rules; today: 
             <div>
               <CardTitle>Prior jobs</CardTitle>
               <CardDescription>
-                {rules.priorJobs.length.toLocaleString()} job{rules.priorJobs.length === 1 ? '' : 's'} on file. New requests are matched to these by part number, or by similar description and material, and a computed price far from history is flagged.
+                {rules.priorJobTotal.toLocaleString()} job{rules.priorJobTotal === 1 ? '' : 's'} on file. New requests are matched to these by part number, or by similar description and material, and a computed price far from history is flagged.
               </CardDescription>
             </div>
           </CardHeader>

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 import { ValidationError } from '@/lib/validation';
-import { loadRules, savePriorJob, savePrice, saveRoutingRule, saveSettings } from '@/lib/quoting/service';
+import { loadRulesView, savePriorJob, savePrice, saveRoutingRule, saveSettings } from '@/lib/quoting/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    return NextResponse.json(await loadRules());
+    return NextResponse.json(await loadRulesView());
   } catch (err) {
     return apiErrorResponse(err);
   }

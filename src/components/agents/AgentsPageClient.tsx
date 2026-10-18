@@ -160,8 +160,8 @@ export function AgentsPageClient({
             <EmptyState title="Nothing needs attention" description="Add shipments, then run the agents to see findings here." />
           ) : (
             <>
-            {findings.length >= 200 ? (
-              <p className="border-b border-slate-100 bg-gold-100 px-5 py-2 text-xs text-gold-800">Showing the 200 most urgent open findings. Resolve or dismiss some to see the rest.</p>
+            {findings.length >= 100 ? (
+              <p className="border-b border-slate-100 bg-gold-100 px-5 py-2 text-xs text-gold-800">Showing the 100 most urgent open findings. Resolve or dismiss some to see the rest.</p>
             ) : null}
             <ul className="divide-y divide-slate-100">
               {shown.map((f) => (

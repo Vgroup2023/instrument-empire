@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { vendors } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { OPTION_LIMIT, containsMatch } from '@/lib/optionSearch';
 import type { Page } from '@/lib/paging';
 import { NotFoundError, ValidationError, optCurrency, optEmail, optText, text, uuid } from '@/lib/validation';
 
@@ -55,12 +56,17 @@ export async function listVendorsPage(limit: number, offset: number): Promise<Pa
 }
 
 /** Just what a vendor drop-down needs (see listCustomerOptions). */
-export async function listVendorOptions(): Promise<Vendor[]> {
+export async function listVendorOptions(opts: { q?: string; limit?: number; id?: string } = {}): Promise<Vendor[]> {
   const db = getDb();
+  const where = opts.id
+    ? eq(vendors.id, uuid(opts.id, 'Vendor'))
+    : and(eq(vendors.active, true), containsMatch(vendors.displayName, opts.q));
   const rows = await db
     .select({ id: vendors.id, displayName: vendors.displayName, email: vendors.email, currencyCode: vendors.currencyCode, active: vendors.active })
     .from(vendors)
-    .orderBy(vendors.displayName, vendors.id);
+    .where(where)
+    .orderBy(vendors.displayName, vendors.id)
+    .limit(opts.limit ?? OPTION_LIMIT);
   return rows.map((r) => ({
     Id: r.id,
     SyncToken: '',

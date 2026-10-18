@@ -5,6 +5,7 @@ import { Input, Select } from '@/components/ui/Field';
 import { formatCurrency } from '@/lib/format';
 import type { LineItemInput } from '@/lib/quickbooks/salesTypes';
 import type { Product } from '@/lib/quickbooks/items';
+import { useRemoteOptions } from './useRemoteOptions';
 
 const BLANK_LINE: LineItemInput = { itemId: '', quantity: 1, unitPrice: 0 };
 
@@ -49,31 +50,21 @@ export function LineItemsEditor({
         <div className="col-span-2">Amount</div>
       </div>
       {lines.map((line, index) => {
-        // Deactivated products/services shouldn't be picked on new lines, but
-        // an already-selected one (e.g. editing an older document) must stay visible.
-        const selectableProducts = products.filter((p) => p.Active !== false || p.Id === line.itemId);
         return (
         <div key={index} className="space-y-1.5">
           <div className="grid grid-cols-12 items-center gap-2">
             <div className="col-span-12 sm:col-span-5">
-              <Select
+              <ProductSelect
+                products={products}
                 value={line.itemId}
-                onChange={(e) => {
-                  const product = products.find((p) => p.Id === e.target.value);
+                onPick={(product) =>
                   updateLine(index, {
-                    itemId: e.target.value,
+                    itemId: product?.Id ?? '',
                     itemName: product?.Name,
                     unitPrice: product?.UnitPrice ?? line.unitPrice,
-                  });
-                }}
-              >
-                <option value="">No product — custom line</option>
-                {selectableProducts.map((p) => (
-                  <option key={p.Id} value={p.Id}>
-                    {p.Name}
-                  </option>
-                ))}
-              </Select>
+                  })
+                }
+              />
             </div>
             <div className="col-span-4 sm:col-span-2">
               <Input
@@ -125,5 +116,25 @@ export function LineItemsEditor({
         <p className="text-sm font-semibold text-slate-900">Total: {formatCurrency(total)}</p>
       </div>
     </div>
+  );
+}
+
+function ProductSelect({ products, value, onPick }: { products: Product[]; value: string; onPick: (product: Product | undefined) => void }) {
+  const { items, capped, query, setQuery } = useRemoteOptions('products', products, value);
+  // Deactivated products/services shouldn't be picked on new lines, but
+  // an already-selected one (e.g. editing an older document) must stay visible.
+  const selectable = items.filter((p) => p.Active !== false || p.Id === value);
+  return (
+    <>
+      {capped ? <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products by name…" aria-label="Search products" className="mb-1.5" /> : null}
+      <Select value={value} onChange={(e) => onPick(items.find((p) => p.Id === e.target.value))}>
+        <option value="">No product — custom line</option>
+        {selectable.map((p) => (
+          <option key={p.Id} value={p.Id}>
+            {p.Name}
+          </option>
+        ))}
+      </Select>
+    </>
   );
 }

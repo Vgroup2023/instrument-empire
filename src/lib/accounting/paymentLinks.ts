@@ -56,7 +56,7 @@ function toPaymentLink(row: PaymentLinkRow): PaymentLink {
 
 export async function listPaymentLinks(): Promise<PaymentLink[]> {
   const db = getDb();
-  const rows = await db.select().from(paymentLinks).orderBy(desc(paymentLinks.createdAt));
+  const rows = await db.select().from(paymentLinks).orderBy(desc(paymentLinks.createdAt)).limit(200);
   return rows.map(toPaymentLink);
 }
 

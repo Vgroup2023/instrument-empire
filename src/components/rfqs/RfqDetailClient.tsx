@@ -1,5 +1,6 @@
 'use client';
 
+import { CustomerNameSelect } from '@/components/documents/CustomerNameSelect';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
@@ -455,14 +456,7 @@ export function RfqDetailClient({ initial, customers }: { initial: RfqDetail; cu
                   {!rfq.customerId ? (
                     <FieldGroup>
                       <Label htmlFor="est-customer">Customer for the estimate</Label>
-                      <Select id="est-customer" value={estimateCustomer} onChange={(e) => setEstimateCustomer(e.target.value)}>
-                        <option value="">Choose a customer</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <CustomerNameSelect id="est-customer" customers={customers} value={estimateCustomer} onChange={setEstimateCustomer} emptyLabel="Choose a customer" />
                     </FieldGroup>
                   ) : null}
                   <Button onClick={() => act('to-estimate', { customerId: estimateCustomer || undefined }, 'Draft estimate created.')} loading={busy === 'to-estimate'} disabled={!rfq.customerId && !estimateCustomer}>

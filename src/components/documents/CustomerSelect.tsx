@@ -1,7 +1,9 @@
 'use client';
 
 import { Select } from '@/components/ui/Field';
+import { Input } from '@/components/ui/Field';
 import type { Customer } from '@/lib/quickbooks/customers';
+import { useRemoteOptions } from './useRemoteOptions';
 
 export function CustomerSelect({
   customers,
@@ -19,13 +21,16 @@ export function CustomerSelect({
 }) {
   // Deactivated customers shouldn't be picked for new transactions, but an
   // already-selected one (e.g. editing an older document) must stay visible.
-  const selectable = customers.filter((c) => c.Active !== false || c.Id === value);
+  const { items, capped, query, setQuery } = useRemoteOptions('customers', customers, value);
+  const selectable = items.filter((c) => c.Active !== false || c.Id === value);
 
   return (
+    <>
+    {capped ? <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers by name…" aria-label="Search customers" className="mb-2" /> : null}
     <Select
       value={value}
       onChange={(e) => {
-        const customer = customers.find((c) => c.Id === e.target.value);
+        const customer = items.find((c) => c.Id === e.target.value);
         onChange(
           e.target.value,
           customer?.DisplayName ?? '',
@@ -42,5 +47,6 @@ export function CustomerSelect({
         </option>
       ))}
     </Select>
+    </>
   );
 }

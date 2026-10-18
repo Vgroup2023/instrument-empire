@@ -1,5 +1,6 @@
 'use client';
 
+import { CustomerNameSelect } from '@/components/documents/CustomerNameSelect';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -226,14 +227,7 @@ export function RfqsPageClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <FieldGroup>
               <Label htmlFor="rfq-customer">Customer on file</Label>
-              <Select id="rfq-customer" value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
-                <option value="">Not on file yet</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
+              <CustomerNameSelect id="rfq-customer" customers={customers} value={form.customerId} onChange={(customerId) => setForm({ ...form, customerId })} emptyLabel="Not on file yet" />
             </FieldGroup>
             <FieldGroup>
               <Label htmlFor="rfq-name">Customer name</Label>

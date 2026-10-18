@@ -1,5 +1,6 @@
 'use client';
 
+import { CustomerNameSelect } from '@/components/documents/CustomerNameSelect';
 import { useState } from 'react';
 import { LoadMoreBar } from '@/components/ui/LoadMoreBar';
 import { MAX_PAGE_SIZE, PAGE_SIZE } from '@/lib/paging';
@@ -229,14 +230,7 @@ export function ShipmentsPageClient({ shipments, total, customers }: { shipments
           </FieldGroup>
           <FieldGroup>
             <Label htmlFor="sh-cust">Client</Label>
-            <Select id="sh-cust" value={form.customerId} onChange={set('customerId')}>
-              <option value="">None</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            <CustomerNameSelect id="sh-cust" customers={customers} value={form.customerId} onChange={(customerId) => setForm((f) => ({ ...f, customerId }))} emptyLabel="None" />
           </FieldGroup>
           <FieldGroup>
             <Label htmlFor="sh-val">Declared value (USD)</Label>

@@ -18,7 +18,7 @@ export default async function OperationsPage() {
   let data: [Awaited<ReturnType<typeof loadContext>>, Record<string, number>] | null = null;
   let loadError: unknown = null;
   try {
-    data = await Promise.all([loadContext(), openCountByDepartment()]);
+    data = await Promise.all([loadContext(new Date(), { light: true }), openCountByDepartment()]);
   } catch (err) {
     loadError = err;
   }

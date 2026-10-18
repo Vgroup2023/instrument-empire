@@ -32,10 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     expected = getAppPassword();
   } catch {
-    return NextResponse.json(
-      { error: 'APP_PASSWORD is not configured on the server.' },
-      { status: 500 },
-    );
+    return configProblem(request, next);
   }
 
   if (!samePassphrase(password, expected)) {
@@ -47,6 +44,19 @@ export async function POST(request: NextRequest) {
   }
 
   clearAttempts(clientKey);
-  await createAppSessionCookie();
+  try {
+    await createAppSessionCookie();
+  } catch {
+    // SESSION_SECRET is missing: the passphrase was right but the session cannot be signed.
+    return configProblem(request, next);
+  }
   return NextResponse.redirect(new URL(next, request.url), { status: 303 });
+}
+
+/** The server is missing its sign-in settings. Show the sign-in page with a plain explanation instead of a raw error. */
+function configProblem(request: NextRequest, next: string) {
+  const url = new URL('/login', request.url);
+  url.searchParams.set('error', 'config');
+  url.searchParams.set('next', next);
+  return NextResponse.redirect(url, { status: 303 });
 }

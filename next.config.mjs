@@ -28,6 +28,11 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Which commit this build was made from (Netlify sets COMMIT_REF while building). /api/health reports it,
+  // so anyone can tell at a glance whether the live site is running the latest code or a deploy was skipped.
+  env: {
+    BUILD_COMMIT: process.env.COMMIT_REF || process.env.GITHUB_SHA || '',
+  },
   // The training guide is read from docs/ at runtime, so make sure it is
   // bundled with the serverless functions that serve it.
   outputFileTracingIncludes: {

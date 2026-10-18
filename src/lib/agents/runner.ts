@@ -66,17 +66,24 @@ async function loadOpenInvoicesAndBills(now: Date): Promise<{ invoices: AgentCon
   };
 }
 
-export async function loadContext(now = new Date()): Promise<AgentContext> {
+/**
+ * `light` is for screens that only draw shipments by stage (the Operations board). It skips the tariff and
+ * screening lists, line items, documents and open invoices/bills, which the agents need but a board does not.
+ */
+export async function loadContext(now = new Date(), opts: { light?: boolean } = {}): Promise<AgentContext> {
   const db = getDb();
-  const [hts, screening] = await Promise.all([loadHtsIndex().catch(() => null), loadScreeningIndex().catch(() => null)]);
+  const light = opts.light === true;
+  const [hts, screening] = light
+    ? [null, null]
+    : await Promise.all([loadHtsIndex().catch(() => null), loadScreeningIndex().catch(() => null)]);
   const [shipmentRows, lineRows, eventRows, receiptRows, docRows, restricted, open] = await Promise.all([
     db.select().from(shipments).orderBy(desc(shipments.createdAt)),
-    db.select().from(shipmentLines),
+    light ? [] : db.select().from(shipmentLines),
     db.select().from(shipmentEvents),
     db.select().from(warehouseReceipts),
-    db.select().from(shipmentDocuments).orderBy(shipmentDocuments.createdAt),
-    db.select().from(restrictedParties),
-    loadOpenInvoicesAndBills(now),
+    light ? [] : db.select().from(shipmentDocuments).orderBy(shipmentDocuments.createdAt),
+    light ? [] : db.select().from(restrictedParties),
+    light ? { invoices: [], bills: [] } : loadOpenInvoicesAndBills(now),
   ]);
   const linesByShipment = new Map<string, ShipmentCtx['lines']>();
   for (const l of lineRows) {

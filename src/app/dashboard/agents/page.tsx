@@ -10,7 +10,7 @@ import { AgentsPageClient } from '@/components/agents/AgentsPageClient';
 export const dynamic = 'force-dynamic';
 
 // More than this is more than anyone reads on one screen, and every row is shipped to the browser.
-const FINDINGS_ON_SCREEN = 200;
+const FINDINGS_ON_SCREEN = 100;
 
 export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ dept?: string }> }) {
   const { dept } = await searchParams;

@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { customers } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { OPTION_LIMIT, containsMatch } from '@/lib/optionSearch';
 import type { Page } from '@/lib/paging';
 import { NotFoundError, ValidationError, optCurrency, optEmail, optText, text, uuid } from '@/lib/validation';
 
@@ -60,12 +61,17 @@ export async function listCustomersPage(limit: number, offset: number): Promise<
  * state. Dropping the phone, company, balance and timestamps keeps every document form's page a fraction of
  * the size when there are thousands of customers.
  */
-export async function listCustomerOptions(): Promise<Customer[]> {
+export async function listCustomerOptions(opts: { q?: string; limit?: number; id?: string } = {}): Promise<Customer[]> {
   const db = getDb();
+  const where = opts.id
+    ? eq(customers.id, uuid(opts.id, 'Customer'))
+    : and(eq(customers.active, true), containsMatch(customers.displayName, opts.q));
   const rows = await db
     .select({ id: customers.id, displayName: customers.displayName, email: customers.email, currencyCode: customers.currencyCode, active: customers.active })
     .from(customers)
-    .orderBy(customers.displayName, customers.id);
+    .where(where)
+    .orderBy(customers.displayName, customers.id)
+    .limit(opts.limit ?? OPTION_LIMIT);
   return rows.map((r) => ({
     Id: r.id,
     SyncToken: '',

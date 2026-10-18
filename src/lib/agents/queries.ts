@@ -47,7 +47,7 @@ export async function agentOverview() {
 }
 
 export async function listRestrictedParties() {
-  return getDb().select().from(restrictedParties).orderBy(restrictedParties.name);
+  return getDb().select().from(restrictedParties).orderBy(restrictedParties.name).limit(500);
 }
 
 export interface ShipmentRow {

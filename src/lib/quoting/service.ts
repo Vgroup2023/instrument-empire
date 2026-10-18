@@ -88,6 +88,28 @@ export async function loadRules(ex: Executor = getDb()) {
   return { settings: toSettings(settingsRow[0]), prices: prices.map(toPrice), routing: routing.map(toRule), priorJobs: jobs.map(toJob) };
 }
 
+const PRIOR_JOBS_ON_SCREEN = 200;
+
+/** What the Quoting rules tab shows: the newest jobs only, plus the full count. A shop with years of history would otherwise ship thousands of rows to the browser. */
+export async function loadRulesView() {
+  const db = getDb();
+  const [settingsRow, prices, routing, jobs, [{ n }]] = await Promise.all([
+    db.select().from(quoteSettings).where(eq(quoteSettings.id, 1)),
+    db.select().from(materialPrices).orderBy(materialPrices.material, materialPrices.vendor),
+    db.select().from(routingRules).orderBy(routingRules.operation),
+    db.select().from(priorJobs).orderBy(desc(priorJobs.completedOn)).limit(PRIOR_JOBS_ON_SCREEN),
+    db.select({ n: sql<number>`count(*)::int` }).from(priorJobs),
+  ]);
+  return { settings: toSettings(settingsRow[0]), prices: prices.map(toPrice), routing: routing.map(toRule), priorJobs: jobs.map(toJob), priorJobTotal: n };
+}
+
+/** Whether quoting can run at all (some price and some routing rule exist), without loading the rules. */
+export async function quotingRulesReady(): Promise<boolean> {
+  const db = getDb();
+  const [[price], [rule]] = await Promise.all([db.select({ id: materialPrices.id }).from(materialPrices).limit(1), db.select({ id: routingRules.id }).from(routingRules).limit(1)]);
+  return Boolean(price && rule);
+}
+
 async function loadContext(ex: Executor): Promise<QuoteContext> {
   return { ...(await loadRules(ex)), today: todayIso() };
 }
@@ -521,7 +543,22 @@ export async function createRfq(input: CreateRfqInput, source = 'manual'): Promi
 export async function listRfqsPage(limit: number, offset: number): Promise<Page<RfqSummary>> {
   const db = getDb();
   const [rows, [{ n }]] = await Promise.all([
-    db.select().from(rfqs).orderBy(desc(rfqs.receivedAt)).limit(limit).offset(offset),
+    db
+      .select({
+        id: rfqs.id,
+        rfqNumber: rfqs.rfqNumber,
+        customerName: rfqs.customerName,
+        subject: rfqs.subject,
+        status: rfqs.status,
+        receivedAt: rfqs.receivedAt,
+        dueDate: rfqs.dueDate,
+        priceTotal: rfqs.priceTotal,
+        flags: rfqs.flags,
+      })
+      .from(rfqs)
+      .orderBy(desc(rfqs.receivedAt))
+      .limit(limit)
+      .offset(offset),
     db.select({ n: sql<number>`count(*)::int` }).from(rfqs),
   ]);
   const ids = rows.map((r) => r.id);

@@ -1,16 +1,16 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { loadRules } from '@/lib/quoting/service';
+import { loadRulesView } from '@/lib/quoting/service';
 import { QuotingRulesClient } from '@/components/rfqs/QuotingRulesClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function QuotingRulesPage() {
-  let rules: Awaited<ReturnType<typeof loadRules>> | null = null;
+  let rules: Awaited<ReturnType<typeof loadRulesView>> | null = null;
   let loadError: unknown = null;
   try {
-    rules = await loadRules();
+    rules = await loadRulesView();
   } catch (err) {
     loadError = err;
   }

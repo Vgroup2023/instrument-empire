@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { products, accounts } from '@/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { OPTION_LIMIT, containsMatch } from '@/lib/optionSearch';
 import type { Page } from '@/lib/paging';
 import { NotFoundError, oneOf, optMoney, optText, text, uuid } from '@/lib/validation';
 import { requireAccount } from '@/lib/accounting/entryRules';
@@ -162,12 +163,17 @@ export async function listProductsPage(limit: number, offset: number): Promise<P
 }
 
 /** What the line-item picker needs: name, price, type, stock and active state. No income-account lookup. */
-export async function listProductOptions(): Promise<Product[]> {
+export async function listProductOptions(opts: { q?: string; limit?: number; id?: string } = {}): Promise<Product[]> {
   const db = getDb();
+  const where = opts.id
+    ? eq(products.id, uuid(opts.id, 'Product'))
+    : and(eq(products.active, true), containsMatch(products.name, opts.q));
   const rows = await db
     .select({ id: products.id, name: products.name, type: products.type, unitPrice: products.unitPrice, qtyOnHand: products.qtyOnHand, active: products.active })
     .from(products)
-    .orderBy(products.name, products.id);
+    .where(where)
+    .orderBy(products.name, products.id)
+    .limit(opts.limit ?? OPTION_LIMIT);
   return rows.map((r) => ({
     Id: r.id,
     SyncToken: '',

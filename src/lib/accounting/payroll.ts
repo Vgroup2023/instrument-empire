@@ -56,7 +56,7 @@ function toEmployee(row: EmployeeRow): Employee {
 
 export async function listEmployees(): Promise<Employee[]> {
   const db = getDb();
-  const rows = await db.select().from(payrollEmployees).orderBy(asc(payrollEmployees.displayName));
+  const rows = await db.select().from(payrollEmployees).orderBy(asc(payrollEmployees.displayName)).limit(1000);
   return rows.map(toEmployee);
 }
 

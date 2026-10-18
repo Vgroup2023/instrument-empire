@@ -11,7 +11,29 @@ export const dynamic = 'force-dynamic';
  * 5 seconds, so a timeout on the site can be told apart from a dead database.
  * It reveals only a status word and the build's commit id, never a connection string or error text.
  */
-export async function GET() {
+async function timed(name: string, fn: () => Promise<unknown>) {
+  const t = Date.now();
+  try {
+    await withTimeout(fn(), 9000, 'timeout');
+    return { name, status: 'ok', ms: Date.now() - t };
+  } catch (err) {
+    return { name, status: 'error', ms: Date.now() - t, message: (err instanceof Error ? err.message : String(err)).slice(0, 160) };
+  }
+}
+
+export async function GET(request: Request) {
+  // TEMPORARY DIAGNOSTIC (not for merging): times what the dashboard does after sign-in. Timings and status only.
+  if (new URL(request.url).searchParams.get('deep')) {
+    const { getTabStatus } = await import('@/lib/tabStatus');
+    const { getProfitAndLossAndCashFlow, getBalanceSheet } = await import('@/lib/accounting/reports');
+    const steps = [
+      await timed('tabStatus', () => getTabStatus()),
+      await timed('profitAndLoss', () => getProfitAndLossAndCashFlow('this-year')),
+      await timed('balanceSheet', () => getBalanceSheet('this-year')),
+    ];
+    return NextResponse.json({ commit: process.env.BUILD_COMMIT || '', node: process.version, steps });
+  }
+
   const started = Date.now();
   let database: 'ok' | 'timeout' | 'unreachable' | 'not_configured' = 'ok';
   let schema: 'ok' | 'behind' | 'unknown' = 'unknown';

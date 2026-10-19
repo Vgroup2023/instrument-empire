@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Input, Label, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
+import { readFileBase64 } from '@/components/rfqs/api';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
 import type { BankTxn, BookkeepingRule, Overview } from '@/lib/bookkeeping/service';
@@ -36,6 +37,8 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
   const [accountId, setAccountId] = useState(accounts[0]?.Id ?? '');
   const [csvText, setCsvText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [makeRule, setMakeRule] = useState<Record<string, boolean>>({});
   const [rulePattern, setRulePattern] = useState('');
@@ -71,14 +74,21 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
     }
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+  /** Sends a chosen statement file (CSV, OFX/QFX, PDF or photo) to be read, sorted and queued for review. */
+  function upload(file: File | undefined) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setCsvText(String(reader.result ?? ''));
-    reader.onerror = () => notify("Couldn't read that file.", 'error');
-    reader.readAsText(file);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      notify('That file is over 4 MB. Export a shorter date range.', 'error');
+      return;
+    }
+    void act('upload', async () => {
+      const data = await readFileBase64(file);
+      const r = (await call('/api/bookkeeping/upload', 'POST', { accountId, fileName: file.name, mimeType: file.type, data })).result;
+      const read = r.kind === 'pdf' || r.kind === 'image' ? ' Read by Claude, so check each line before approving.' : '';
+      return `${file.name}: ${r.added} new line${r.added === 1 ? '' : 's'} (${r.duplicates} already seen). ${r.processed.matched} already booked, ${r.processed.autoPosted} auto-posted, ${r.processed.toReview} for review.${read}`;
+    });
   }
 
   if (accounts.length === 0) {
@@ -98,6 +108,60 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
         <StatCard label="Already in your books" value={String(o.counts.matched)} hint="Matched by amount and date" />
         <StatCard label="Rules" value={String(rules.length)} hint={`${rules.filter((r) => r.autoPost).length} post without asking`} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Upload a statement</CardTitle>
+            <CardDescription>
+              Choose the bank or card account, then upload the statement. CSV and OFX/QFX files are read exactly. PDFs and photos are read by Claude. Nothing is booked until you approve it, and uploading the same statement twice is safe.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              upload(e.dataTransfer.files?.[0]);
+            }}
+            className={`flex flex-col gap-3 rounded-xl2 border-2 border-dashed p-4 sm:flex-row sm:items-end ${dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300'}`}
+          >
+            <div className="flex-1">
+              <Label htmlFor="bkUploadAccount">Account</Label>
+              <Select id="bkUploadAccount" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                {accounts.map((a) => (
+                  <option key={a.Id} value={a.Id}>
+                    {a.Name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".csv,.ofx,.qfx,.pdf,.png,.jpg,.jpeg,.webp,text/csv,application/pdf,image/png,image/jpeg,image/webp"
+              className="sr-only"
+              tabIndex={-1}
+              aria-label="Statement file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                upload(file);
+              }}
+            />
+            <Button loading={busy === 'upload'} onClick={() => fileInput.current?.click()}>
+              Upload statement
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Or drop the file here. Up to 4 MB: for a long statement, export a shorter date range.</p>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -122,9 +186,9 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Import a statement</CardTitle>
+            <CardTitle>Or paste CSV text</CardTitle>
             <CardDescription>
-              A CSV with Date, Description and Amount (money out is negative). There is no live bank feed yet, so export the file from your bank. Uploading the same file twice is safe: lines already seen are skipped.
+              For a statement copied as text: a CSV with Date, Description and Amount (money out is negative). There is no live bank feed yet, so export the file from your bank. Lines already seen are skipped.
             </CardDescription>
           </div>
         </CardHeader>
@@ -140,11 +204,7 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
             </Select>
           </div>
           <div>
-            <Label htmlFor="bkFile">Statement file</Label>
-            <input id="bkFile" type="file" accept=".csv,text/csv" onChange={onFile} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100" />
-          </div>
-          <div>
-            <Label htmlFor="bkText">Or paste the CSV contents</Label>
+            <Label htmlFor="bkText">CSV contents</Label>
             <Textarea id="bkText" rows={5} value={csvText} onChange={(e) => setCsvText(e.target.value)} className="font-mono text-xs" placeholder={'Date,Description,Amount\n2026-09-03,ADOBE CREATIVE CLOUD,-54.99'} />
           </div>
           <div className="flex items-center justify-between gap-3">

@@ -2,6 +2,7 @@
 // The pure rules always run. With DATABASE_URL set (a migrated, disposable database) it also
 // runs an end-to-end pass: import, match, categorize, approve, auto-post, duplicates, double clicks.
 import assert from 'node:assert/strict';
+import { parseOfx, readStatementFile, statementKind, validateAiLines } from '../../src/lib/bookkeeping/statementFiles';
 import { fromHistory, matchRule, merchantKey, suggestWithAi, vendorFromDescription, AI_CONFIDENCE_CAP, type Rule } from '../../src/lib/bookkeeping/categorize';
 
 // merchant keys ignore numbers, dates and filler words
@@ -46,6 +47,32 @@ assert.equal(out.get(0)?.confidence, AI_CONFIDENCE_CAP);
 assert.equal(out.has(1), false, 'an id that is not in the chart is rejected');
 assert.equal(out.has(5), false);
 assert.equal((await suggestWithAi([{ i: 0, description: 'A', amount: -1 }], options, fake('not json'))).size, 0);
+
+// statement files: kinds, OFX (1.x without closing tags and 2.x with them), Claude-read PDFs
+assert.equal(statementKind('Chase_Sep.QFX', ''), 'ofx');
+assert.equal(statementKind('export.csv', 'text/csv'), 'csv');
+assert.equal(statementKind('stmt.pdf', 'application/pdf'), 'pdf');
+assert.equal(statementKind('photo.jpeg', 'image/jpeg'), 'image');
+assert.equal(statementKind('notes.docx', ''), null);
+const ofx1 = 'OFXHEADER:100\n<OFX><BANKTRANSLIST><STMTTRN>\n<TRNTYPE>DEBIT\n<DTPOSTED>20260903120000[-5:EST]\n<TRNAMT>-54.99\n<NAME>ADOBE CREATIVE CLOUD\n<MEMO>SUBSCRIPTION\n</STMTTRN><STMTTRN>\n<DTPOSTED>20260904\n<TRNAMT>1200.00\n<NAME>CUSTOMER PAYMENT\n</STMTTRN></BANKTRANSLIST></OFX>';
+assert.deepEqual(parseOfx(ofx1), [
+  { date: '2026-09-03', description: 'ADOBE CREATIVE CLOUD SUBSCRIPTION', amount: -54.99 },
+  { date: '2026-09-04', description: 'CUSTOMER PAYMENT', amount: 1200 },
+]);
+assert.equal(parseOfx('<STMTTRN><DTPOSTED>20260903</DTPOSTED><TRNAMT>-5.00</TRNAMT><NAME>X</NAME></STMTTRN>')[0].amount, -5);
+assert.throws(() => parseOfx('<STMTTRN><TRNAMT>-5.00</TRNAMT></STMTTRN>'), /no usable date/);
+assert.deepEqual(
+  validateAiLines({ transactions: [{ date: '2026-09-03', description: 'SHELL', amount: -40.126 }, { date: 'Sept 3', description: 'BAD DATE', amount: -1 }, { date: '2026-09-04', description: 'ZERO', amount: 0 }, { date: '2026-09-05', description: '', amount: -2 }] }),
+  [{ date: '2026-09-03', description: 'SHELL', amount: -40.13 }],
+);
+assert.deepEqual(validateAiLines('nope'), []);
+const pdfFake = (text: string) => ({ messages: { create: async () => ({ content: [{ type: 'text', text }] }) } }) as never;
+const b64 = Buffer.from('%PDF-1.4 fake').toString('base64');
+await assert.rejects(readStatementFile({ fileName: 's.pdf', mimeType: 'application/pdf', base64: b64, aiEnabled: false }), /needs Claude/);
+await assert.rejects(readStatementFile({ fileName: 's.docx', mimeType: '', base64: b64, aiEnabled: true }), /Upload a CSV/);
+assert.equal((await readStatementFile({ fileName: 's.pdf', mimeType: 'application/pdf', base64: b64, aiEnabled: true, client: pdfFake('{"transactions":[{"date":"2026-09-03","description":"SHELL","amount":-40}]}') })).length, 1);
+await assert.rejects(readStatementFile({ fileName: 's.pdf', mimeType: 'application/pdf', base64: b64, aiEnabled: true, client: pdfFake('not json') }), /Couldn't find any/);
+assert.equal((await readStatementFile({ fileName: 'a.csv', mimeType: 'text/csv', base64: Buffer.from('\uFEFFDate,Description,Amount\n2026-09-03,ADOBE,-54.99').toString('base64'), aiEnabled: false })).length, 1);
 
 console.log('bookkeeping rules: ok');
 

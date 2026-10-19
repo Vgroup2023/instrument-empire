@@ -18,6 +18,8 @@ import {
 } from '@/lib/bookkeeping/categorize';
 import { ConflictError, NotFoundError, ValidationError, asRecord, optUuid, text, uuid, round2 } from '@/lib/validation';
 import { EXPENSE_ACCOUNT_TYPES } from '@/lib/accounting/entryRules';
+import { llmEnabled } from '@/lib/llm/json';
+import { readStatementFile, statementKind, type StatementKind } from '@/lib/bookkeeping/statementFiles';
 
 // Orchestrates the AI bookkeeping copilot: statement lines come in, each is
 // matched against what is already booked, then categorized, and anything a
@@ -96,9 +98,24 @@ export interface ImportResult {
 }
 
 export async function importStatement(accountIdRaw: unknown, csvTextRaw: unknown): Promise<ImportResult> {
-  const accountId = uuid(accountIdRaw, 'Account');
   const csvText = text(csvTextRaw, 'Statement', { max: 2_000_000 });
-  const lines = parseStatementCsv(csvText);
+  return importLines(accountIdRaw, parseStatementCsv(csvText));
+}
+
+/** An uploaded statement file (CSV, OFX/QFX, PDF or image) read into lines and imported like pasted CSV. */
+export async function importStatementFile(raw: unknown): Promise<ImportResult & { kind: StatementKind }> {
+  const b = asRecord(raw, 'The upload');
+  const fileName = text(b.fileName, 'File name', { max: 200 });
+  const mimeType = typeof b.mimeType === 'string' ? b.mimeType : '';
+  const data = text(b.data, 'File', { max: 6_000_000 });
+  const accountId = uuid(b.accountId, 'Account');
+  const kind = statementKind(fileName, mimeType);
+  const lines = await readStatementFile({ fileName, mimeType, base64: data, aiEnabled: llmEnabled() });
+  return { ...(await importLines(accountId, lines)), kind: kind as StatementKind };
+}
+
+async function importLines(accountIdRaw: unknown, lines: StatementLine[]): Promise<ImportResult> {
+  const accountId = uuid(accountIdRaw, 'Account');
   if (lines.length === 0) throw new ValidationError('No transaction rows found in the statement.');
   if (lines.length > MAX_LINES_PER_IMPORT) throw new ValidationError(`Import at most ${MAX_LINES_PER_IMPORT} lines at a time.`);
 

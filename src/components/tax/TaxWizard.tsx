@@ -11,6 +11,8 @@ import { computeReturn, type TaxInputs, type TaxResult } from '@/lib/tax';
 import { COUNTRY_LABEL, STEPS, type Field } from '@/lib/tax/interview';
 import type { TaxReturnRow } from '@/lib/tax/service';
 import { printReturn } from './printReturn';
+import { SlipUpload } from './SlipUpload';
+import { num } from '@/lib/tax';
 
 const money = (n: number, country: 'US' | 'CA') =>
   new Intl.NumberFormat(country === 'CA' ? 'en-CA' : 'en-US', { style: 'currency', currency: country === 'CA' ? 'CAD' : 'USD', maximumFractionDigits: 0 }).format(n);
@@ -59,6 +61,16 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
       const next = { ...cur };
       if (value === undefined || value === '') delete next[key];
       else next[key] = value;
+      return next;
+    });
+  }
+
+  /** Amounts read from a slip are added to what is already there, so several jobs add up. */
+  function addSlip(values: Record<string, number>) {
+    setSave('saving');
+    setInputs((cur) => {
+      const next = { ...cur };
+      for (const [k, v] of Object.entries(values)) next[k] = Math.round((num(cur, k) + v) * 100) / 100;
       return next;
     });
   }
@@ -120,6 +132,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
                 </div>
               </CardHeader>
               <CardBody className="space-y-4">
+                {current.id === 'wages' || current.id === 'employment' ? <SlipUpload country={country} onAdd={addSlip} /> : null}
                 {current.fields.filter((f) => !f.when || f.when(inputs)).map((f) => (
                   <FieldInput key={f.key} field={f} value={inputs[f.key]} onChange={(v) => setValue(f.key, v)} />
                 ))}

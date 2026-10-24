@@ -1,6 +1,7 @@
 // Hand-checked cases for the tax engine. Run: npx tsx scripts/qa/tax.test.ts
 import assert from 'node:assert/strict';
 import { computeReturn, bracketTax, num } from '../../src/lib/tax';
+import { readSlipUpload, validateSlip } from '../../src/lib/tax/slips';
 
 const near = (actual: number, expected: number, msg: string, tol = 0.02) => assert.ok(Math.abs(actual - expected) <= tol, `${msg}: got ${actual}, expected ${expected}`);
 
@@ -97,4 +98,32 @@ near(c.totalPayments, 4500 - 4034.1 + (1200 - 1077.48), 'CA CPP/EI overpayment r
 c = computeReturn('CA', {});
 assert.equal(c.totalTax, 0);
 
-console.log('tax engine: ok');
+async function slips() {
+// --- W-2 / T4 slip reading ---
+const w2 = validateSlip({ slip_type: 'W-2', employer: 'Acme Inc', boxes: { '1': 58250.5, '2': 5100, '3': 62000 } }, 'US');
+assert.deepEqual(w2?.values, { wages: 58250.5, wageWithholding: 5100 });
+assert.equal(w2?.employer, 'Acme Inc');
+assert.equal(w2?.warnings.length, 0);
+const t4 = validateSlip({ slip_type: 'T4', boxes: { '14': 60000, '22': 8000, '16': 3361.75, '18': 984, '44': null } }, 'CA');
+assert.deepEqual(t4?.values, { employmentIncome: 60000, taxDeducted: 8000, cppPaid: 3361.75, eiPaid: 984 });
+// wrong kind of slip, junk numbers, impossible amounts
+assert.ok(validateSlip({ slip_type: 'T4', boxes: { '1': 100 } }, 'US')?.warnings.some((w) => /T4/.test(w)));
+assert.deepEqual(validateSlip({ slip_type: 'W-2', boxes: { '1': -5, '2': 'abc' } }, 'US')?.values, {});
+assert.ok(validateSlip({ slip_type: 'W-2', boxes: { '1': 1000, '2': 5000 } }, 'US')?.warnings.some((w) => /larger than wages/.test(w)));
+assert.ok(validateSlip({ slip_type: 'T4', boxes: { '14': 90000, '16': 9000, '18': 3000 } }, 'CA')?.warnings.filter((w) => /maximum/.test(w)).length === 2);
+assert.equal(validateSlip('nope', 'US'), null);
+assert.equal(validateSlip({ slip_type: 'W-2' }, 'US'), null);
+// no identity numbers survive: only the asked-for boxes are kept
+assert.deepEqual(Object.keys(validateSlip({ slip_type: 'W-2', boxes: { '1': 1, a: 'SSN 123-45-6789' }, ssn: '123-45-6789' }, 'US')?.values ?? {}), ['wages']);
+// the upload path
+const fakeClaude = (text: string) => ({ messages: { create: async () => ({ content: [{ type: 'text', text }] }) } }) as never;
+const png = Buffer.from('fake image bytes').toString('base64');
+const good = await readSlipUpload({ country: 'US', fileName: 'w2.png', mimeType: 'image/png', data: png }, true, fakeClaude('{"slip_type":"W-2","employer":"Acme","boxes":{"1":50000,"2":4000}}'));
+assert.equal(good.values.wages, 50000);
+await assert.rejects(readSlipUpload({ country: 'US', fileName: 'w2.png', mimeType: 'image/png', data: png }, false), /needs Claude/);
+await assert.rejects(readSlipUpload({ country: 'US', fileName: 'w2.docx', mimeType: '', data: png }, true), /PDF, PNG or JPG/);
+await assert.rejects(readSlipUpload({ country: 'FR', fileName: 'a.png', mimeType: 'image/png', data: png }, true), /country/);
+await assert.rejects(readSlipUpload({ country: 'US', fileName: 'w2.png', mimeType: 'image/png', data: '' }, true), /empty/);
+await assert.rejects(readSlipUpload({ country: 'US', fileName: 'w2.png', mimeType: 'image/png', data: png }, true, fakeClaude('not json')), /Couldn't read/);
+}
+slips().then(() => console.log('tax engine: ok'), (e) => { console.error(e); process.exit(1); });

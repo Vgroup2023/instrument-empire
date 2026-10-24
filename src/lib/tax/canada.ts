@@ -1,9 +1,10 @@
+import { provincialTax } from './provinces';
 import { bracketTax, flag, marginalRateOf, num, round2, str, type Finding, type TaxInputs, type TaxLine, type TaxResult } from './types';
 
 // Canadian federal personal income tax (T1 and Schedule 1), tax year 2025, for the common situations:
 // employment income, self-employment, investment income and dividends, capital gains, RRSP and other
 // deductions, and the usual non-refundable credits. Provincial or territorial tax is a separate calculation
-// (Form 428) that is NOT included in this version, and the result says so.
+// (Form 428) is computed in provinces.ts for every province and territory except Quebec.
 
 export const PROVINCES: { value: string; label: string }[] = [
   { value: 'AB', label: 'Alberta' },
@@ -44,12 +45,13 @@ export function computeCanada(inputs: TaxInputs): TaxResult {
   const findings: Finding[] = [];
   const province = str(inputs, 'province', '');
   const notComputed: string[] = [
-    'Provincial or territorial income tax (Form 428), Ontario Health Premium and provincial credits. Your total bill will be higher than the federal figure shown.',
     'Canada Workers Benefit, GST/HST credit and the Canada Child Benefit, which are paid separately.',
     'Medical expense claim, disability amount, moving expenses, home accessibility and other credits not listed in the interview.',
     'Alternative minimum tax and the foreign income and property reporting forms.',
   ];
-  if (province === 'QC') notComputed.push('Quebec has its own return (TP-1). The federal tax shown here is before the Quebec abatement of 16.5%.');
+  if (province === 'QC') notComputed.push('Quebec has its own provincial return (TP-1), which is not prepared here. The federal tax shown is before the Quebec abatement of 16.5% of basic federal tax.');
+  else if (!province) notComputed.push('Provincial or territorial tax, until you choose your province.');
+  else notComputed.push('Provincial credits other than the basic personal amount and CPP/EI (age, spouse, tuition, donations, dividends), provincial low-income tax reductions and other province-specific credits. Provincial tax may be a little high if you have any of these.');
 
   // --- Income ----------------------------------------------------------------------------------------------
   const employment = num(inputs, 'employmentIncome');
@@ -97,7 +99,7 @@ export function computeCanada(inputs: TaxInputs): TaxResult {
 
   // --- Federal tax before credits -------------------------------------------------------------------------------
   const taxBeforeCredits = round2(bracketTax(taxableIncome, T.brackets.limits, T.brackets.rates));
-  const marginalRate = marginalRateOf(taxableIncome, T.brackets.limits, T.brackets.rates);
+  const federalMarginal = marginalRateOf(taxableIncome, T.brackets.limits, T.brackets.rates);
 
   // --- Non-refundable credits -------------------------------------------------------------------------------------
   const bp = T.basicPersonal;
@@ -117,12 +119,17 @@ export function computeCanada(inputs: TaxInputs): TaxResult {
   const nonRefundable = round2(Math.min(taxBeforeCredits, creditsFromAmounts + donationCredit + dividendCredit));
   const federalTax = round2(taxBeforeCredits - nonRefundable);
 
+  // --- Provincial or territorial tax -----------------------------------------------------------------------------
+  const prov = provincialTax(province, taxableIncome, netIncome, basicPersonal, baseCppCredit + eiCapped);
+  const marginalRate = Math.round((federalMarginal + prov.marginalRate) * 10000) / 10000;
+  const beforeProvincial = prov.computed ? '' : ' (before provincial tax)';
+
   // --- Payments ----------------------------------------------------------------------------------------------------
   const taxDeducted = num(inputs, 'taxDeducted');
   const installments = num(inputs, 'installmentsPaid');
   const refundableOther = num(inputs, 'refundableCredits');
   const totalPayments = round2(taxDeducted + installments + cppOverpaid + eiOverpaid + refundableOther);
-  const totalTax = round2(federalTax + cppSelfEmployed);
+  const totalTax = round2(federalTax + cppSelfEmployed + prov.tax);
   const balance = round2(totalTax - totalPayments);
 
   // --- Findings ----------------------------------------------------------------------------------------------------
@@ -130,7 +137,7 @@ export function computeCanada(inputs: TaxInputs): TaxResult {
   if (netGains < 0) findings.push({ level: 'info', title: 'Net capital loss', detail: `A net capital loss cannot reduce other income this year. $${Math.round(-netGains * T.capitalGainsInclusion).toLocaleString()} of allowable loss can be carried back 3 years or forward.` });
   if (cppOverpaid > 0 || eiOverpaid > 0) findings.push({ level: 'info', title: 'Over-contributed to CPP or EI', detail: 'With more than one employer you can pay above the yearly maximum. The excess is refunded on your return and is counted in your payments.' });
   if (selfEmployment > 0 && installments === 0 && balance > 3000) findings.push({ level: 'tip', title: 'Pay instalments next year', detail: 'You have self-employment income and owe a balance. Quarterly instalments avoid interest and a large bill in April.' });
-  if (rrsp === 0 && totalIncome > 60000) findings.push({ level: 'tip', title: 'An RRSP contribution would lower your tax', detail: `At your income, each $1,000 contributed saves about $${Math.round(marginalRate * 1000)} of federal tax. Check your room on your last Notice of Assessment. The deadline is 60 days after the year ends.` });
+  if (rrsp === 0 && totalIncome > 60000) findings.push({ level: 'tip', title: 'An RRSP contribution would lower your tax', detail: `At your income, each $1,000 contributed saves about $${Math.round(marginalRate * 1000)} of tax${prov.computed ? '' : ' (federal only)'}. Check your room on your last Notice of Assessment. The deadline is 60 days after the year ends.` });
   if (balance < -3000 && employment > 0) findings.push({ level: 'tip', title: 'Large refund', detail: 'You are overpaying through the year. Form TD1 and the T1213 request can lower the tax withheld from each paycheque.' });
   if (flag(inputs, 'age65') && !flag(inputs, 'hasPensionIncome')) findings.push({ level: 'tip', title: 'Pension income amount', detail: 'If you receive eligible pension income, a further credit of up to $2,000 of income applies. It is not calculated in this version.' });
   if (donations > 0) findings.push({ level: 'info', title: 'Donation credit uses standard rates', detail: 'The credit is 14.5% on the first $200 and 29% above that. A higher rate applies to the part of donations covered by income over $253,414.' });
@@ -153,14 +160,23 @@ export function computeCanada(inputs: TaxInputs): TaxResult {
     { label: 'Non-refundable credits', amount: -nonRefundable, ref: 'Schedule 1', note: 'Personal, employment, CPP/EI, age, spouse, tuition, donations and dividend credits' },
     { label: 'Federal tax', amount: federalTax, ref: 'line 42000', bold: true },
     ...(cppSelfEmployed > 0 ? [{ label: 'CPP on self-employment income', amount: cppSelfEmployed, ref: 'line 42100' }] : []),
-    { label: 'Total federal tax payable (before provincial tax)', amount: totalTax, bold: true },
+    ...(prov.computed
+      ? [
+          { label: `${prov.name} tax on taxable income`, amount: prov.taxBeforeCredits, ref: 'Form 428' },
+          { label: `${prov.name} non-refundable credits`, amount: -prov.credits, ref: 'Form 428', note: 'Basic personal amount, CPP and EI' },
+          ...(prov.surtax > 0 ? [{ label: 'Ontario surtax', amount: prov.surtax, ref: 'ON428' }] : []),
+          ...(prov.healthPremium > 0 ? [{ label: 'Ontario Health Premium', amount: prov.healthPremium, ref: 'ON428' }] : []),
+          { label: `${prov.name} tax`, amount: prov.tax, bold: true },
+        ]
+      : []),
+    { label: `Total tax payable${beforeProvincial}`, amount: totalTax, bold: true },
     { label: 'Payments', amount: 0, heading: true },
     { label: 'Income tax deducted at source', amount: taxDeducted, ref: 'line 43700' },
     ...(installments > 0 ? [{ label: 'Tax instalments paid', amount: installments, ref: 'line 47600' }] : []),
     ...(cppOverpaid + eiOverpaid > 0 ? [{ label: 'CPP and EI overpayment refund', amount: round2(cppOverpaid + eiOverpaid), ref: 'lines 44800 and 45000' }] : []),
     ...(refundableOther > 0 ? [{ label: 'Other refundable credits', amount: refundableOther }] : []),
     { label: 'Total payments', amount: totalPayments, bold: true },
-    { label: balance > 0 ? 'Federal balance owing (before provincial tax)' : 'Federal refund (before provincial tax)', amount: Math.abs(balance), bold: true },
+    { label: balance > 0 ? `Balance owing${beforeProvincial}` : `Refund${beforeProvincial}`, amount: Math.abs(balance), bold: true },
   ];
 
   return {

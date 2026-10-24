@@ -164,7 +164,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
             <CardBody>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{refund ? 'Estimated refund' : result.balance > 0 ? 'Estimated amount you owe' : 'Estimated balance'}</p>
               <p className={cn('mt-1 text-3xl font-semibold', refund ? 'text-emerald-700' : result.balance > 0 ? 'text-red-700' : 'text-slate-900')}>{money(Math.abs(result.balance), country)}</p>
-              {country === 'CA' ? <p className="mt-1 text-xs text-slate-500">Federal only. Provincial tax is added separately.</p> : null}
+              {country === 'CA' && (!inputs.province || inputs.province === 'QC') ? <p className="mt-1 text-xs text-slate-500">{inputs.province === 'QC' ? 'Federal only. Quebec has its own return.' : 'Federal only until you choose a province.'}</p> : null}
               <dl className="mt-4 space-y-1.5 text-sm">
                 <Row label="Total income" value={money(result.totalIncome, country)} />
                 <Row label="Taxable income" value={money(result.taxableIncome, country)} />

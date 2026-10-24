@@ -1,5 +1,6 @@
 import { PROVINCES } from './canada';
 import { FILING_STATUSES } from './us';
+import { STATE_OPTIONS } from './states';
 import type { Country, TaxInputs } from './types';
 
 // The guided interview. Plain questions in plain words; each answer is one named value that the tax engine reads.
@@ -37,6 +38,8 @@ const US_STEPS: Step[] = [
       { key: 'blindCount', label: 'How many people on this return are blind?', kind: 'count' },
       { key: 'childrenUnder17', label: 'Children under 17 who live with you', kind: 'count', help: 'Each child with a Social Security number can earn the $2,200 child tax credit.' },
       { key: 'otherDependents', label: 'Other dependents (age 17 or older, or other relatives)', kind: 'count', help: 'Worth a $500 credit each.' },
+      { key: 'eitcChildren', label: 'Children who qualify you for the earned income credit (0 to 3 or more)', kind: 'count', help: 'A child who lived with you more than half the year and is under 19, or under 24 and a full-time student. Often the same children as above.' },
+      { key: 'eitcChildlessEligible', label: 'No qualifying children, but I am 25 to 64 and no one else claims me as a dependent', kind: 'bool', when: (i) => !(typeof i.eitcChildren === 'number' && i.eitcChildren > 0), help: 'A smaller earned income credit may apply if your income is low.' },
     ],
   },
   {
@@ -76,7 +79,12 @@ const US_STEPS: Step[] = [
     title: 'Deductions and credits',
     intro: 'We compare the standard deduction with itemizing and use whichever lowers your tax.',
     fields: [
-      { key: 'adjustments', label: 'Other adjustments to income (IRA, HSA, student loan interest, educator expenses)', kind: 'money', help: 'Enter the deductible amount from your forms, after any limits.' },
+      { key: 'adjustments', label: 'Other adjustments to income (IRA, HSA, educator expenses)', kind: 'money', help: 'Enter the deductible amount from your forms, after any limits.' },
+      { key: 'studentLoanInterest', label: 'Student loan interest you paid (1098-E)', kind: 'money', help: 'Up to $2,500 is deductible, less as income rises.' },
+      { key: 'aotcExpenses1', label: 'American opportunity credit: tuition and required fees for student 1', kind: 'money', help: 'For each student in their first four years of college, at least half time. Worth up to $2,500 each, with 40% refundable.' },
+      { key: 'aotcExpenses2', label: 'American opportunity credit: student 2', kind: 'money', when: (i) => typeof i.aotcExpenses1 === 'number' && i.aotcExpenses1 > 0 },
+      { key: 'aotcExpenses3', label: 'American opportunity credit: student 3', kind: 'money', when: (i) => typeof i.aotcExpenses2 === 'number' && i.aotcExpenses2 > 0 },
+      { key: 'llcExpenses', label: 'Lifetime learning credit: tuition and fees for other study', kind: 'money', help: 'Graduate school, part-time study, or courses to improve job skills. Worth 20% of up to $10,000. Do not count a student you claimed above.' },
       { key: 'saltPaid', label: 'State and local taxes paid (income or sales tax plus property tax)', kind: 'money', help: 'Capped at $40,000 for 2025.' },
       { key: 'mortgageInterest', label: 'Home mortgage interest (1098)', kind: 'money' },
       { key: 'charity', label: 'Gifts to charity', kind: 'money' },
@@ -84,7 +92,7 @@ const US_STEPS: Step[] = [
       { key: 'otherItemized', label: 'Other itemized deductions', kind: 'money' },
       { key: 'deductionChoice', label: 'Which deduction to use', kind: 'select', options: [{ value: 'auto', label: 'Use whichever is bigger (recommended)' }, { value: 'standard', label: 'Standard deduction' }, { value: 'itemized', label: 'Itemize' }] },
       { key: 'otherCredits', label: 'Other credits you already worked out (not refundable)', kind: 'money', help: 'For example the foreign tax credit or residential energy credit.' },
-      { key: 'refundableCredits', label: 'Other refundable credits you already worked out', kind: 'money', help: 'For example the earned income credit from the IRS worksheet.' },
+      { key: 'refundableCredits', label: 'Other refundable credits you already worked out', kind: 'money', help: 'Credits not listed in this interview, worked out on the IRS form.' },
     ],
   },
   {
@@ -94,6 +102,16 @@ const US_STEPS: Step[] = [
     fields: [
       { key: 'otherWithholding', label: 'Other federal tax withheld (1099 forms)', kind: 'money' },
       { key: 'estimatedPayments', label: 'Estimated tax payments you made for 2025', kind: 'money', help: 'Quarterly payments plus any amount applied from your last return.' },
+    ],
+  },
+  {
+    id: 'state',
+    title: 'Your state',
+    intro: 'We estimate your state income tax from published 2025 rates. It is an estimate: your state return may differ.',
+    fields: [
+      { key: 'state', label: 'State you lived in at the end of 2025', kind: 'select', options: [{ value: '', label: 'Choose…' }, ...STATE_OPTIONS] },
+      { key: 'stateWithholding', label: 'State income tax withheld (W-2 box 17, all jobs added)', kind: 'money', when: (i) => typeof i.state === 'string' && i.state !== '' },
+      { key: 'stateEstimatedPayments', label: 'State estimated tax payments you made for 2025', kind: 'money', when: (i) => typeof i.state === 'string' && i.state !== '' },
     ],
   },
 ];

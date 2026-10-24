@@ -843,3 +843,26 @@ export const bookkeepingRules = pgTable('bookkeeping_rules', {
   hits: integer('hits').notNull().default(0),
   ...timestamps,
 });
+
+// ---------------------------------------------------------------------------
+// Tax preparation. One row per return being prepared. Only the answers to the interview are stored;
+// the amounts are recalculated from them, so a change to the tax tables never leaves a stale figure.
+// Social Security and Social Insurance numbers are deliberately never collected here.
+// ---------------------------------------------------------------------------
+export const taxCountryEnum = pgEnum('tax_country', ['US', 'CA']);
+export const taxReturnStatusEnum = pgEnum('tax_return_status', ['draft', 'ready']);
+
+export const taxReturns = pgTable(
+  'tax_returns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    country: taxCountryEnum('country').notNull(),
+    taxYear: integer('tax_year').notNull(),
+    /** What the return is called in the list, e.g. "Jane Doe" or "Acme Ltd owner". */
+    title: text('title').notNull(),
+    status: taxReturnStatusEnum('status').notNull().default('draft'),
+    inputs: jsonb('inputs').$type<Record<string, number | string | boolean>>().notNull().default({}),
+    ...timestamps,
+  },
+  (t) => [index('ix_tax_returns_updated_at').on(t.updatedAt)],
+);

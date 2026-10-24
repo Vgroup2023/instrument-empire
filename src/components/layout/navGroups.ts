@@ -82,6 +82,12 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: 'Tax',
+    items: [
+      { href: '/dashboard/tax', label: 'Tax filing', icon: '🏛️', description: 'Prepare personal and business income tax returns for the United States and Canada, one question at a time.' },
+    ],
+  },
+  {
     title: 'People & money',
     items: [
       { href: '/dashboard/payroll', label: 'Payroll', icon: '💼', description: 'Employee directory, hire status and base pay.', demoProvider: 'payroll' },

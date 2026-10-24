@@ -866,3 +866,30 @@ export const taxReturns = pgTable(
   },
   (t) => [index('ix_tax_returns_updated_at').on(t.updatedAt)],
 );
+
+// ---------------------------------------------------------------------------
+// Files library. One row per uploaded file. The bytes live in object storage when it is set up (the browser sends
+// and fetches them directly, so the app server never carries them and this table stays small). Without storage,
+// small files are kept in `content_base64` so the tab still works. `status` is 'pending' from the moment an upload
+// is started until the browser confirms it finished.
+// ---------------------------------------------------------------------------
+export const fileStatusEnum = pgEnum('file_status', ['pending', 'ready']);
+
+export const files = pgTable(
+  'files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    contentType: text('content_type').notNull(),
+    size: integer('size').notNull(),
+    /** Where the bytes are: 'storage' (object storage) or 'database' (the fallback). */
+    store: text('store').notNull().default('storage'),
+    storageKey: text('storage_key'),
+    contentBase64: text('content_base64'),
+    /** A short free-text label to group files by, e.g. "Customs", "Receipts". */
+    label: text('label'),
+    status: fileStatusEnum('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('ix_files_created_at').on(t.createdAt), index('ix_files_status').on(t.status)],
+);

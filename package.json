@@ -19,7 +19,8 @@
     "qa:quoting": "tsx scripts/qa/quoting.test.ts",
     "qa:counsel": "tsx scripts/qa/counsel.test.ts",
     "qa:bookkeeping": "tsx scripts/qa/bookkeeping.test.ts",
-    "qa:tax": "tsx scripts/qa/tax.test.ts"
+    "qa:tax": "tsx scripts/qa/tax.test.ts",
+    "qa:files": "tsx scripts/qa/files.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

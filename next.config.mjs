@@ -4,13 +4,24 @@ const isDev = process.env.NODE_ENV !== 'production';
 // on the open internet. 'unsafe-eval' is only added in dev because
 // Next's dev-mode HMR/source maps rely on it — the production build
 // doesn't need it.
+// An explicit SUPABASE_URL (for example a custom domain for storage) is allowed too.
+const storageOrigin = (() => {
+  try {
+    return process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).origin : '';
+  } catch {
+    return '';
+  }
+})();
+const storageHosts = ['https://*.supabase.co', storageOrigin].filter(Boolean).join(' ');
+
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  // Supabase Storage: files are uploaded to and shown from short-lived signed addresses on the project domain.
+  `img-src 'self' data: ${storageHosts}`,
   "font-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self' ${storageHosts}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

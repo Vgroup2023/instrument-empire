@@ -98,6 +98,7 @@ export const navGroups: NavGroup[] = [
     title: 'App',
     items: [
       { href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️', description: 'Optional QuickBooks connection and provider status.' },
+      { href: '/dashboard/files', label: 'Files', icon: '📁', description: 'Upload, open and download documents and photos from any device.' },
       { href: '/dashboard/guide', label: 'Training guide', icon: '📖', description: 'How to use every tab. Read it here or download the Word file.' },
       { href: '/install', label: 'Install the app', icon: '⬇️', description: 'Add GloblexAI Office ERP to your desktop or phone.' },
     ],

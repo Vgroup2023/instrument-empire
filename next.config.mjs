@@ -39,6 +39,12 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Keep a visited page for 30 seconds on this device, so clicking back to a tab you just left
+  // opens at once instead of asking the server again. Saving something calls router.refresh(),
+  // which clears this cache, so lists never show stale data after an edit.
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
   // Which commit this build was made from (Netlify sets COMMIT_REF while building). /api/health reports it,
   // so anyone can tell at a glance whether the live site is running the latest code or a deploy was skipped.
   env: {

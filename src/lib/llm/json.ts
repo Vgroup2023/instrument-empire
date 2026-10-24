@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 
 // One place that talks to Claude for the trade and order-desk features. The
 // model reads text and documents and returns JSON; callers validate every field
@@ -24,7 +24,8 @@ export async function askJson(
   opts: { client?: LlmClient; maxTokens?: number; effort?: 'low' | 'medium' | 'high' } = {},
 ): Promise<unknown | null> {
   try {
-    const c = opts.client ?? new Anthropic();
+    // Loaded only when Claude is actually called, so the many pages that merely check whether Claude is on do not pay for the SDK.
+    const c = opts.client ?? new (await import('@anthropic-ai/sdk')).default();
     const res = await c.messages.create({
       model: llmModel(),
       max_tokens: opts.maxTokens ?? 1500,

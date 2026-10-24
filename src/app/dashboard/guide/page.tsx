@@ -6,9 +6,15 @@ import { GuideSearch } from '@/components/guide/GuideSearch';
 
 export const dynamic = 'force-dynamic';
 
+// Converting the Word file takes a few hundred milliseconds and its content only changes with a new deploy, so the
+// result is kept for as long as this server instance lives.
+let cachedHtml: string | null = null;
+
 async function loadGuideHtml(): Promise<string | null> {
+  if (cachedHtml) return cachedHtml;
   try {
     const { value } = await mammoth.convertToHtml({ buffer: await readGuide() });
+    cachedHtml = value;
     return value;
   } catch {
     return null;

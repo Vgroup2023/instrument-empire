@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { navGroups, type NavGroup } from './navGroups';
 
@@ -52,8 +52,19 @@ function slug(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
+// Pages are fetched from the server when you open them. Starting that a moment early, when a pointer rests on a link or a
+// finger touches it, means the page's loading screen is already there when you click, and the server has had a head start.
+// Done per link on intent only, so loading the menu itself still makes no server calls.
+const warmed = new Set<string>();
+
 export function NavLinksList() {
+  const router = useRouter();
   const pathname = usePathname();
+  const warm = (href: string) => {
+    if (warmed.has(href)) return;
+    warmed.add(href);
+    router.prefetch(href);
+  };
   const raw = useSyncExternalStore(subscribe, read, () => '');
   const closed = closedTitles(raw);
 
@@ -73,13 +84,13 @@ export function NavLinksList() {
   return (
     <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-label="Main menu">
       {navGroups.map((group) => (
-        <Section key={group.title || 'root'} group={group} pathname={pathname} open={!closed.has(group.title)} onToggle={() => toggle(group.title)} />
+        <Section key={group.title || 'root'} group={group} pathname={pathname} open={!closed.has(group.title)} onToggle={() => toggle(group.title)} onWarm={warm} />
       ))}
     </nav>
   );
 }
 
-function Section({ group, pathname, open, onToggle }: { group: NavGroup; pathname: string; open: boolean; onToggle: () => void }) {
+function Section({ group, pathname, open, onToggle, onWarm }: { group: NavGroup; pathname: string; open: boolean; onToggle: () => void; onWarm: (href: string) => void }) {
   const id = `nav-section-${slug(group.title || 'root')}`;
   const hasActive = group.items.some((i) => isActive(pathname, i.href));
   return (
@@ -130,6 +141,9 @@ function Section({ group, pathname, open, onToggle }: { group: NavGroup; pathnam
                   prefetch={false}
                   key={item.href}
                   href={item.href}
+                  onMouseEnter={() => onWarm(item.href)}
+                  onFocus={() => onWarm(item.href)}
+                  onTouchStart={() => onWarm(item.href)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition',

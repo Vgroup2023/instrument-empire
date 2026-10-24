@@ -144,19 +144,30 @@ export async function listInvoicesPage(limit: number, offset: number): Promise<P
  */
 export async function listOverdueInvoices(limit: number): Promise<Page<Invoice>> {
   const db = getDb();
-  const open = sql`i.due_date < CURRENT_DATE AND (
-      COALESCE((SELECT SUM(amount) FROM invoice_lines WHERE invoice_id = i.id), 0)
-      - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0)) > 0`;
-  // The rows and the count are one wave of queries; looking up ids first and the rows second cost two extra round trips.
-  const openRows = sql`${invoices.dueDate} < CURRENT_DATE AND (
-      COALESCE((SELECT SUM(amount) FROM invoice_lines WHERE invoice_id = ${invoices.id}), 0)
-      - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = ${invoices.id}), 0)) > 0`;
-  const [rows, countRows] = await Promise.all([
-    db.select().from(invoices).where(openRows).orderBy(asc(invoices.dueDate), asc(invoices.createdAt)).limit(limit),
-    db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM invoices i WHERE ${open}`),
-  ]);
-  if (rows.length === 0) return { items: [], total: 0 };
-  return { items: await attachDetails(rows), total: countRows[0]?.n ?? rows.length };
+  // Each invoice's lines and payments are added up once, in a single pass over those tables, and joined in. The
+  // earlier form looked the totals up again for every invoice (and a second time for the count), which got
+  // slower with every invoice and made the database spend extra time compiling a query plan for it.
+  // The total number of overdue invoices comes back with the rows (count(*) over ()), so it is one query, not two.
+  const lineTotals = db
+    .select({ invoiceId: invoiceLines.invoiceId, total: sql<string>`sum(${invoiceLines.amount})`.as('line_total') })
+    .from(invoiceLines)
+    .groupBy(invoiceLines.invoiceId)
+    .as('line_totals');
+  const paymentTotals = db
+    .select({ invoiceId: invoicePayments.invoiceId, paid: sql<string>`sum(${invoicePayments.amount})`.as('paid_total') })
+    .from(invoicePayments)
+    .groupBy(invoicePayments.invoiceId)
+    .as('payment_totals');
+  const found = await db
+    .select({ invoice: invoices, overdueCount: sql<number>`count(*) over ()`.mapWith(Number) })
+    .from(invoices)
+    .innerJoin(lineTotals, eq(lineTotals.invoiceId, invoices.id))
+    .leftJoin(paymentTotals, eq(paymentTotals.invoiceId, invoices.id))
+    .where(and(sql`${invoices.dueDate} < CURRENT_DATE`, sql`${lineTotals.total} - COALESCE(${paymentTotals.paid}, 0) > 0`))
+    .orderBy(asc(invoices.dueDate), asc(invoices.createdAt))
+    .limit(limit);
+  if (found.length === 0) return { items: [], total: 0 };
+  return { items: await attachDetails(found.map((f) => f.invoice)), total: found[0].overdueCount };
 }
 
 export async function getInvoice(id: string, ex: Executor = getDb()): Promise<Invoice> {

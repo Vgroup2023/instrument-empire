@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createBill, listBills, listBillsPage, type CreateBillInput } from '@/lib/accounting/bills';
+import { createBill, listBills, listBillsByStatus, parseBillStatus, billCounts, type CreateBillInput } from '@/lib/accounting/bills';
 import { parsePaging } from '@/lib/paging';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
@@ -11,8 +11,9 @@ export async function GET(request: NextRequest) {
   try {
     const paging = parsePaging(request.nextUrl.searchParams);
     if (paging) {
-      const { items, total } = await listBillsPage(paging.limit, paging.offset);
-      return NextResponse.json({ bills: items, total });
+      const status = parseBillStatus(request.nextUrl.searchParams.get('status'));
+      const [{ items, total }, counts] = await Promise.all([listBillsByStatus(status, paging.limit, paging.offset), billCounts()]);
+      return NextResponse.json({ bills: items, total, counts });
     }
     const bills = await listBills();
     return NextResponse.json({ bills });

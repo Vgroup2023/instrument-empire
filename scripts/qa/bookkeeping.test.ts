@@ -3,7 +3,7 @@
 // runs an end-to-end pass: import, match, categorize, approve, auto-post, duplicates, double clicks.
 import assert from 'node:assert/strict';
 import { parseOfx, readStatementFile, statementKind, validateAiLines } from '../../src/lib/bookkeeping/statementFiles';
-import { fromHistory, matchRule, merchantKey, suggestWithAi, vendorFromDescription, AI_CONFIDENCE_CAP, type Rule } from '../../src/lib/bookkeeping/categorize';
+import { findRuleIssues, fromHistory, matchRule, merchantKey, suggestWithAi, vendorFromDescription, AI_CONFIDENCE_CAP, type Rule } from '../../src/lib/bookkeeping/categorize';
 
 // merchant keys ignore numbers, dates and filler words
 assert.equal(merchantKey('POS DEBIT ADOBE *CREATIVE CLD 800-833-6687 09/03'), 'ADOBE CREATIVE CLD');
@@ -18,6 +18,26 @@ const rules: Rule[] = [
 assert.equal(matchRule('Adobe Stock purchase', rules)?.id, 'r2');
 assert.equal(matchRule('adobe creative cloud', rules)?.id, 'r1');
 assert.equal(matchRule('Staples', rules), null);
+
+// rule problems are flagged: duplicates, conflicts and overlaps
+const issues = findRuleIssues([
+  { id: 'a', pattern: 'Shell', accountId: 'fuel' },
+  { id: 'b', pattern: ' shell ', accountId: 'fuel' },
+  { id: 'c', pattern: 'ADOBE', accountId: 'software' },
+  { id: 'd', pattern: 'ADOBE', accountId: 'marketing' },
+  { id: 'e', pattern: 'AMAZON', accountId: 'supplies' },
+  { id: 'f', pattern: 'AMAZON WEB SERVICES', accountId: 'software' },
+  { id: 'g', pattern: 'STAPLES', accountId: 'supplies' },
+  { id: 'h', pattern: 'AMAZON PRIME', accountId: 'supplies' },
+]);
+assert.equal(issues.get('a')?.[0].kind, 'duplicate');
+assert.equal(issues.get('b')?.[0].kind, 'duplicate');
+assert.equal(issues.get('c')?.[0].kind, 'conflict');
+assert.equal(issues.get('d')?.[0].kind, 'conflict');
+assert.equal(issues.get('e')?.[0].kind, 'overlap');
+assert.equal(issues.get('f')?.[0].kind, 'overlap');
+assert.equal(issues.get('g'), undefined, 'a clean rule has no issues');
+assert.equal(issues.get('h'), undefined, 'a longer pattern booking to the same account as the shorter one is fine');
 
 // history: needs a clear majority; more repeats, more confidence
 assert.equal(fromHistory('X', []), null);

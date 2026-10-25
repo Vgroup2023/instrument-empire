@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getQboTokens } from '@/lib/session';
 import { Badge } from '@/components/ui/Badge';
 import { MobileNavDrawer } from './MobileNavDrawer';
+import { SearchButton } from './SearchButton';
 import { BRAND } from '@/lib/brand';
 
 export async function TopBar() {
@@ -9,7 +10,7 @@ export async function TopBar() {
   const tokens = await getQboTokens().catch(() => null);
 
   return (
-    <header className="safe-top flex min-h-16 items-center justify-between border-b border-white/10 bg-header-gradient px-4 lg:px-6">
+    <header className="safe-top print:hidden flex min-h-16 items-center justify-between border-b border-white/10 bg-header-gradient px-4 lg:px-6">
       <div className="flex items-center gap-2">
         <MobileNavDrawer />
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -23,6 +24,7 @@ export async function TopBar() {
         <div className="truncate text-xs text-steel-400">{BRAND.tagline}</div>
       </div>
       <div className="flex items-center gap-3">
+        <SearchButton />
         {tokens ? (
           <Link prefetch={false} href="/dashboard/settings" className="flex items-center gap-2">
             <Badge tone="success">● QuickBooks connected</Badge>

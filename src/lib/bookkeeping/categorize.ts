@@ -71,6 +71,44 @@ export function matchRule(description: string, rules: Rule[]): Rule | null {
   return best;
 }
 
+export interface RuleIssue {
+  kind: 'duplicate' | 'conflict' | 'overlap';
+  message: string;
+}
+
+/**
+ * Rules that step on each other, so the person can fix them instead of getting whichever matched first.
+ * duplicate: same words, same account. conflict: same words, different accounts (the result depends on order).
+ * overlap: one pattern sits inside another and they book differently (the longer one wins; worth knowing).
+ */
+export function findRuleIssues(rules: Pick<Rule, 'id' | 'pattern' | 'accountId'>[]): Map<string, RuleIssue[]> {
+  const out = new Map<string, RuleIssue[]>();
+  const add = (id: string, issue: RuleIssue) => out.set(id, [...(out.get(id) ?? []), issue]);
+  const norm = (r: { pattern: string }) => r.pattern.trim().toUpperCase().replace(/\s+/g, ' ');
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      const a = rules[i];
+      const b = rules[j];
+      const pa = norm(a);
+      const pb = norm(b);
+      if (!pa || !pb) continue;
+      if (pa === pb) {
+        const same = a.accountId === b.accountId;
+        const issue: RuleIssue = same
+          ? { kind: 'duplicate', message: `Duplicate: "${b.pattern.trim()}" already books to this account. Remove one.` }
+          : { kind: 'conflict', message: `Conflict: "${b.pattern.trim()}" books to a different account, so which one applies depends on order. Keep one.` };
+        add(a.id, issue);
+        add(b.id, same ? { kind: 'duplicate', message: `Duplicate: "${a.pattern.trim()}" already books to this account. Remove one.` } : { kind: 'conflict', message: `Conflict: "${a.pattern.trim()}" books to a different account, so which one applies depends on order. Keep one.` });
+      } else if (a.accountId !== b.accountId && (pa.includes(pb) || pb.includes(pa))) {
+        const [long, short] = pa.length > pb.length ? [a, b] : [b, a];
+        add(short.id, { kind: 'overlap', message: `Overlap: "${long.pattern.trim()}" is more specific and books elsewhere, so it wins when both match.` });
+        add(long.id, { kind: 'overlap', message: `Overlap: "${short.pattern.trim()}" is broader and books elsewhere. This rule wins when both match.` });
+      }
+    }
+  }
+  return out;
+}
+
 /** What the person approved before for this merchant. Needs a clear majority and grows with repetition. */
 export function fromHistory(key: string, history: HistoryRow[]): Suggestion | null {
   const rows = history.filter((h) => h.merchantKey === key);

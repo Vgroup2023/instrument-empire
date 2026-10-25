@@ -19,4 +19,13 @@ if (missing.length || dead.length || nonDashboard.length) {
   if (nonDashboard.length) console.error(`navGroups.ts links to missing pages: ${nonDashboard.join(', ')}`);
   process.exit(1);
 }
+const sc = readFileSync('src/lib/shortcuts.ts', 'utf8');
+const keys = [...sc.matchAll(/\{ key: '(.)', href: '([^']+)'/g)];
+const dupKeys = keys.map((k) => k[1]).filter((k, i, a) => a.indexOf(k) !== i);
+const badKeyTargets = keys.filter((k) => !pages.has(k[2])).map((k) => k[2]);
+if (dupKeys.length || badKeyTargets.length) {
+  if (dupKeys.length) console.error(`Keyboard shortcuts use a key twice: ${dupKeys.join(', ')}`);
+  if (badKeyTargets.length) console.error(`Keyboard shortcuts point at missing pages: ${badKeyTargets.join(', ')}`);
+  process.exit(1);
+}
 console.log(`Navigation covers all ${pages.size} dashboard pages.`);

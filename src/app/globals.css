@@ -63,3 +63,13 @@ body {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* Printing a page gives the page itself: no menu or top bar, nothing cut off by the fixed-height app shell,
+   rows kept whole, and column headings repeated on every sheet. */
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff !important; }
+  thead { display: table-header-group; }
+  tr, .break-inside-avoid { break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

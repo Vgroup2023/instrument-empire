@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/ui/PageHeader';
+import { PrintButton } from '@/components/ui/PrintButton';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
@@ -13,6 +14,7 @@ export default async function SalesPage() {
       <PageHeader
         title="Sales breakdown"
         description="What's driving revenue this year, by customer and by product or service."
+        actions={<PrintButton />}
       />
       <SalesBody />
     </div>

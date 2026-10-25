@@ -18,11 +18,22 @@ import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Vendor } from '@/lib/accounting/vendors';
 import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
-import type { Bill } from '@/lib/accounting/bills';
+import type { Bill, BillCounts, BillStatus } from '@/lib/accounting/bills';
+
+const STATUS_TABS: { id: BillStatus; label: string }[] = [
+  { id: 'unpaid', label: 'Unpaid' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'due_week', label: 'Due this week' },
+  { id: 'awaiting', label: 'Awaiting approval' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'all', label: 'All' },
+];
 
 export function BillsPageClient({
   initialBills,
   initialTotal,
+  initialCounts,
   vendors,
   expenseAccounts,
   bankAccounts,
@@ -30,14 +41,28 @@ export function BillsPageClient({
 }: {
   initialBills: Bill[];
   initialTotal: number;
+  initialCounts: BillCounts;
   vendors: Vendor[];
   expenseAccounts: GlAccount[];
   bankAccounts: GlAccount[];
   homeCurrencyCode?: string;
 }) {
   const { notify } = useToast();
-  const list = usePagedList<Bill>('/api/bills', 'bills', initialBills, initialTotal);
+  const list = usePagedList<Bill, BillCounts>('/api/bills', 'bills', initialBills, initialTotal, 'status=unpaid', initialCounts);
+  const counts = list.meta ?? initialCounts;
+  const status = (list.query.replace('status=', '') || 'all') as BillStatus;
+  const [switching, setSwitching] = useState(false);
+  async function pickStatus(next: BillStatus) {
+    if (next === status || switching) return;
+    setSwitching(true);
+    const ok = await list.setQuery(`status=${next}`);
+    setSwitching(false);
+    if (!ok) notify("Couldn't load those bills. Please try again.", 'error');
+  }
   const bills = list.items;
+  // A bill due today is not overdue yet, which matches the Overdue and Due this week filters.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [formOpen, setFormOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | undefined>(undefined);
   const [payTarget, setPayTarget] = useState<Bill | null>(null);
@@ -80,9 +105,6 @@ export function BillsPageClient({
     }
   }
 
-  const unpaidBills = bills.filter((b) => b.Balance > 0);
-  const awaitingApprovalCount = unpaidBills.filter((b) => !b.Approved).length;
-  const scheduledToPayCount = unpaidBills.filter((b) => b.Approved && b.ScheduledPaymentDate).length;
 
   return (
     <div>
@@ -101,18 +123,40 @@ export function BillsPageClient({
         }
       />
 
-      {bills.length > 0 ? (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <StatCard label="Awaiting approval" value={String(awaitingApprovalCount)} />
-          <StatCard label="Approved & scheduled" value={String(scheduledToPayCount)} />
-        </div>
+      {counts.all > 0 ? (
+        <>
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard label="Awaiting approval" value={String(counts.awaiting)} />
+            <StatCard label="Approved & scheduled" value={String(counts.scheduled)} />
+          </div>
+          <div role="tablist" aria-label="Filter bills by status" className="mb-4 flex flex-wrap gap-2">
+            {STATUS_TABS.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={status === t.id}
+                disabled={switching}
+                onClick={() => pickStatus(t.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  status === t.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {t.label} <span className={status === t.id ? 'text-white/80' : 'text-slate-500'}>{counts[t.id]}</span>
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       <Card>
         <CardBody className="p-0">
           {bills.length === 0 ? (
             <div className="p-6">
-              <EmptyState title="No bills yet" description="Record your first bill to start tracking what you owe." />
+              {counts.all === 0 ? (
+                <EmptyState title="No bills yet" description="Record your first bill to start tracking what you owe." />
+              ) : (
+                <EmptyState title="No bills here" description="Nothing matches this filter. Pick another tab above, or All to see every bill." />
+              )}
             </div>
           ) : (
             <Table>
@@ -132,7 +176,7 @@ export function BillsPageClient({
               <Tbody>
                 {bills.map((bill) => {
                   const isPaid = bill.Balance === 0;
-                  const isOverdue = !isPaid && bill.DueDate && new Date(bill.DueDate) < new Date();
+                  const isOverdue = !isPaid && bill.DueDate && bill.DueDate < today;
                   return (
                     <Tr key={bill.Id}>
                       <Td className="font-medium text-slate-900">{bill.DocNumber ?? bill.Id}</Td>

@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/ui/PageHeader';
+import { PrintButton } from '@/components/ui/PrintButton';
 import { Card, CardBody } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
@@ -15,6 +16,7 @@ export default async function FluxAnalysisPage() {
       <PageHeader
         title="Flux analysis"
         description="Period-over-period variance, account by account — this month to date against the full prior month, sorted by the largest dollar swing. Purely quantitative: computed fresh from your ledger, not written commentary from an AI or a connection to a third-party close-automation tool like Numeric."
+        actions={<PrintButton />}
       />
       <FluxAnalysisBody />
     </div>

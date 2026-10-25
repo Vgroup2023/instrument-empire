@@ -21,6 +21,9 @@ export async function proxy(request: NextRequest) {
     // Install instructions and the offline page must load before sign-in.
     // Status check for the database; shows only a status word.
     pathname === '/api/health' ||
+    // The staff time clock: staff ID and PIN on their own phone, no office password.
+    pathname === '/clock' ||
+    pathname === '/api/clock' ||
     pathname === '/install' ||
     pathname === '/offline' ||
     pathname.startsWith('/_next') ||

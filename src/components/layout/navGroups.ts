@@ -90,6 +90,9 @@ export const navGroups: NavGroup[] = [
   {
     title: 'People & money',
     items: [
+      { href: '/dashboard/time', label: 'Time & attendance', icon: '⏰', description: 'Hours worked: staff clock in on their phone, you approve timesheets and time off.' },
+      { href: '/dashboard/schedule', label: 'Scheduling', icon: '🗓️', description: 'Plan the week: shifts, open shifts and conflicts.' },
+      { href: '/dashboard/pbj', label: 'Payroll Based Journal', icon: '🏥', description: 'The quarterly CMS staffing report for nursing homes, built from approved hours.' },
       { href: '/dashboard/payroll', label: 'Payroll', icon: '💼', description: 'Employee directory, hire status and base pay.', demoProvider: 'payroll' },
       { href: '/dashboard/capital', label: 'QuickBooks Capital', icon: '🏦', description: 'Your loans and how you compare to peer businesses.', demoProvider: 'capital' },
     ],

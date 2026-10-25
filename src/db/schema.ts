@@ -7,11 +7,13 @@ import {
   integer,
   boolean,
   date,
+  time,
   timestamp,
   jsonb,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // This schema is this app's own ledger — the source of truth when running
 // standalone (no QuickBooks connection required). QuickBooks stays available
@@ -308,7 +310,9 @@ export const transfers = pgTable('transfers', {
 // Payroll — this app's own employee directory (no QuickBooks Payroll product
 // access implied; see src/lib/quickbooks/payroll.ts for that optional path).
 // ---------------------------------------------------------------------------
-export const payrollEmployees = pgTable('payroll_employees', {
+export const payrollEmployees = pgTable(
+  'payroll_employees',
+  {
   id: uuid('id').primaryKey().defaultRandom(),
   displayName: text('display_name').notNull(),
   email: text('email'),
@@ -318,8 +322,18 @@ export const payrollEmployees = pgTable('payroll_employees', {
   status: employmentStatusEnum('status').notNull().default('active'),
   basePayAmount: numeric('base_pay_amount', { precision: 14, scale: 2 }).notNull(),
   basePayPeriod: payPeriodEnum('base_pay_period').notNull(),
+  // Time clock and Payroll Based Journal. staff_code is the ID used at the clock and in the PBJ file: unique, never an SSN.
+  staffCode: text('staff_code'),
+  pbjJobTitleCode: integer('pbj_job_title_code'),
+  pbjPayTypeCode: integer('pbj_pay_type_code'),
+  terminationDate: date('termination_date'),
+  clockPinHash: text('clock_pin_hash'),
+  pinFailures: integer('pin_failures').notNull().default(0),
+  pinLockedUntil: timestamp('pin_locked_until', { withTimezone: true }),
   ...timestamps,
-});
+  },
+  (t) => [uniqueIndex('ux_payroll_employees_staff_code').on(t.staffCode)],
+);
 
 // ---------------------------------------------------------------------------
 // Payment links — this app's own record of a link offered to a customer.
@@ -893,3 +907,88 @@ export const files = pgTable(
   },
   (t) => [index('ix_files_created_at').on(t.createdAt), index('ix_files_status').on(t.status)],
 );
+
+// ---------------------------------------------------------------------------
+// Time & attendance and scheduling. A time entry is one stretch of work (clock in, clock out, minutes of meal
+// break). work_date is the facility's calendar date for the shift start, so an overnight shift stays on one day.
+// Shifts are the plan; time entries are what happened. The Payroll Based Journal report is built from approved
+// time entries only, never from the schedule.
+// ---------------------------------------------------------------------------
+export const timeEntries = pgTable(
+  'time_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => payrollEmployees.id),
+    workDate: date('work_date').notNull(),
+    clockIn: timestamp('clock_in', { withTimezone: true }).notNull(),
+    /** Null while the person is still clocked in. */
+    clockOut: timestamp('clock_out', { withTimezone: true }),
+    mealMinutes: integer('meal_minutes').notNull().default(0),
+    /** PBJ job title code worked this shift, when it differs from the person's usual one. */
+    jobTitleCode: integer('job_title_code'),
+    /** 'clock' (staff clocked in themselves) or 'manual' (entered or corrected by a manager). */
+    source: text('source').notNull().default('manual'),
+    approved: boolean('approved').notNull().default(false),
+    note: text('note'),
+    ...timestamps,
+  },
+  (t) => [
+    index('ix_time_entries_employee_date').on(t.employeeId, t.workDate),
+    index('ix_time_entries_work_date').on(t.workDate),
+    // A person can only be clocked in once: two taps at the same moment cannot open two shifts.
+    uniqueIndex('ux_time_entries_one_open').on(t.employeeId).where(sql`${t.clockOut} is null`),
+  ],
+);
+
+export const shifts = pgTable(
+  'shifts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Null is an open shift nobody has taken yet. */
+    employeeId: uuid('employee_id').references(() => payrollEmployees.id),
+    shiftDate: date('shift_date').notNull(),
+    startTime: time('start_time').notNull(),
+    /** At or before start_time means the shift ends the next day. */
+    endTime: time('end_time').notNull(),
+    jobTitleCode: integer('job_title_code'),
+    location: text('location'),
+    note: text('note'),
+    ...timestamps,
+  },
+  (t) => [index('ix_shifts_date').on(t.shiftDate), index('ix_shifts_employee_date').on(t.employeeId, t.shiftDate)],
+);
+
+export const timeOffRequests = pgTable(
+  'time_off_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => payrollEmployees.id),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    /** vacation, sick, personal or other. */
+    kind: text('kind').notNull().default('vacation'),
+    /** pending, approved or denied. */
+    status: text('status').notNull().default('pending'),
+    note: text('note'),
+    ...timestamps,
+  },
+  (t) => [index('ix_time_off_dates').on(t.startDate, t.endDate)],
+);
+
+/** One row (id 1): the facility details the Payroll Based Journal file needs, and the meal break rule. */
+export const workforceSettings = pgTable('workforce_settings', {
+  id: integer('id').primaryKey().default(1),
+  /** CMS certification number (CCN), used as facilityId in the PBJ file. */
+  facilityId: text('facility_id'),
+  stateCode: text('state_code'),
+  /** IANA time zone of the facility, used to turn clock times into the facility's calendar day. */
+  timezone: text('timezone').notNull().default('America/New_York'),
+  /** Minutes taken off every shift of at least meal_threshold_hours, or the real meal break if longer. */
+  mealDeductMinutes: integer('meal_deduct_minutes').notNull().default(30),
+  mealThresholdHours: numeric('meal_threshold_hours', { precision: 4, scale: 2 }).notNull().default('6'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

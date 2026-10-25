@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { StatCard } from '@/components/ui/StatCard';
@@ -205,6 +206,7 @@ export function ReconciliationClient({ accounts }: { accounts: GlAccount[] }) {
                       <Th>Statement description</Th>
                       <Th className="text-right">Amount</Th>
                       <Th>Matched to</Th>
+                      <Th>Confidence</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
@@ -215,6 +217,13 @@ export function ReconciliationClient({ accounts }: { accounts: GlAccount[] }) {
                         <Td className="text-right">{formatCurrency(pair.statement.amount)}</Td>
                         <Td className="text-slate-500">
                           {pair.ledger.description} ({formatDate(pair.ledger.date)})
+                        </Td>
+                        <Td>
+                          {/* Same amount every time; the signal is how far apart the dates are. */}
+                          <Badge tone={pair.dateDifferenceDays === 0 ? 'success' : pair.dateDifferenceDays <= 2 ? 'warning' : 'danger'}>
+                            {pair.dateDifferenceDays === 0 ? 'Exact' : pair.dateDifferenceDays <= 2 ? 'Close' : 'Check'}
+                          </Badge>
+                          {pair.dateDifferenceDays > 0 ? <span className="ml-1.5 text-xs text-slate-500">{pair.dateDifferenceDays}d apart</span> : null}
                         </Td>
                       </Tr>
                     ))}

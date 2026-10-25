@@ -13,7 +13,7 @@ import { readFileBase64 } from '@/components/rfqs/api';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { GlAccount } from '@/lib/accounting/chartOfAccounts';
 import type { BankTxn, BookkeepingRule, Overview } from '@/lib/bookkeeping/service';
-import type { ExpenseAccountOption } from '@/lib/bookkeeping/categorize';
+import { findRuleIssues, type ExpenseAccountOption } from '@/lib/bookkeeping/categorize';
 
 interface Payload {
   overview: Overview;
@@ -98,6 +98,7 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
   if (!data) return <p className="text-sm text-slate-500">Loading…</p>;
 
   const { overview: o, rules, options } = data;
+  const ruleIssues = findRuleIssues(rules);
   const optionId = (t: BankTxn) => choice[t.id] ?? t.suggestedAccountId ?? '';
 
   return (
@@ -292,8 +293,8 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
                       </Td>
                       <Td className="min-w-[14rem] max-w-xs !whitespace-normal text-xs text-slate-500">
                         {t.confidence !== null && t.source ? (
-                          <Badge tone={t.confidence >= 90 ? 'success' : 'warning'}>
-                            {SOURCE[t.source] ?? t.source} · {t.confidence}%
+                          <Badge tone={t.confidence >= 90 ? 'success' : t.confidence >= 70 ? 'warning' : 'danger'}>
+                            {t.confidence >= 90 ? 'High' : t.confidence >= 70 ? 'Likely' : 'Low'} · {SOURCE[t.source] ?? t.source} · {t.confidence}%
                           </Badge>
                         ) : null}
                         <p className="mt-1">{t.reason}</p>
@@ -329,6 +330,11 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
           </div>
         </CardHeader>
         <CardBody className="space-y-4">
+          {ruleIssues.size > 0 ? (
+            <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {ruleIssues.size} {ruleIssues.size === 1 ? 'rule needs' : 'rules need'} a look. Rules that repeat or disagree are marked below, so a line is never booked by whichever happened to match first.
+            </div>
+          ) : null}
           {rules.length === 0 ? (
             <p className="text-sm text-slate-500">No rules yet. Tick &quot;Remember for this merchant&quot; when you approve a line, or add one below.</p>
           ) : (
@@ -345,7 +351,14 @@ export function BookkeepingClient({ accounts }: { accounts: GlAccount[] }) {
               <Tbody>
                 {rules.map((r) => (
                   <Tr key={r.id}>
-                    <Td className="font-medium">{r.pattern}</Td>
+                    <Td className="font-medium">
+                      {r.pattern}
+                      {(ruleIssues.get(r.id) ?? []).map((issue, i) => (
+                        <p key={i} className={`mt-0.5 text-xs font-normal ${issue.kind === 'overlap' ? 'text-slate-500' : 'text-amber-700'}`}>
+                          {issue.message}
+                        </p>
+                      ))}
+                    </Td>
                     <Td>{r.accountName}</Td>
                     <Td>{r.hits}</Td>
                     <Td>

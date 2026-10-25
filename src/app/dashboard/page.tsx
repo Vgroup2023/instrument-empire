@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/ui/PageHeader';
+import { PrintButton } from '@/components/ui/PrintButton';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -21,6 +22,7 @@ export default function DashboardHomePage() {
       <PageHeader
         title="Master dashboard"
         description="Every tab in one place, with what needs attention today. Financial insights are below."
+        actions={<PrintButton />}
       />
 
       {/* The tab grid needs no database, so it shows straight away; counts and reports stream in after. */}

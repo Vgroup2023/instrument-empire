@@ -2,7 +2,7 @@ import { PAGE_SIZE } from '@/lib/paging';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
-import { listBillsPage } from '@/lib/accounting/bills';
+import { listBillsByStatus, billCounts } from '@/lib/accounting/bills';
 import { listVendorOptions } from '@/lib/accounting/vendors';
 import { listExpenseAccounts, listBankAccounts } from '@/lib/accounting/chartOfAccounts';
 import { BillsPageClient } from '@/components/bills/BillsPageClient';
@@ -34,6 +34,7 @@ export default async function BillsPage() {
     <BillsPageClient
       initialBills={data.bills.items}
       initialTotal={data.bills.total}
+      initialCounts={data.counts}
       vendors={data.vendors}
       expenseAccounts={data.expenseAccounts}
       bankAccounts={data.bankAccounts}
@@ -43,11 +44,13 @@ export default async function BillsPage() {
 }
 
 async function loadBillsData() {
-  const [bills, vendors, expenseAccounts, bankAccounts] = await Promise.all([
-    listBillsPage(PAGE_SIZE, 0),
+  const [bills, counts, vendors, expenseAccounts, bankAccounts] = await Promise.all([
+    // Opens on what still needs paying; "All" is one click away.
+    listBillsByStatus('unpaid', PAGE_SIZE, 0),
+    billCounts(),
     listVendorOptions(),
     listExpenseAccounts(),
     listBankAccounts(),
   ]);
-  return { bills, vendors, expenseAccounts, bankAccounts };
+  return { bills, counts, vendors, expenseAccounts, bankAccounts };
 }

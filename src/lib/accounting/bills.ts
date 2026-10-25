@@ -129,6 +129,70 @@ export async function listBillsPage(limit: number, offset: number): Promise<Page
   return { items: await attachDetails(rows), total: n };
 }
 
+export const BILL_STATUSES = ['unpaid', 'overdue', 'due_week', 'awaiting', 'scheduled', 'paid', 'all'] as const;
+export type BillStatus = (typeof BILL_STATUSES)[number];
+export type BillCounts = Record<BillStatus, number>;
+
+export function parseBillStatus(raw: string | null | undefined): BillStatus {
+  return (BILL_STATUSES as readonly string[]).includes(raw ?? '') ? (raw as BillStatus) : 'all';
+}
+
+// A bill's balance is its lines minus its payments, worked out in the database so a filter
+// can count and page through bills without loading them.
+const BILLS_WITH_BALANCE = sql`
+  select b.id, b.txn_date, b.created_at, b.due_date, b.approved, b.scheduled_payment_date,
+         coalesce(l.t, 0) - coalesce(p.t, 0) as bal
+  from bills b
+  left join (select bill_id, sum(amount) t from bill_lines group by bill_id) l on l.bill_id = b.id
+  left join (select bill_id, sum(amount) t from bill_payments group by bill_id) p on p.bill_id = b.id`;
+
+const STATUS_CONDITION: Record<BillStatus, ReturnType<typeof sql>> = {
+  all: sql`true`,
+  unpaid: sql`bal > 0.005`,
+  overdue: sql`bal > 0.005 and due_date < current_date`,
+  due_week: sql`bal > 0.005 and due_date >= current_date and due_date <= current_date + 7`,
+  awaiting: sql`bal > 0.005 and not approved`,
+  scheduled: sql`bal > 0.005 and approved and scheduled_payment_date is not null`,
+  paid: sql`bal <= 0.005`,
+};
+
+/** Bills matching a status, newest first. One query finds the page and the total; a second reads just those bills. */
+export async function listBillsByStatus(status: BillStatus, limit: number, offset: number): Promise<Page<Bill>> {
+  if (status === 'all') return listBillsPage(limit, offset);
+  const db = getDb();
+  const found = await db.execute<{ id: string; total: number }>(sql`
+    select id, count(*) over ()::int as total
+    from (${BILLS_WITH_BALANCE}) x
+    where ${STATUS_CONDITION[status]}
+    order by txn_date desc, created_at desc
+    limit ${limit} offset ${offset}`);
+  if (found.length === 0) {
+    // A page past the end still needs the total.
+    if (offset === 0) return { items: [], total: 0 };
+    const [{ n }] = await db.execute<{ n: number }>(sql`select count(*)::int as n from (${BILLS_WITH_BALANCE}) x where ${STATUS_CONDITION[status]}`);
+    return { items: [], total: n };
+  }
+  const ids = found.map((r) => r.id);
+  const rows = await db.select().from(bills).where(inArray(bills.id, ids));
+  const order = new Map(ids.map((id, i) => [id, i]));
+  rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return { items: await attachDetails(rows), total: found[0].total };
+}
+
+/** How many bills sit in each status, for the filter tabs. */
+export async function billCounts(): Promise<BillCounts> {
+  const [r] = await getDb().execute<Record<string, number>>(sql`
+    select count(*)::int as "all",
+      (count(*) filter (where ${STATUS_CONDITION.unpaid}))::int as unpaid,
+      (count(*) filter (where ${STATUS_CONDITION.overdue}))::int as overdue,
+      (count(*) filter (where ${STATUS_CONDITION.due_week}))::int as due_week,
+      (count(*) filter (where ${STATUS_CONDITION.awaiting}))::int as awaiting,
+      (count(*) filter (where ${STATUS_CONDITION.scheduled}))::int as scheduled,
+      (count(*) filter (where ${STATUS_CONDITION.paid}))::int as paid
+    from (${BILLS_WITH_BALANCE}) x`);
+  return r as unknown as BillCounts;
+}
+
 export async function getBill(id: string, ex: Executor = getDb()): Promise<Bill> {
   uuid(id, 'Bill');
   const [row] = await ex.select().from(bills).where(eq(bills.id, id));

@@ -21,6 +21,7 @@ export const GO_SHORTCUTS: { key: string; href: string; label: string }[] = [
   { key: '1', href: '/dashboard/time', label: 'Time & attendance' },
   { key: '2', href: '/dashboard/schedule', label: 'Scheduling' },
   { key: '3', href: '/dashboard/pbj', label: 'Payroll Based Journal' },
+  { key: '4', href: '/dashboard/pay-runs', label: 'Pay runs' },
   { key: 'o', href: '/dashboard/orders', label: 'Order desk' },
   { key: 'w', href: '/dashboard/operations', label: 'Operations board' },
   { key: 's', href: '/dashboard/shipments', label: 'Shipments' },

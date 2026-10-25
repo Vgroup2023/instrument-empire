@@ -120,6 +120,13 @@
       "when": 1792936341160,
       "tag": "0016_workforce_time_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792944447964,
+      "tag": "0017_payroll_runs",
+      "breakpoints": true
     }
   ]
 }

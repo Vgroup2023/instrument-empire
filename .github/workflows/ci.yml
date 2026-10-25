@@ -31,6 +31,9 @@ jobs:
       - name: Counsel (AI lawyer) rule tests
         run: npm run qa:counsel
 
+      - name: Time, scheduling and Payroll Based Journal tests
+        run: npm run qa:workforce
+
       - name: Build
         run: npm run build
         env:

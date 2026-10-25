@@ -992,3 +992,104 @@ export const workforceSettings = pgTable('workforce_settings', {
   mealThresholdHours: numeric('meal_threshold_hours', { precision: 4, scale: 2 }).notNull().default('6'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Payroll runs. A run pays a set of employees for a pay period. Items hold every figure on the pay stub, stored as
+// calculated when the run was finalized, so a stub never changes after the fact. A finalized run posts one journal
+// entry (wages and employer taxes in; net pay, tax liabilities and deductions out).
+// ---------------------------------------------------------------------------
+export const payrollProfiles = pgTable('payroll_profiles', {
+  employeeId: uuid('employee_id')
+    .primaryKey()
+    .references(() => payrollEmployees.id),
+  /** single, married (filing jointly) or head (of household), from Form W-4 Step 1(c). */
+  filingStatus: text('filing_status').notNull().default('single'),
+  step2Checked: boolean('step2_checked').notNull().default(false),
+  /** Form W-4 Step 3 (yearly), 4(a) and 4(b) (yearly), 4(c) (each pay period). */
+  credits: numeric('credits', { precision: 14, scale: 2 }).notNull().default('0'),
+  otherIncome: numeric('other_income', { precision: 14, scale: 2 }).notNull().default('0'),
+  deductions: numeric('deductions', { precision: 14, scale: 2 }).notNull().default('0'),
+  extraWithholding: numeric('extra_withholding', { precision: 14, scale: 2 }).notNull().default('0'),
+  exempt: boolean('exempt').notNull().default(false),
+  stateCode: text('state_code'),
+  /** What the state form says to hold back: a percent of wages and/or a fixed amount each pay period. */
+  statePercent: numeric('state_percent', { precision: 6, scale: 3 }).notNull().default('0'),
+  stateFixed: numeric('state_fixed', { precision: 14, scale: 2 }).notNull().default('0'),
+  /** Per pay period. */
+  pretaxBenefits: numeric('pretax_benefits', { precision: 14, scale: 2 }).notNull().default('0'),
+  pretaxRetirement: numeric('pretax_retirement', { precision: 14, scale: 2 }).notNull().default('0'),
+  afterTax: numeric('after_tax', { precision: 14, scale: 2 }).notNull().default('0'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One row (id 1): which accounts payroll posts to, and the employer's state unemployment rate. */
+export const payrollSettings = pgTable('payroll_settings', {
+  id: integer('id').primaryKey().default(1),
+  frequency: text('frequency').notNull().default('biweekly'),
+  wagesAccountId: uuid('wages_account_id').references(() => accounts.id),
+  employerTaxAccountId: uuid('employer_tax_account_id').references(() => accounts.id),
+  taxPayableAccountId: uuid('tax_payable_account_id').references(() => accounts.id),
+  deductionsPayableAccountId: uuid('deductions_payable_account_id').references(() => accounts.id),
+  payFromAccountId: uuid('pay_from_account_id').references(() => accounts.id),
+  /** State unemployment: the employer's rate in percent and the state's wage base per employee per year. */
+  sutaRate: numeric('suta_rate', { precision: 6, scale: 3 }).notNull().default('0'),
+  sutaWageBase: numeric('suta_wage_base', { precision: 14, scale: 2 }).notNull().default('0'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const payRuns = pgTable(
+  'pay_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    periodStart: date('period_start').notNull(),
+    periodEnd: date('period_end').notNull(),
+    payDate: date('pay_date').notNull(),
+    frequency: text('frequency').notNull(),
+    /** draft, final or void. */
+    status: text('status').notNull().default('draft'),
+    journalEntryId: uuid('journal_entry_id').references(() => journalEntries.id),
+    reversalEntryId: uuid('reversal_entry_id').references(() => journalEntries.id),
+    note: text('note'),
+    finalizedAt: timestamp('finalized_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('ix_pay_runs_pay_date').on(t.payDate)],
+);
+
+export const payRunItems = pgTable(
+  'pay_run_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => payRuns.id, { onDelete: 'cascade' }),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => payrollEmployees.id),
+    kind: text('kind').notNull(),
+    rate: numeric('rate', { precision: 14, scale: 2 }).notNull(),
+    regularHours: numeric('regular_hours', { precision: 8, scale: 2 }).notNull().default('0'),
+    overtimeHours: numeric('overtime_hours', { precision: 8, scale: 2 }).notNull().default('0'),
+    regularPay: numeric('regular_pay', { precision: 14, scale: 2 }).notNull().default('0'),
+    overtimePay: numeric('overtime_pay', { precision: 14, scale: 2 }).notNull().default('0'),
+    extraPay: numeric('extra_pay', { precision: 14, scale: 2 }).notNull().default('0'),
+    gross: numeric('gross', { precision: 14, scale: 2 }).notNull().default('0'),
+    pretaxBenefits: numeric('pretax_benefits', { precision: 14, scale: 2 }).notNull().default('0'),
+    pretaxRetirement: numeric('pretax_retirement', { precision: 14, scale: 2 }).notNull().default('0'),
+    afterTax: numeric('after_tax', { precision: 14, scale: 2 }).notNull().default('0'),
+    federal: numeric('federal', { precision: 14, scale: 2 }).notNull().default('0'),
+    socialSecurity: numeric('social_security', { precision: 14, scale: 2 }).notNull().default('0'),
+    medicare: numeric('medicare', { precision: 14, scale: 2 }).notNull().default('0'),
+    additionalMedicare: numeric('additional_medicare', { precision: 14, scale: 2 }).notNull().default('0'),
+    state: numeric('state', { precision: 14, scale: 2 }).notNull().default('0'),
+    net: numeric('net', { precision: 14, scale: 2 }).notNull().default('0'),
+    employerSocialSecurity: numeric('employer_social_security', { precision: 14, scale: 2 }).notNull().default('0'),
+    employerMedicare: numeric('employer_medicare', { precision: 14, scale: 2 }).notNull().default('0'),
+    futa: numeric('futa', { precision: 14, scale: 2 }).notNull().default('0'),
+    suta: numeric('suta', { precision: 14, scale: 2 }).notNull().default('0'),
+    /** Wages that count for Social Security, Medicare, FUTA and state unemployment (after Section 125 benefits). */
+    ficaWages: numeric('fica_wages', { precision: 14, scale: 2 }).notNull().default('0'),
+    note: text('note'),
+  },
+  (t) => [uniqueIndex('ux_pay_run_items_run_employee').on(t.runId, t.employeeId), index('ix_pay_run_items_employee').on(t.employeeId)],
+);

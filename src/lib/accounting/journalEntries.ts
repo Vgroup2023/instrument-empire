@@ -9,6 +9,7 @@ import {
 } from '@/lib/quickbooks/journalEntryTypes';
 import { recordAuditLog } from '@/lib/accounting/auditLog';
 import {
+  ConflictError,
   MAX_MONEY,
   NotFoundError,
   ValidationError,
@@ -23,6 +24,7 @@ import {
   uuid,
 } from '@/lib/validation';
 import { requireAccounts, type Executor } from '@/lib/accounting/entryRules';
+import { isPayrollEntry } from '@/lib/payroll/service';
 
 // This is the standalone, database-backed Journal Entries ledger — the app's
 // own source of truth, not QuickBooks. See src/lib/quickbooks/journalEntries.ts
@@ -206,6 +208,7 @@ export async function updateJournalEntry(input: UpdateJournalEntryInput): Promis
     // Lock the entry so two simultaneous edits can't interleave their line replacement.
     const locked = await tx.select({ id: journalEntries.id }).from(journalEntries).where(eq(journalEntries.id, id)).for('update');
     if (locked.length === 0) throw new NotFoundError('Journal entry not found.');
+    if (await isPayrollEntry(tx, id)) throw new ConflictError('This entry was posted by a payroll run. To change it, void the run on the Pay runs tab.');
     const before = await getJournalEntry(id, tx);
     if (lines) await requireAccounts(tx, lines.map((l) => l.accountId), 'An account on this journal entry');
 
@@ -230,6 +233,7 @@ export async function deleteJournalEntry(id: string): Promise<void> {
   await db.transaction(async (tx) => {
     const locked = await tx.select({ id: journalEntries.id }).from(journalEntries).where(eq(journalEntries.id, id)).for('update');
     if (locked.length === 0) throw new NotFoundError('Journal entry not found.');
+    if (await isPayrollEntry(tx, id)) throw new ConflictError('This entry was posted by a payroll run. To change it, void the run on the Pay runs tab.');
     const before = await getJournalEntry(id, tx);
     // journal_lines cascade-deletes via its ON DELETE CASCADE foreign key.
     await tx.delete(journalEntries).where(eq(journalEntries.id, id));

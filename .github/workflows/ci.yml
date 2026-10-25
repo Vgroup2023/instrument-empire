@@ -34,6 +34,9 @@ jobs:
       - name: Time, scheduling and Payroll Based Journal tests
         run: npm run qa:workforce
 
+      - name: US payroll tax tests
+        run: npm run qa:payroll
+
       - name: Build
         run: npm run build
         env:

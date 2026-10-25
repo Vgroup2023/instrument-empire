@@ -69,14 +69,45 @@ interface Posting {
   amount: number;
 }
 
+// Cached for the life of the server process: the account never gets deleted
+// (accounts only deactivate), so once found/created the id is stable.
+let uncategorizedIncomeAccountId: string | null = null;
+
+/**
+ * A custom invoice line (no catalog product, or a product with no income
+ * account set) has nowhere specific to post revenue. Falls back to a single
+ * "Uncategorized Income" account, auto-created on first use — the same
+ * escape hatch QuickBooks itself posts unclassified income to.
+ */
+async function getUncategorizedIncomeAccountId(): Promise<string> {
+  if (uncategorizedIncomeAccountId) return uncategorizedIncomeAccountId;
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.accountType, 'Income'), eq(accounts.name, 'Uncategorized Income')));
+  if (existing) {
+    uncategorizedIncomeAccountId = existing.id;
+    return existing.id;
+  }
+  const [created] = await db
+    .insert(accounts)
+    .values({ name: 'Uncategorized Income', accountType: 'Income', accountSubType: 'OtherPrimaryIncome' })
+    .returning({ id: accounts.id });
+  uncategorizedIncomeAccountId = created.id;
+  return created.id;
+}
+
 /**
  * Folds every transaction type into GL postings: journal entries directly,
- * plus Invoices (credit to the product's income account), Bills (debit to
- * the line's account), Expenses (debit to the line's account, credit to the
- * payment account), invoice/bill Payments (debit/credit the bank account),
- * and Transfers (credit the source, debit the destination). Accounts
- * Receivable/Payable are deliberately not posted here — see reports.ts,
- * which computes those directly from invoice/bill balances instead.
+ * plus Invoices (credit to the product's income account, or to the
+ * "Uncategorized Income" fallback for a custom line / a product with no
+ * income account), Bills (debit to the line's account), Expenses (debit to
+ * the line's account, credit to the payment account), invoice/bill Payments
+ * (debit/credit the bank account), and Transfers (credit the source, debit
+ * the destination). Accounts Receivable/Payable are deliberately not posted
+ * here — see reports.ts, which computes those directly from invoice/bill
+ * balances instead.
  *
  * The database adds the postings up per account and Debit/Credit, so only
  * a couple of rows per account come back however many transactions exist
@@ -90,6 +121,7 @@ async function collectPostings(range?: DateRange): Promise<Posting[]> {
   const db = getDb();
   const start = range?.startDate ?? null;
   const end = range?.endDate ?? null;
+  const fallbackIncomeAccountId = await getUncategorizedIncomeAccountId();
 
   // One round trip instead of seven: each branch below already projects
   // (account_id, posting_type, amount) directly, matching Posting exactly,
@@ -108,12 +140,11 @@ async function collectPostings(range?: DateRange): Promise<Posting[]> {
 
       UNION ALL
 
-      SELECT p.income_account_id AS account_id, 'Credit'::posting_type AS posting_type, il.amount AS amount
+      SELECT COALESCE(p.income_account_id, ${fallbackIncomeAccountId}::uuid) AS account_id, 'Credit'::posting_type AS posting_type, il.amount AS amount
       FROM invoice_lines il
       JOIN invoices i ON il.invoice_id = i.id
       LEFT JOIN products p ON il.product_id = p.id
-      WHERE p.income_account_id IS NOT NULL
-        AND (${start}::date IS NULL OR i.txn_date >= ${start}::date)
+      WHERE (${start}::date IS NULL OR i.txn_date >= ${start}::date)
         AND (${end}::date IS NULL OR i.txn_date <= ${end}::date)
 
       UNION ALL
@@ -197,6 +228,11 @@ function balancesFromPostings(accountRows: AccountTypeRow[], postings: Posting[]
 /** Sums every posting per account (all-time, or within `range` if given), signed so each balance reads naturally for its classification. */
 export async function getAccountBalances(range?: DateRange): Promise<Map<string, number>> {
   const db = getDb();
+  // Resolved first, not inside the Promise.all below: collectPostings() can
+  // lazily create the "Uncategorized Income" account on its first-ever use,
+  // which would otherwise race the sibling accounts-table query here and,
+  // if that query won, leave the brand-new account out of accountRows.
+  await getUncategorizedIncomeAccountId();
   const [accountRows, postings] = await Promise.all([
     db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
     collectPostings(range),
@@ -212,6 +248,8 @@ export async function getAccountBalances(range?: DateRange): Promise<Map<string,
  */
 export async function sumBalancesByAccountType(range?: DateRange): Promise<Map<string, number>> {
   const db = getDb();
+  // See getAccountBalances() above for why this must resolve first.
+  await getUncategorizedIncomeAccountId();
   const [accountRows, postings] = await Promise.all([
     db.select({ id: accounts.id, accountType: accounts.accountType }).from(accounts),
     collectPostings(range),
@@ -230,6 +268,9 @@ export async function sumBalancesByAccountType(range?: DateRange): Promise<Map<s
 /** Lists every account — active and inactive — same as QuickBooks' own Chart of Accounts view. */
 export async function listAccounts(): Promise<Account[]> {
   const db = getDb();
+  // See getAccountBalances() above: this call's own account list races
+  // getAccountBalances()'s internal account-creation the same way.
+  await getUncategorizedIncomeAccountId();
   const [rows, balances] = await Promise.all([
     db.select().from(accounts).orderBy(accounts.accountType, accounts.name),
     getAccountBalances(),

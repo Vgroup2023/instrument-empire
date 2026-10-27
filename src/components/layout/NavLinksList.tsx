@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { navGroups, type NavGroup } from './navGroups';
+import { ICON_BY_HREF, NavIcon } from './NavIcon';
 
 // Each section header is a button with an arrow that opens and closes the pages under it. Which
 // sections are closed is remembered in this browser, so the menu comes back the way it was left.
@@ -146,12 +147,12 @@ function Section({ group, pathname, open, onToggle, onWarm }: { group: NavGroup;
                   onTouchStart={() => onWarm(item.href)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition',
-                    active ? 'bg-white/15 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-slate-50',
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition',
+                    active ? 'bg-[#2f5d9e] text-white shadow-sm' : 'text-slate-300 hover:bg-white/10 hover:text-white',
                   )}
                 >
-                  <span aria-hidden>{item.icon}</span>
-                  {item.label}
+                  {ICON_BY_HREF[item.href] ? <NavIcon name={ICON_BY_HREF[item.href]} size={20} className="shrink-0" /> : <span aria-hidden className="w-5 shrink-0 text-center">{item.icon}</span>}
+                  <span className="min-w-0 truncate">{item.label}</span>
                 </Link>
               );
             })}

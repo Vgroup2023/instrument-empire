@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/ui/PageHeader';
 import { PrintButton } from '@/components/ui/PrintButton';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -13,19 +12,35 @@ import { withTimeout } from '@/lib/withTimeout';
 import { getProfitAndLossAndCashFlow, getBalanceSheet } from '@/lib/accounting/reports';
 import { getBenchmark } from '@/lib/quickbooks/benchmark';
 import { formatCurrency, formatPercent } from '@/lib/format';
+import { NavIcon } from '@/components/layout/NavIcon';
+import { getOverview } from '@/lib/dashboard/overview';
+import { KpiRow, SalesCard, OrdersCard, ActivityCard, InventoryCard, CustomerCard, TeamCard, FinancialCard, OperationalBar } from '@/components/dashboard/overview/OverviewCards';
 
 export const dynamic = 'force-dynamic';
 
 export default function DashboardHomePage() {
   return (
     <div>
-      <PageHeader
-        title="Master dashboard"
-        description="Every tab in one place, with what needs attention today. Financial insights are below."
-        actions={<PrintButton />}
-      />
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[#0f2447]">Dashboard</h1>
+          <p className="mt-0.5 text-sm text-slate-500">Overview of your business operations</p>
+        </div>
+        <div className="flex items-center gap-3 print:hidden">
+          <Suspense fallback={null}>
+            <MonthPill />
+          </Suspense>
+          <PrintButton />
+        </div>
+      </div>
 
-      {/* The tab grid needs no database, so it shows straight away; counts and reports stream in after. */}
+      {/* Everything above the fold loads in one go and streams in; the tab guide and reports below do not wait for it. */}
+      <Suspense fallback={<OverviewSkeleton />}>
+        <OverviewBody />
+      </Suspense>
+
+      <h2 className="mb-1 mt-12 text-lg font-bold text-[#0f2447]">All tabs</h2>
+      <p className="mb-5 text-sm text-slate-500">Every tab in the left menu, with what needs attention today.</p>
       <Suspense
         fallback={
           <div className="mb-10">
@@ -36,10 +51,76 @@ export default function DashboardHomePage() {
         <LiveTabs />
       </Suspense>
 
-      <h2 className="mb-4 text-base font-semibold text-slate-900">Financial insights</h2>
+      <h2 className="mb-4 text-lg font-bold text-[#0f2447]">Financial insights</h2>
       <Suspense fallback={<p className="text-sm text-slate-500">Loading your reports…</p>}>
         <InsightsBody />
       </Suspense>
+    </div>
+  );
+}
+
+async function MonthPill() {
+  const o = await getOverview().catch(() => null);
+  if (!o) return null;
+  const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return (
+    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-card">
+      {fmt(o.monthStart)} – {fmt(o.today)}, {o.today.slice(0, 4)}
+      <NavIcon name="calendar" size={16} className="text-slate-500" />
+    </span>
+  );
+}
+
+async function OverviewBody() {
+  const o = await getOverview();
+  return (
+    <div className="space-y-5">
+      <KpiRow o={o} />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="space-y-5 xl:col-span-9">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-9">
+            <div className="lg:col-span-5"><SalesCard o={o} /></div>
+            <div className="lg:col-span-4"><OrdersCard o={o} /></div>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <InventoryCard o={o} />
+            <CustomerCard o={o} />
+            <TeamCard o={o} />
+          </div>
+        </div>
+        <div className="space-y-5 xl:col-span-3">
+          <ActivityCard o={o} />
+          <Suspense fallback={<FinancialCard revenue={0} expenses={0} net={0} available={false} />}>
+            <FinancialOverview />
+          </Suspense>
+        </div>
+      </div>
+      <OperationalBar o={o} />
+    </div>
+  );
+}
+
+async function FinancialOverview() {
+  let figures: { revenue: number; expenses: number; net: number } | null = null;
+  try {
+    const { profitability } = await withTimeout(getProfitAndLossAndCashFlow('this-month'), 6000, 'The month took too long to load.');
+    figures = { revenue: profitability.totalIncome, expenses: profitability.totalExpenses, net: profitability.netIncome };
+  } catch {
+    figures = null;
+  }
+  return <FinancialCard revenue={figures?.revenue ?? 0} expenses={figures?.expenses ?? 0} net={figures?.net ?? 0} available={figures !== null} />;
+}
+
+function OverviewSkeleton() {
+  const block = (h: string) => <div className={`animate-pulse rounded-2xl border border-slate-200/80 bg-white ${h}`} />;
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Loading the dashboard">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i}>{block('h-[104px]')}</div>)}</div>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="space-y-5 xl:col-span-9">{block('h-[320px]')}{block('h-[200px]')}</div>
+        <div className="space-y-5 xl:col-span-3">{block('h-[320px]')}{block('h-[160px]')}</div>
+      </div>
+      {block('h-[72px]')}
     </div>
   );
 }

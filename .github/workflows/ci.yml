@@ -37,6 +37,9 @@ jobs:
       - name: US payroll tax tests
         run: npm run qa:payroll
 
+      - name: Dashboard calculation tests
+        run: npm run qa:dashboard
+
       - name: Build
         run: npm run build
         env:

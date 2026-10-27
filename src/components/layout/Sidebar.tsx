@@ -3,8 +3,8 @@ import { BRAND } from '@/lib/brand';
 
 export function Sidebar() {
   return (
-    <aside className="hidden print:hidden w-64 shrink-0 flex-col border-r border-white/10 bg-header-gradient lg:flex">
-      <div className="flex flex-col items-center gap-1 border-b border-white/10 px-4 py-4">
+    <aside className="hidden print:hidden w-64 shrink-0 flex-col bg-[#0c2340] lg:flex">
+      <div className="flex flex-col items-center gap-1 border-b border-white/10 px-4 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/globlex-logo-360.v1.webp" width={360} height={240} decoding="async" alt="Globlex AI — The AI Architect Co." className="w-full min-w-0 max-w-[180px]" />
         <span className="text-center text-xs font-semibold uppercase tracking-wide text-slate-100">{BRAND.name}</span>

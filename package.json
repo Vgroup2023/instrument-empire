@@ -22,7 +22,8 @@
     "qa:tax": "tsx scripts/qa/tax.test.ts",
     "qa:files": "tsx scripts/qa/files.test.ts",
     "qa:workforce": "tsx scripts/qa/workforce.test.ts",
-    "qa:payroll": "tsx scripts/qa/payroll.test.ts"
+    "qa:payroll": "tsx scripts/qa/payroll.test.ts",
+    "qa:dashboard": "tsx scripts/qa/dashboard.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

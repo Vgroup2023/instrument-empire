@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ToastProvider>
       {/* A fixed-height app shell: the header and menu stay put and only <main>
           scrolls, so the page doesn't bounce or slide under the browser bar. */}
-      <div className="flex h-dvh overflow-hidden bg-surface-muted print:block print:h-auto print:overflow-visible">
+      <div className="flex h-dvh overflow-hidden bg-[#f3f6fb] print:block print:h-auto print:overflow-visible">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col print:block">
           <TopBar />

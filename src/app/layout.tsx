@@ -44,6 +44,8 @@ const SPECULATION_RULES = JSON.stringify({
         and: [
           { href_matches: '/*' },
           { not: { href_matches: '/api/*' } },
+          // The dashboard home runs a dozen queries; prerendering it on a stray hover would load the database for nothing.
+          { not: { href_matches: '/dashboard' } },
           { not: { href_matches: '/login*' } },
           { not: { href_matches: '/logout*' } },
           { not: { href_matches: '/clock*' } },

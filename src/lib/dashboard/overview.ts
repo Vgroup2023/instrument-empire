@@ -1,4 +1,6 @@
+import { cache } from 'react';
 import { sql } from 'drizzle-orm';
+import { withTimeout } from '@/lib/withTimeout';
 import { getDb } from '@/db/client';
 import { addDays, dateInZone } from '@/lib/workforce/time';
 
@@ -46,11 +48,15 @@ export interface ActivityItem {
   href: string;
 }
 
+/** Per-query limit. Netlify ends a page render at 10 s, so the whole overview has to settle well inside that. */
+const QUERY_BUDGET_MS = 4500;
+
 const n = (v: unknown) => Number(v ?? 0);
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
-    return await fn();
+    // A query stuck behind a slow connection is given up on, so the card shows its empty state instead of the page timing out.
+    return await withTimeout(fn(), QUERY_BUDGET_MS, 'Dashboard query took too long.');
   } catch (err) {
     if (process.env.DASHBOARD_DEBUG) console.error('dashboard overview query failed:', err);
     return null;
@@ -66,7 +72,19 @@ export function pctChange(now: number, before: number): number | null {
   return Math.round(((now - before) / before) * 1000) / 10;
 }
 
-export async function getOverview(): Promise<Overview> {
+/** Never throws: if the database is unreachable the dashboard still renders, with every card in its empty state. */
+export const getOverview = cache(async (): Promise<Overview> => {
+  try {
+    return await loadOverview();
+  } catch (err) {
+    if (process.env.DASHBOARD_DEBUG) console.error('dashboard overview failed:', err);
+    const iso = new Date().toISOString().slice(0, 10);
+    const monthStart = `${iso.slice(0, 7)}-01`;
+    return { today: iso, monthStart, monthLabel: monthLabel(monthStart), sales: null, orders: null, customers: null, tasks: null, inventory: null, team: null, activity: [], operations: null };
+  }
+});
+
+async function loadOverview(): Promise<Overview> {
   const db = getDb();
   // "Today" and "this month" follow the facility's own clock (set in Payroll Based Journal settings), not the server's.
   const tz = (await safe(async () => (await db.execute<{ timezone: string }>(sql`select timezone from workforce_settings where id = 1`))[0]?.timezone)) ?? 'America/New_York';

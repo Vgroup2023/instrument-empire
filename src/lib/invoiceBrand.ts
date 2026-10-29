@@ -1,3 +1,4 @@
+import { INVOICE_LOGO } from '@/lib/invoiceLogo';
 /**
  * Who the invoice is from. Set INVOICE_COMPANY_* on the host to fill in the address block; anything left unset is
  * simply not printed, so a document never shows made-up details.
@@ -11,5 +12,5 @@ export const INVOICE_BRAND = {
   website: process.env.INVOICE_COMPANY_WEBSITE || 'globlexai.com',
   paymentNote: process.env.INVOICE_PAYMENT_NOTE || '',
   terms: process.env.INVOICE_TERMS || '',
-  logo: '/brand/globlex-logo-360.v1.webp',
+  logo: INVOICE_LOGO,
 };

@@ -51,6 +51,33 @@ export interface Invoice {
   LastReminderSentAt?: string;
   MilestoneGroupId?: string;
   MilestoneLabel?: string;
+  /** The customer's PO / SO number. */
+  PoNumber?: string;
+  /** Free text, one line per address line. */
+  BillToAddress?: string;
+  ShipTo?: string;
+  PaymentTerms?: string;
+  /** Notes / terms printed under the lines. */
+  Notes?: string;
+  /** Which printed layout this invoice uses. */
+  Template: InvoiceTemplate;
+}
+
+export type InvoiceTemplate = 'pro-forma' | 'classic';
+
+/** The text fields that appear on the printed invoice, validated the same way on create and update. */
+function parseDocumentFields(raw: Record<string, unknown>) {
+  const template = raw.template === undefined ? undefined : raw.template === 'classic' ? 'classic' : raw.template === 'pro-forma' ? 'pro-forma' : null;
+  if (template === null) throw new ValidationError('Choose Pro forma or Classic for the invoice layout.');
+  const field = (key: string, label: string, max: number) => (raw[key] === undefined ? undefined : (optText(raw[key], label, max) ?? null));
+  return {
+    poNumber: field('poNumber', 'PO / SO number', 60),
+    billToAddress: field('billToAddress', 'Bill-to address', 400),
+    shipTo: field('shipTo', 'Ship-to address', 400),
+    paymentTerms: field('paymentTerms', 'Payment terms', 120),
+    notes: field('notes', 'Notes / terms', 2000),
+    template,
+  };
 }
 
 type InvoiceRow = typeof invoices.$inferSelect;
@@ -117,6 +144,12 @@ async function attachDetails(rows: InvoiceRow[], ex: Executor = getDb()): Promis
       LastReminderSentAt: row.lastReminderSentAt?.toISOString(),
       MilestoneGroupId: row.milestoneGroupId ?? undefined,
       MilestoneLabel: row.milestoneLabel ?? undefined,
+      PoNumber: row.poNumber ?? undefined,
+      BillToAddress: row.billToAddress ?? undefined,
+      ShipTo: row.shipTo ?? undefined,
+      PaymentTerms: row.paymentTerms ?? undefined,
+      Notes: row.notes ?? undefined,
+      Template: row.template === 'classic' ? 'classic' : 'pro-forma',
     };
   });
 }
@@ -185,6 +218,12 @@ export interface CreateInvoiceInput {
   txnDate?: string;
   dueDate?: string;
   lines: LineItemInput[];
+  poNumber?: string;
+  billToAddress?: string;
+  shipTo?: string;
+  paymentTerms?: string;
+  notes?: string;
+  template?: InvoiceTemplate;
 }
 
 /** Total of a set of lines, refused if it would not fit the amount columns. */
@@ -203,6 +242,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice>
   const dueDate = optIsoDate(raw.dueDate, 'Due date');
   dateNotBefore(dueDate, txnDate, 'The due date', 'the invoice date');
   const email = optEmail(raw.email, 'Billing email');
+  const doc = parseDocumentFields(raw);
 
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -211,7 +251,19 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice>
     const docNumber = await nextDocNumber(tx, 'invoice', 'INV');
     const [row] = await tx
       .insert(invoices)
-      .values({ docNumber, customerId, txnDate, dueDate: dueDate ?? null, billEmail: email ?? null })
+      .values({
+        docNumber,
+        customerId,
+        txnDate,
+        dueDate: dueDate ?? null,
+        billEmail: email ?? null,
+        poNumber: doc.poNumber ?? null,
+        billToAddress: doc.billToAddress ?? null,
+        shipTo: doc.shipTo ?? null,
+        paymentTerms: doc.paymentTerms ?? null,
+        notes: doc.notes ?? null,
+        template: doc.template ?? 'pro-forma',
+      })
       .returning();
     await tx.insert(invoiceLines).values(toLineInsertRows(lines).map((line) => ({ ...line, invoiceId: row.id })));
     const [invoice] = await attachDetails([row], tx);
@@ -337,6 +389,12 @@ export interface UpdateInvoiceInput {
   lines?: LineItemInput[];
   customerId?: string;
   customerName?: string;
+  poNumber?: string;
+  billToAddress?: string;
+  shipTo?: string;
+  paymentTerms?: string;
+  notes?: string;
+  template?: InvoiceTemplate;
 }
 
 export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice> {
@@ -347,6 +405,7 @@ export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice>
   const dueDate = raw.dueDate !== undefined ? (optIsoDate(raw.dueDate, 'Due date') ?? null) : undefined;
   const email = raw.email !== undefined ? (optEmail(raw.email, 'Billing email') ?? null) : undefined;
   const customerId = raw.customerId !== undefined ? uuid(raw.customerId, 'Customer') : undefined;
+  const doc = parseDocumentFields(raw);
 
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -371,6 +430,12 @@ export async function updateInvoice(input: UpdateInvoiceInput): Promise<Invoice>
     if (dueDate !== undefined) patch.dueDate = dueDate;
     if (email !== undefined) patch.billEmail = email;
     if (customerId !== undefined) patch.customerId = customerId;
+    if (doc.poNumber !== undefined) patch.poNumber = doc.poNumber;
+    if (doc.billToAddress !== undefined) patch.billToAddress = doc.billToAddress;
+    if (doc.shipTo !== undefined) patch.shipTo = doc.shipTo;
+    if (doc.paymentTerms !== undefined) patch.paymentTerms = doc.paymentTerms;
+    if (doc.notes !== undefined) patch.notes = doc.notes;
+    if (doc.template) patch.template = doc.template;
 
     const [row] = await tx.update(invoices).set(patch).where(eq(invoices.id, id)).returning();
     if (!row) throw new NotFoundError('Invoice not found.');
@@ -417,6 +482,12 @@ export async function duplicateInvoice(id: string): Promise<Invoice> {
         txnDate: todayIso(),
         dueDate: original.dueDate,
         billEmail: original.billEmail,
+        poNumber: original.poNumber,
+        billToAddress: original.billToAddress,
+        shipTo: original.shipTo,
+        paymentTerms: original.paymentTerms,
+        notes: original.notes,
+        template: original.template,
       })
       .returning();
     if (originalLines.length > 0) {

@@ -127,6 +127,13 @@
       "when": 1792944447964,
       "tag": "0017_payroll_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793295925270,
+      "tag": "0018_invoice_document_fields",
+      "breakpoints": true
     }
   ]
 }

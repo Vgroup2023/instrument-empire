@@ -125,6 +125,14 @@ export const invoices = pgTable('invoices', {
   // completion"). Null on an ordinary, one-off invoice.
   milestoneGroupId: uuid('milestone_group_id'),
   milestoneLabel: text('milestone_label'),
+  // What the printed invoice shows besides the lines: the customer's PO/SO number, the bill-to and ship-to blocks,
+  // payment terms, notes/terms, and which layout (pro-forma or classic) it prints in.
+  poNumber: text('po_number'),
+  billToAddress: text('bill_to_address'),
+  shipTo: text('ship_to'),
+  paymentTerms: text('payment_terms'),
+  notes: text('notes'),
+  template: text('template').notNull().default('pro-forma'),
   ...timestamps,
 });
 

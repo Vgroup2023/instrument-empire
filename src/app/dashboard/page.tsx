@@ -2,7 +2,7 @@ import { PrintButton } from '@/components/ui/PrintButton';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { RetryCard, ClearRetryFlag } from '@/components/dashboard/RetryCard';
 import { describeError } from '@/lib/errors';
 import { Suspense } from 'react';
 import Link from 'next/link';
@@ -181,10 +181,9 @@ async function InsightsBody() {
 
   if (error || !profitability || !cashFlow || !balanceSheet) {
     return (
-      <EmptyState
+      <RetryCard
         title="Couldn't load your reports"
         description={error ?? 'Please try again in a moment.'}
-        action={<a href="/dashboard" className="text-sm font-medium text-brand-700 underline">Try again</a>}
       />
     );
   }
@@ -200,6 +199,7 @@ async function InsightsBody() {
 
   return (
     <div className="space-y-8">
+      <ClearRetryFlag />
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Profitability (year to date)</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

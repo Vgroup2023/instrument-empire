@@ -9,6 +9,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import { RowMenu } from '@/components/ui/RowMenu';
 import { ConfirmSendDialog } from '@/components/ui/ConfirmSendDialog';
 import { InvoiceFormDialog } from '@/components/invoices/InvoiceFormDialog';
 import { MilestonePlanDialog } from '@/components/invoices/MilestonePlanDialog';
@@ -117,6 +118,7 @@ export function InvoicesPageClient({
               <EmptyState title="No invoices yet" description="Create your first invoice to get started." />
             </div>
           ) : (
+            <div className="[&_td]:px-3 [&_th]:px-3">
             <Table>
               <Thead>
                 <Tr>
@@ -143,7 +145,7 @@ export function InvoicesPageClient({
                           <p className="mt-0.5 text-xs font-normal text-slate-500">Milestone: {invoice.MilestoneLabel}</p>
                         ) : null}
                       </Td>
-                      <Td>{invoice.CustomerRef.name}</Td>
+                      <Td className="max-w-[160px] truncate" title={invoice.CustomerRef.name}>{invoice.CustomerRef.name}</Td>
                       <Td>{formatDate(invoice.TxnDate)}</Td>
                       <Td>{formatDate(invoice.DueDate)}</Td>
                       <Td className="text-right">{formatCurrency(invoice.TotalAmt, invoice.CurrencyRef?.value)}</Td>
@@ -158,7 +160,7 @@ export function InvoicesPageClient({
                         )}
                         {reminderSuggestion ? (
                           <p
-                            className={`mt-1 text-xs ${
+                            className={`mt-1 max-w-[170px] whitespace-normal text-xs ${
                               reminderSuggestion.recommended
                                 ? `font-medium ${REMINDER_TONE_TEXT[reminderSuggestion.tone]}`
                                 : 'text-slate-500'
@@ -169,48 +171,37 @@ export function InvoicesPageClient({
                         ) : null}
                       </Td>
                       <Td className="text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex items-center justify-end gap-0.5">
                           <a
                             href={`/invoice/${invoice.Id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                            className="inline-flex items-center rounded-lg bg-[#0a3d66] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#08304f]"
                           >
                             PDF
                           </a>
                           <Button size="sm" variant="ghost" onClick={() => setSendTarget(invoice)}>
                             Send
                           </Button>
-                          {!isPaid ? (
-                            <Button size="sm" variant="ghost" onClick={() => setReminderTarget(invoice)}>
-                              Remind
-                            </Button>
-                          ) : null}
                           <Button size="sm" variant="ghost" onClick={() => setPaymentTarget(invoice)}>
-                            {isPaid ? 'Payments' : 'Record payment'}
+                            {isPaid ? 'Payments' : 'Payment'}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingInvoice(invoice);
-                              setFormOpen(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDuplicate(invoice)}>
-                            Duplicate
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setScheduleTarget(invoice)}>
-                            Schedule
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setDocumentsTarget(invoice)}>
-                            Documents
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(invoice)}>
-                            Delete
-                          </Button>
+                          <RowMenu
+                            items={[
+                              ...(!isPaid ? [{ label: 'Send reminder', onClick: () => setReminderTarget(invoice) }] : []),
+                              {
+                                label: 'Edit',
+                                onClick: () => {
+                                  setEditingInvoice(invoice);
+                                  setFormOpen(true);
+                                },
+                              },
+                              { label: 'Duplicate', onClick: () => handleDuplicate(invoice) },
+                              { label: 'Schedule', onClick: () => setScheduleTarget(invoice) },
+                              { label: 'Documents', onClick: () => setDocumentsTarget(invoice) },
+                              { label: 'Delete', onClick: () => setDeleteTarget(invoice), danger: true },
+                            ]}
+                          />
                         </div>
                       </Td>
                     </Tr>
@@ -218,6 +209,7 @@ export function InvoicesPageClient({
                 })}
               </Tbody>
             </Table>
+            </div>
           )}
         <LoadMoreBar shown={invoices.length} total={list.total} loading={list.loadingMore} onLoadMore={list.loadMore} noun="invoices" />
         </CardBody>

@@ -131,7 +131,7 @@ export function InvoiceFormDialog({
     classic && tone === 'navy' ? (
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{text}</p>
     ) : (
-      <p className={`mb-1 px-2 py-1 text-xs font-bold text-white ${classic ? 'bg-[#333]' : 'bg-[#0a3d66]'}`}>{text}</p>
+      <p className={`mb-1 px-2 py-1 text-xs font-bold text-white ${classic ? 'bg-[#333]' : 'bg-royal-gradient'}`}>{text}</p>
     );
 
   return (
@@ -148,7 +148,7 @@ export function InvoiceFormDialog({
                 aria-checked={template === t}
                 onClick={() => setTemplate(t)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                  template === t ? 'border-[#0a3d66] bg-[#0a3d66] text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  template === t ? 'border-[#0a3d66] bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {t === 'pro-forma' ? 'Pro forma' : 'Classic'}

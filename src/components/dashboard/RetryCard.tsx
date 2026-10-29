@@ -34,7 +34,7 @@ export function RetryCard({ title, description }: { title: string; description: 
       <button
         type="button"
         onClick={() => router.refresh()}
-        className="mt-2 rounded-lg bg-[#0a3d66] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08304f]"
+        className="mt-2 rounded-lg bg-royal-gradient px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
       >
         Try again
       </button>

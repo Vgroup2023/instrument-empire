@@ -176,7 +176,7 @@ export function InvoicesPageClient({
                             href={`/invoice/${invoice.Id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center rounded-lg bg-[#0a3d66] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#08304f]"
+                            className="inline-flex items-center rounded-lg bg-royal-gradient px-2.5 py-1.5 text-xs font-semibold text-white hover:brightness-110"
                           >
                             PDF
                           </a>

@@ -6,19 +6,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Electric blue from the Globlex AI mark's "AI" wordmark/circuit lines.
+        // Royal blue (replaces the earlier electric blue) so links, focus rings and accents match the dark royal gradients below.
         brand: {
-          50: '#eaf7ff',
-          100: '#cdedff',
-          200: '#9edcff',
-          300: '#65c6ff',
-          400: '#2fabff',
-          500: '#0d8dff',
-          600: '#0070e6',
-          700: '#0059b8',
-          800: '#064a92',
-          900: '#0b3f78',
-          950: '#08284d',
+          50: '#eef2ff',
+          100: '#dfe6ff',
+          200: '#c3d0ff',
+          300: '#9db1fb',
+          400: '#6e86f0',
+          500: '#3f5fe0',
+          600: '#2548c4',
+          700: '#1a3699',
+          800: '#142a78',
+          900: '#0f2059',
+          950: '#091438',
         },
         // Compass-star gold from the Globlex AI mark.
         gold: {
@@ -59,7 +59,9 @@ const config: Config = {
       },
       backgroundImage: {
         // Dark gradient blue used for the sidebar, top bar, and mobile nav.
-        'header-gradient': 'linear-gradient(180deg, #0a1a35 0%, #1e3a6e 100%)',
+        'header-gradient': 'linear-gradient(180deg, #06133d 0%, #0d2680 55%, #1a3fae 100%)',
+        // Dark royal blue, left to right: buttons, tabs, the footer and other accents across the app.
+        'royal-gradient': 'linear-gradient(135deg, #07164a 0%, #0f2c8f 55%, #1d46bd 100%)',
         // Brushed silver-and-black, sampled from the Globlex AI logo plate: fine
         // vertical grain over a diagonal sheen from black through gunmetal to silver.
         'silver-black':

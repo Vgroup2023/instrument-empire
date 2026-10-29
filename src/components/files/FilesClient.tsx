@@ -237,7 +237,7 @@ export function FilesClient({ initial, mode, storageProblem }: { initial: { item
                   type="button"
                   onClick={() => setGroup(g.value)}
                   aria-pressed={group === g.value}
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${group === g.value ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${group === g.value ? 'bg-royal-gradient text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
                 >
                   {g.label}
                 </button>

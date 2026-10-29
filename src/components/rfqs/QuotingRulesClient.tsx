@@ -139,7 +139,7 @@ export function QuotingRulesClient({ initial, today }: { initial: Rules; today: 
 
       <div className="flex flex-wrap gap-2" role="tablist">
         {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`rounded-lg px-3 py-2 text-sm font-medium ${tab === t.id ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`rounded-lg px-3 py-2 text-sm font-medium ${tab === t.id ? 'bg-royal-gradient text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
             {t.label}
           </button>
         ))}

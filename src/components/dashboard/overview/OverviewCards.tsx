@@ -85,7 +85,7 @@ export function SalesCard({ o }: { o: Overview }) {
   );
 }
 
-const STATUS_COLORS: Record<string, string> = { confirmed: '#22b45a', processing: '#3b82f6', shipped: '#6d3fd6', hold: '#f5a524' };
+const STATUS_COLORS: Record<string, string> = { confirmed: '#22b45a', processing: '#2548c4', shipped: '#6d3fd6', hold: '#f5a524' };
 
 export function OrdersCard({ o }: { o: Overview }) {
   const od = o.orders;
@@ -198,7 +198,7 @@ export function CustomerCard({ o }: { o: Overview }) {
   if (!c) return <section className={cn(card, 'p-5')}><Unavailable what="Customers" /></section>;
   return (
     <MiniCard href="/dashboard/customers" title="Customer activity" icon="users" tint="bg-blue-50 text-blue-600" big={num(c.active90)} sub="Customers billed in the last 90 days">
-      <Row dot="#3b82f6" label="New this month" value={num(c.newThisMonth)} />
+      <Row dot="#2548c4" label="New this month" value={num(c.newThisMonth)} />
       <Row dot="#22b45a" label="Existing and returning" value={num(c.returning)} />
       <Row dot="#94a3b8" label="All customers" value={num(c.total)} />
     </MiniCard>
@@ -212,7 +212,7 @@ export function TeamCard({ o }: { o: Overview }) {
     <MiniCard href="/dashboard/time" title="Team activity" icon="users" tint="bg-violet-50 text-violet-600" big={num(t.active)} sub="Active team members">
       <Row dot="#22b45a" label="Clocked in now" value={num(t.clockedIn)} />
       <Row dot="#f5a524" label="Hours to approve" value={num(t.toApprove)} />
-      <Row dot="#3b82f6" label="Time off requests" value={num(t.timeOffPending)} />
+      <Row dot="#2548c4" label="Time off requests" value={num(t.timeOffPending)} />
     </MiniCard>
   );
 }

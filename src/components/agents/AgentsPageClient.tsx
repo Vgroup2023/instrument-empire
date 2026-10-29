@@ -150,7 +150,7 @@ export function AgentsPageClient({
                 key={d.id}
                 type="button"
                 onClick={() => setDept(d.id)}
-                className={`rounded-full px-3 py-1 text-xs ${dept === d.id ? 'bg-brand-600 text-white' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                className={`rounded-full px-3 py-1 text-xs ${dept === d.id ? 'bg-royal-gradient text-white' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
               >
                 {d.name}
               </button>

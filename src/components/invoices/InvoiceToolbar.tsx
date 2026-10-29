@@ -17,7 +17,7 @@ export function InvoiceToolbar({ id, style, fileName }: { id: string; style: 'pr
     <a
       href={`/invoice/${id}?style=${key}`}
       className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-        style === key ? 'border-[#0a3d66] bg-[#0a3d66] text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+        style === key ? 'border-[#0a3d66] bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
       }`}
     >
       {label}
@@ -35,7 +35,7 @@ export function InvoiceToolbar({ id, style, fileName }: { id: string; style: 'pr
       <button
         type="button"
         onClick={() => window.print()}
-        className="rounded-lg bg-[#0a3d66] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08304f]"
+        className="rounded-lg bg-royal-gradient px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
       >
         Download PDF
       </button>

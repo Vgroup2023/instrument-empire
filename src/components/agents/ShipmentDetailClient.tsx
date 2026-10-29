@@ -207,7 +207,7 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings, r
           {readingEnabled ? (
             <div>
               <Label htmlFor="inv-file">Invoice file</Label>
-              <input id="inv-file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif" disabled={reading} onChange={upload} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-700" />
+              <input id="inv-file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif" disabled={reading} onChange={upload} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-royal-gradient file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-700" />
               {reading ? <p className="mt-2 text-xs text-slate-500">Reading the document. This can take up to a minute.</p> : null}
             </div>
           ) : (

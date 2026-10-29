@@ -41,7 +41,7 @@ export function InstallButton({ className }: { className?: string }) {
     return (
       <button
         type="button"
-        className={className ?? 'rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700'}
+        className={className ?? 'rounded-lg bg-royal-gradient px-4 py-2 text-sm font-medium text-white hover:brightness-110'}
         onClick={async () => {
           await event.prompt();
           const choice = await event.userChoice;

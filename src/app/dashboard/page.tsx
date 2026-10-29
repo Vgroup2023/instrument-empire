@@ -184,6 +184,7 @@ async function InsightsBody() {
       <EmptyState
         title="Couldn't load your reports"
         description={error ?? 'Please try again in a moment.'}
+        action={<a href="/dashboard" className="text-sm font-medium text-brand-700 underline">Try again</a>}
       />
     );
   }

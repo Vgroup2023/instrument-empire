@@ -34,6 +34,27 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// Speculation Rules: Chromium prerenders same-site links when the pointer
+// hovers over them (eagerness "moderate"), so the next page opens instantly.
+// API routes, sign-out and the public clock kiosk are excluded.
+const SPECULATION_RULES = JSON.stringify({
+  prerender: [
+    {
+      where: {
+        and: [
+          { href_matches: '/*' },
+          { not: { href_matches: '/api/*' } },
+          { not: { href_matches: '/login*' } },
+          { not: { href_matches: '/logout*' } },
+          { not: { href_matches: '/clock*' } },
+          { not: { selector_matches: '[rel~=nofollow]' } },
+        ],
+      },
+      eagerness: 'moderate',
+    },
+  ],
+});
+
 export default function RootLayout({
   children,
 }: {
@@ -41,6 +62,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="speculationrules"
+          dangerouslySetInnerHTML={{ __html: SPECULATION_RULES }}
+        />
+      </head>
       <body className="antialiased">
         {children}
         <ServiceWorkerRegister />

@@ -22,6 +22,15 @@ function lines(inv: Invoice) {
   }));
 }
 
+function Addr({ text }: { text?: string }) {
+  return <>{(text ?? '').split('\n').filter((l) => l.trim()).map((l, i) => <div key={i}>{l}</div>)}</>;
+}
+
+/** Notes printed on the invoice: the ones typed on it, else the company's standing terms. */
+function notesOf(inv: Invoice): string {
+  return [inv.Notes?.trim() || B.terms, B.paymentNote].filter(Boolean).join('\n');
+}
+
 function Logo({ size }: { size: number }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={B.logo} alt={B.name} style={{ height: size, width: 'auto' }} />;
@@ -60,6 +69,8 @@ function ProForma({ inv, to }: { inv: Invoice; to: InvoiceParty }) {
               <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>Date:</td><td>{formatDate(inv.TxnDate)}</td></tr>
               <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>Due date:</td><td>{formatDate(inv.DueDate)}</td></tr>
               <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>Invoice #:</td><td>{inv.DocNumber ?? inv.Id}</td></tr>
+              {inv.PoNumber ? <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>PO / SO #:</td><td>{inv.PoNumber}</td></tr> : null}
+              {inv.PaymentTerms ? <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>Terms:</td><td>{inv.PaymentTerms}</td></tr> : null}
               <tr><td style={{ paddingRight: 12, textAlign: 'left' }}>Currency:</td><td>{cur ?? 'USD'}</td></tr>
             </tbody>
           </table>
@@ -71,10 +82,17 @@ function ProForma({ inv, to }: { inv: Invoice; to: InvoiceParty }) {
           <div style={bar}>Bill To:</div>
           <div style={{ padding: '6px 8px', lineHeight: 1.5 }}>
             <strong>{to.name}</strong>
+            <Addr text={inv.BillToAddress} />
             {to.email ? <div>{to.email}</div> : null}
             {to.phone ? <div>{to.phone}</div> : null}
           </div>
         </div>
+        {inv.ShipTo ? (
+          <div style={{ flex: 1 }}>
+            <div style={bar}>Ship To:</div>
+            <div style={{ padding: '6px 8px', lineHeight: 1.5 }}><Addr text={inv.ShipTo} /></div>
+          </div>
+        ) : null}
         <div style={{ flex: 1 }}>
           <div style={bar}>From:</div>
           <div style={{ padding: '6px 8px', lineHeight: 1.5 }}>
@@ -115,10 +133,7 @@ function ProForma({ inv, to }: { inv: Invoice; to: InvoiceParty }) {
       <div style={{ display: 'flex', gap: 24, marginTop: 14 }}>
         <div style={{ flex: 1 }}>
           <div style={bar}>Notes, Terms of Sale</div>
-          <div style={{ padding: '6px 8px', minHeight: 70, whiteSpace: 'pre-line' }}>
-            {B.terms}
-            {B.paymentNote ? `\n${B.paymentNote}` : ''}
-          </div>
+          <div style={{ padding: '6px 8px', minHeight: 70, whiteSpace: 'pre-line' }}>{notesOf(inv)}</div>
         </div>
         <table style={{ width: 230, fontSize: 12, borderCollapse: 'collapse', alignSelf: 'flex-start' }}>
           <tbody>
@@ -159,14 +174,23 @@ function Classic({ inv, to }: { inv: Invoice; to: InvoiceParty }) {
         <div style={{ lineHeight: 1.5 }}>
           <div style={{ color: '#777' }}>BILL TO</div>
           <strong>{to.name}</strong>
+          <Addr text={inv.BillToAddress} />
           {to.phone ? <div>{to.phone}</div> : null}
           {to.email ? <div>{to.email}</div> : null}
+          {inv.ShipTo ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ color: '#777' }}>SHIP TO</div>
+              <Addr text={inv.ShipTo} />
+            </div>
+          ) : null}
         </div>
         <table style={{ fontSize: 12 }}>
           <tbody>
             <tr><td style={{ textAlign: 'right', fontWeight: 700, paddingRight: 10 }}>Invoice Number:</td><td>{inv.DocNumber ?? inv.Id}</td></tr>
+            {inv.PoNumber ? <tr><td style={{ textAlign: 'right', fontWeight: 700, paddingRight: 10 }}>P.O./S.O. Number:</td><td>{inv.PoNumber}</td></tr> : null}
             <tr><td style={{ textAlign: 'right', fontWeight: 700, paddingRight: 10 }}>Invoice Date:</td><td>{formatDate(inv.TxnDate)}</td></tr>
             <tr><td style={{ textAlign: 'right', fontWeight: 700, paddingRight: 10 }}>Payment Due:</td><td>{formatDate(inv.DueDate)}</td></tr>
+            {inv.PaymentTerms ? <tr><td style={{ textAlign: 'right', fontWeight: 700, paddingRight: 10 }}>Terms:</td><td>{inv.PaymentTerms}</td></tr> : null}
             <tr style={{ background: '#f1f3f5' }}>
               <td style={{ textAlign: 'right', fontWeight: 700, padding: '4px 10px 4px 4px' }}>Amount Due ({cur ?? 'USD'}):</td>
               <td style={{ fontWeight: 700, padding: '4px 4px' }}>{formatCurrency(inv.Balance, cur)}</td>
@@ -208,13 +232,12 @@ function Classic({ inv, to }: { inv: Invoice; to: InvoiceParty }) {
         </div>
       </div>
 
-      {B.terms ? (
+      {notesOf(inv) ? (
         <div style={{ marginTop: 30, color: '#555', whiteSpace: 'pre-line' }}>
           <strong>Notes / Terms</strong>
-          <div>{B.terms}</div>
+          <div>{notesOf(inv)}</div>
         </div>
       ) : null}
-      {B.paymentNote ? <div style={{ marginTop: 40, textAlign: 'center', color: '#777' }}>{B.paymentNote}</div> : null}
       <div style={{ marginTop: 40, textAlign: 'center', color: '#999', fontSize: 11 }}>{B.name} · {B.slogan}</div>
     </div>
   );

@@ -17,7 +17,7 @@ export default async function InvoicePrintPage({
 }) {
   const { id } = await params;
   const { style: rawStyle } = await searchParams;
-  const style: InvoiceStyle = rawStyle === 'classic' ? 'classic' : 'pro-forma';
+  const asked: InvoiceStyle | null = rawStyle === 'classic' ? 'classic' : rawStyle === 'pro-forma' ? 'pro-forma' : null;
 
   let invoice: Awaited<ReturnType<typeof getInvoice>> | null = null;
   let party: InvoiceParty | null = null;
@@ -33,6 +33,9 @@ export default async function InvoicePrintPage({
   if (!invoice || !party) {
     return <p className="p-8 text-sm text-slate-600">{describeError(error, "Couldn't load this invoice.")}</p>;
   }
+
+  // The layout chosen on the invoice itself, unless the page was opened with ?style= to preview the other one.
+  const style: InvoiceStyle = asked ?? invoice.Template;
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 print:bg-white print:p-0">

@@ -170,6 +170,14 @@ export function InvoicesPageClient({
                       </Td>
                       <Td className="text-right">
                         <div className="flex justify-end gap-1">
+                          <a
+                            href={`/invoice/${invoice.Id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          >
+                            PDF
+                          </a>
                           <Button size="sm" variant="ghost" onClick={() => setSendTarget(invoice)}>
                             Send
                           </Button>

@@ -79,8 +79,19 @@ let uncategorizedIncomeAccountId: string | null = null;
  * "Uncategorized Income" account, auto-created on first use — the same
  * escape hatch QuickBooks itself posts unclassified income to.
  */
+let uncategorizedIncomeLookup: Promise<string> | null = null;
+
 async function getUncategorizedIncomeAccountId(): Promise<string> {
   if (uncategorizedIncomeAccountId) return uncategorizedIncomeAccountId;
+  // The dashboard asks for this from several reports at once. Sharing one in-flight lookup means a cold server instance
+  // makes one round trip instead of one per report, and can never create the account twice.
+  uncategorizedIncomeLookup ??= lookUpUncategorizedIncomeAccount().finally(() => {
+    uncategorizedIncomeLookup = null;
+  });
+  return uncategorizedIncomeLookup;
+}
+
+async function lookUpUncategorizedIncomeAccount(): Promise<string> {
   const db = getDb();
   const [existing] = await db
     .select({ id: accounts.id })

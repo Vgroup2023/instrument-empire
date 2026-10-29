@@ -16,7 +16,7 @@ function createDb() {
         '(a Postgres connection string from Supabase, Neon, or another provider).',
     );
   }
-  // max: 5 keeps each serverless function instance's connection footprint
+  // max: 8 keeps each serverless function instance's connection footprint
   // small while still letting a handful of queries run concurrently — pages
   // like Insights and Chart of Accounts fire off many independent queries
   // per request (each report recomputes account balances from several
@@ -39,7 +39,7 @@ function createDb() {
   // killed by the host with an "Inactivity Timeout" instead of showing an error.
   // DATABASE_SSL=off is only for a throwaway local database (tests, CI) that has no TLS.
   const ssl = process.env.DATABASE_SSL === 'off' ? false : 'require';
-  const client = postgres(url, { max: 5, prepare: false, ssl, connect_timeout: 3 });
+  const client = postgres(url, { max: 8, prepare: false, ssl, connect_timeout: 3 });
   return drizzle(client, { schema });
 }
 

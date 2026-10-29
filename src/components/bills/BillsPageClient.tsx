@@ -138,7 +138,7 @@ export function BillsPageClient({
                 disabled={switching}
                 onClick={() => pickStatus(t.id)}
                 className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  status === t.id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  status === t.id ? 'border-brand-600 bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {t.label} <span className={status === t.id ? 'text-white/80' : 'text-slate-500'}>{counts[t.id]}</span>

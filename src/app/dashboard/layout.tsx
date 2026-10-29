@@ -2,6 +2,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ScrollReset } from '@/components/layout/ScrollReset';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ScrollReset />
             <div className="mx-auto max-w-6xl">{children}</div>
           </main>
+          <AppFooter />
         </div>
       </div>
       <KeyboardShortcuts />

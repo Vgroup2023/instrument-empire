@@ -85,7 +85,7 @@ export function TaxReturnsClient({ initial, years }: { initial: TaxReturnRow[]; 
                       <span className={`ml-2 text-lg font-semibold ${refund ? 'text-emerald-700' : res.balance > 0 ? 'text-red-700' : 'text-slate-900'}`}>{money(Math.abs(res.balance), r.country)}</span>
                     </p>
                     <div className="flex items-center justify-between">
-                      <Link href={`/dashboard/tax/${r.id}`} className="inline-flex items-center rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                      <Link href={`/dashboard/tax/${r.id}`} className="inline-flex items-center rounded-lg bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white hover:brightness-110">
                         Open
                       </Link>
                       <Button variant="ghost" size="sm" onClick={() => remove(r)}>

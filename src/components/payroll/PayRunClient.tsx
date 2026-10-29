@@ -83,7 +83,7 @@ export function PayRunClient({ initialRun }: { initialRun: RunView }) {
       <div role="tablist" className="mb-4 flex gap-2 print:hidden">
         {(['register', 'stubs'] as const).map((v) => (
           <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${view === v ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{v === 'register' ? 'Payroll register' : 'Pay stubs'}</button>
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${view === v ? 'border-brand-600 bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{v === 'register' ? 'Payroll register' : 'Pay stubs'}</button>
         ))}
       </div>
 

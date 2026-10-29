@@ -25,7 +25,7 @@ export function AlertBells() {
   }, []);
 
   const bell = (href: string, label: string, n: number, icon: string) => (
-    <Link prefetch={false} href={href} aria-label={n ? `${label}: ${n}` : label} className="relative rounded-lg p-2 text-[#0f2447] hover:bg-slate-100">
+    <Link prefetch={false} href={href} aria-label={n ? `${label}: ${n}` : label} className="relative rounded-lg p-2 text-white hover:bg-white/10">
       <NavIcon name={icon} size={22} />
       {n > 0 ? (
         <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">{n > 99 ? '99+' : n}</span>

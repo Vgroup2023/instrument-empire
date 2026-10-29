@@ -108,7 +108,7 @@ export function PbjClient({ settings: initialSettings, initialPreview, today }: 
               </Select>
             </div>
             {preview.ready ? (
-              <a href={file(false)} className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">Download PBJ file (XML)</a>
+              <a href={file(false)} className="inline-flex items-center rounded-lg bg-royal-gradient px-4 py-2 text-sm font-medium text-white hover:brightness-110">Download PBJ file (XML)</a>
             ) : (
               <span className="text-sm text-slate-500">Download unlocks when the list above is clear.</span>
             )}

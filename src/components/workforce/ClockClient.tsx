@@ -81,7 +81,7 @@ export function ClockClient() {
             className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" />
         </div>
         <button type="submit" disabled={busy || !staffCode || pin.length < 4}
-          className="w-full rounded-lg bg-brand-600 px-4 py-3.5 text-lg font-semibold text-white hover:bg-brand-700 disabled:bg-brand-300">
+          className="w-full rounded-lg bg-royal-gradient px-4 py-3.5 text-lg font-semibold text-white hover:brightness-110 disabled:opacity-50">
           {busy ? 'One moment…' : 'Clock in / out'}
         </button>
       </form>

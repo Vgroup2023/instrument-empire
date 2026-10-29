@@ -10,10 +10,10 @@ export function SearchButton() {
       type="button"
       onClick={openCommandPalette}
       aria-label="Search pages (Ctrl or Command K)"
-      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-500 hover:bg-slate-100 md:w-64 md:justify-between md:border md:border-slate-200 md:bg-white md:px-3"
+      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-100 hover:bg-white/10 md:w-64 md:justify-between md:border md:border-white/25 md:bg-white/10 md:px-3"
     >
       <span className="hidden text-[13px] md:inline">Search anything…</span>
-      <NavIcon name="search" size={18} className="text-slate-500" />
+      <NavIcon name="search" size={18} className="text-slate-200" />
     </button>
   );
 }

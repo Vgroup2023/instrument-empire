@@ -132,7 +132,7 @@ export function TimeClient({
       <div role="tablist" className="mb-4 flex flex-wrap gap-2 print:hidden">
         {tabs.map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${tab === id ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${tab === id ? 'border-brand-600 bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
             {label}
           </button>
         ))}

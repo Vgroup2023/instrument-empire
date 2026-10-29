@@ -46,7 +46,7 @@ export function MobileNavDrawer() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open navigation menu"
-        className="rounded-lg p-2 text-[#0f2447] hover:bg-slate-100 lg:hidden"
+        className="rounded-lg p-2 text-white hover:bg-white/10 lg:hidden"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -63,7 +63,7 @@ export function MobileNavDrawer() {
                 role="dialog"
                 aria-modal="true"
                 aria-label="Navigation menu"
-                className="safe-top safe-bottom absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-[#0c2340] shadow-xl"
+                className="safe-top safe-bottom absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-header-gradient shadow-xl"
               >
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

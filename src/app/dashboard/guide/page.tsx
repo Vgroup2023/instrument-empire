@@ -34,7 +34,7 @@ export default async function GuidePage() {
           <a
             href="/api/guide"
             download={GUIDE_FILE}
-            className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-card hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            className="inline-flex items-center justify-center rounded-lg bg-royal-gradient px-4 py-2 text-sm font-medium text-white shadow-card hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             Download (.docx)
           </a>

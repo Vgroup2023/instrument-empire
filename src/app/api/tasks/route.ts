@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/current';
 import { createTask, listTasks } from '@/lib/team/tasks';
+import { emailAssignee } from '@/lib/team/notify';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 
@@ -23,7 +24,9 @@ export async function POST(request: NextRequest) {
   try {
     const me = await getCurrentUser();
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    return NextResponse.json({ task: await createTask(me, await readJson(request)) });
+    const task = await createTask(me, await readJson(request));
+    const emailed = await emailAssignee(task, me.name, process.env.APP_BASE_URL ?? request.nextUrl.origin);
+    return NextResponse.json({ task, emailed });
   } catch (err) {
     return apiErrorResponse(err);
   }

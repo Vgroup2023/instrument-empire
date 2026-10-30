@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import { canAccess, canManageUser, needFor, effectiveDepartments, type Principal } from '../../src/lib/auth/permissions';
 import { hashPassword, hashToken, newToken, passwordProblem, verifyPassword } from '../../src/lib/auth/password';
+import { authorizeUrl, checkClaims, decodeIdToken, newFlow, redirectUriFor, ssoConfig } from '../../src/lib/auth/sso';
+import { createHash } from 'node:crypto';
 import { groupsFor, navGroups } from '../../src/components/layout/navGroups';
 
 const P = (role: Principal['role'], departments: Principal['departments'] = []): Principal => ({ role, departments });
@@ -59,6 +61,31 @@ async function main() {
   assert.equal(tk.hash, hashToken(tk.token));
   assert.notEqual(tk.token, newToken().token);
   assert.ok(tk.token.length >= 32 && !tk.token.includes(tk.hash));
+
+  // ---- single sign-on (pure parts) ----
+  assert.equal(ssoConfig({} as NodeJS.ProcessEnv), null);
+  assert.equal(ssoConfig({ SSO_ISSUER: 'http://evil.example.com', SSO_CLIENT_ID: 'a', SSO_CLIENT_SECRET: 'b' } as unknown as NodeJS.ProcessEnv), null, 'plain http issuer refused');
+  const cfg = ssoConfig({ SSO_ISSUER: 'https://idp.example.com/', SSO_CLIENT_ID: 'cid', SSO_CLIENT_SECRET: 'sec', SSO_NAME: 'Acme SSO' } as unknown as NodeJS.ProcessEnv)!;
+  assert.equal(cfg.issuer, 'https://idp.example.com');
+  assert.equal(cfg.name, 'Acme SSO');
+  const flow = newFlow();
+  assert.equal(flow.challenge, createHash('sha256').update(flow.verifier).digest('base64url'));
+  assert.notEqual(flow.state, newFlow().state);
+  const au = new URL(authorizeUrl(cfg, { authorization_endpoint: 'https://idp.example.com/auth', token_endpoint: 'x', issuer: cfg.issuer }, 'https://app.example.com/cb', flow));
+  assert.equal(au.searchParams.get('code_challenge_method'), 'S256');
+  assert.equal(au.searchParams.get('state'), flow.state);
+  assert.equal(au.searchParams.get('nonce'), flow.nonce);
+  assert.equal(redirectUriFor('https://x.test'), (process.env.APP_BASE_URL ?? 'https://x.test').replace(/\/$/, '') + '/api/auth/sso/callback');
+  const good = { iss: 'https://idp.example.com', aud: 'cid', exp: Math.floor(Date.now() / 1000) + 300, nonce: 'n1', email: 'Pat@Example.com', email_verified: true, name: 'Pat' };
+  assert.deepEqual(checkClaims(good, cfg, 'n1'), { email: 'pat@example.com', name: 'Pat' });
+  const bad = (o: object, nonce = 'n1') => 'error' in checkClaims({ ...good, ...o }, cfg, nonce);
+  assert.ok(bad({ iss: 'https://other.example.com' }) && bad({ aud: 'someone-else' }) && bad({ aud: ['x', 'y'] }));
+  assert.ok(!bad({ aud: ['x', 'cid'] }), 'audience may be a list that includes us');
+  assert.ok(bad({ exp: 1 }) && bad({}, 'other-nonce') && bad({ nonce: undefined }) && bad({ email_verified: false }) && bad({ email_verified: undefined }) && bad({ email: 'nope' }));
+  assert.ok(!bad({ email_verified: 'true' }));
+  assert.ok('error' in checkClaims(null, cfg, 'n1'));
+  assert.equal(decodeIdToken('a.b'), null);
+  assert.equal(decodeIdToken(`h.${Buffer.from(JSON.stringify({ email: 'a@b.co' })).toString('base64url')}.s`)?.email, 'a@b.co');
 
   if (!process.env.DATABASE_URL) {
     console.log('auth: ok (rules and passwords only; set DATABASE_URL to run the database checks too)');
@@ -147,6 +174,17 @@ async function main() {
   await assert.rejects(() => svc.inviteUser({ ...mgrActor, name: mgrActor.name }, { name: 'M', email: 'm@example.com', role: 'member', departments: ['people'] }));
   const ok = await svc.inviteUser({ ...mgrActor, name: mgrActor.name }, { name: 'Sam Sales', email: 'sam@example.com', role: 'member', departments: ['sales'] });
   assert.equal(ok.user.departments[0], 'sales');
+
+  // Single sign-on only signs in people who already have an account.
+  assert.equal(await svc.signInWithSso('stranger@example.com'), null);
+  const inv2 = await svc.inviteUser(ownerActor, { name: 'Ivy Invited', email: 'ivy@example.com', role: 'viewer', departments: ['sales'] });
+  const ivy = await svc.signInWithSso('IVY@example.com');
+  assert.equal(ivy?.status, 'active', 'an invited person is activated by signing in through the provider');
+  assert.equal(await svc.peekToken(inv2.token), null, 'and their invitation link is spent');
+  assert.equal(await svc.authenticate('ivy@example.com', 'anything at all here'), null, 'no password is set by this');
+  await svc.updateUser(ownerActor, ivy!.id, { status: 'disabled' });
+  assert.equal(await svc.signInWithSso('ivy@example.com'), null, 'disabled stays out');
+  assert.equal((await svc.signInWithSso('omar@example.com'))?.id, omar.id);
 
   await db.delete(appUserTokens);
   await db.delete(appUsers);

@@ -236,3 +236,25 @@ export async function changeOwnPassword(userId: string, current: unknown, next: 
   return toUser(updated);
 }
 
+
+/**
+ * Signs in someone the single-sign-on provider has verified. The person must already have an account here: an invited
+ * person is activated on first use (the provider has proved their email), an active one just signs in, a disabled one or
+ * a stranger gets nothing. No account is ever created from outside.
+ */
+export async function signInWithSso(emailRaw: string): Promise<AppUser | null> {
+  const email = emailRaw.trim().toLowerCase();
+  const db = getDb();
+  const [row] = await db.select().from(appUsers).where(sql`lower(${appUsers.email}) = ${email}`);
+  if (!row || row.status === 'disabled') return null;
+  if (row.status === 'invited') {
+    return db.transaction(async (tx) => {
+      const [u] = await tx.update(appUsers).set({ status: 'active', sessionVersion: row.sessionVersion + 1, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(appUsers.id, row.id)).returning();
+      // The invitation link is spent: signing in this way accepted it.
+      await tx.update(appUserTokens).set({ usedAt: new Date() }).where(and(eq(appUserTokens.userId, row.id), isNull(appUserTokens.usedAt)));
+      return toUser(u);
+    });
+  }
+  const [u] = await db.update(appUsers).set({ lastLoginAt: new Date() }).where(eq(appUsers.id, row.id)).returning();
+  return toUser(u);
+}

@@ -113,12 +113,12 @@ export function InboxClient({ initial, readOnly }: { initial: Task[]; readOnly: 
         </CardBody>
       </Card>
 
-      {adding ? <HandOffDialog onClose={() => setAdding(false)} onSaved={async () => { setAdding(false); notify('Handed over.'); await load('sent'); }} /> : null}
+      {adding ? <HandOffDialog onClose={() => setAdding(false)} onSaved={async (emailed) => { setAdding(false); notify(emailed ? 'Handed over. They were also emailed.' : 'Handed over.'); await load('sent'); }} /> : null}
     </div>
   );
 }
 
-function HandOffDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void | Promise<void> }) {
+function HandOffDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (emailed: boolean) => void | Promise<void> }) {
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
   const [dept, setDept] = useState<DepartmentKey | ''>('finance');
@@ -139,8 +139,8 @@ function HandOffDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     setBusy(true);
     setError(null);
     try {
-      await call('/api/tasks', 'POST', { title, detail: detail || undefined, toDepartment: dept || undefined, toUserId: person || undefined, dueDate: due || undefined });
-      await onSaved();
+      const r = await call<{ emailed?: boolean }>('/api/tasks', 'POST', { title, detail: detail || undefined, toDepartment: dept || undefined, toUserId: person || undefined, dueDate: due || undefined });
+      await onSaved(Boolean(r.emailed));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not work.');
       setBusy(false);

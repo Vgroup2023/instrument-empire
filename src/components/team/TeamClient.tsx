@@ -70,7 +70,7 @@ export function TeamClient({ initial, me }: { initial: Person[]; me: Me }) {
 
   return (
     <div className="space-y-6">
-      {me.legacy ? <SetupOwner onDone={() => { router.refresh(); }} /> : null}
+      {me.legacy ? <SetupOwner onDone={async () => { await reload().catch(() => {}); router.refresh(); }} /> : null}
 
       <Card>
         <CardHeader>
@@ -225,7 +225,7 @@ function PersonDialog({ me, person, onClose, onSaved }: {
   );
 }
 
-function SetupOwner({ onDone }: { onDone: () => void }) {
+function SetupOwner({ onDone }: { onDone: () => void | Promise<void> }) {
   const { notify } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -239,7 +239,7 @@ function SetupOwner({ onDone }: { onDone: () => void }) {
     try {
       await call('/api/auth/setup-owner', 'POST', { name, email, password });
       notify('Owner account created. From now on sign in with your email and password.');
-      onDone();
+      await onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not work.');
       setBusy(false);

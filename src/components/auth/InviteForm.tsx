@@ -33,12 +33,12 @@ export function InviteForm({ token }: { token: string }) {
       <div aria-live="polite">{error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}</div>
       <div>
         <label htmlFor="pw1" className="mb-1.5 block text-sm font-medium text-slate-700">New password</label>
-        <input id="pw1" type="password" required minLength={10} autoComplete="new-password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} className={field} />
+        <input id="pw1" type="password" required minLength={10} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus value={pw} onChange={(e) => setPw(e.target.value)} className={field} />
         <p className="mt-1 text-xs text-slate-500">At least 10 characters. A few random words work well.</p>
       </div>
       <div>
         <label htmlFor="pw2" className="mb-1.5 block text-sm font-medium text-slate-700">Type it again</label>
-        <input id="pw2" type="password" required autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className={field} />
+        <input id="pw2" type="password" required autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={again} onChange={(e) => setAgain(e.target.value)} className={field} />
       </div>
       <button type="submit" disabled={busy} className="w-full rounded-lg bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60">
         {busy ? 'Saving…' : 'Save password and sign in'}

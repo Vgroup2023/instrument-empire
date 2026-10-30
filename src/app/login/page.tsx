@@ -90,7 +90,7 @@ export default async function LoginPage({
               </p>
             ) : isAccountError ? (
               <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                That email and password do not match an active account.
+                That email and password do not match an active account. On a phone, tap <b>Show</b> to check the password, and make sure no capital letter or space was added.
               </p>
             ) : hasError ? (
               <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

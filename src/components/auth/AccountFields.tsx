@@ -11,12 +11,12 @@ export function AccountFields({ invalid }: { invalid: boolean }) {
     <div className="space-y-4">
       <div>
         <label htmlFor={`${id}-email`} className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
-        <input id={`${id}-email`} name="email" type="email" required autoFocus autoComplete="username" aria-invalid={invalid} className={field} />
+        <input id={`${id}-email`} name="email" type="email" inputMode="email" required autoFocus autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={invalid} className={field} />
       </div>
       <div>
         <label htmlFor={`${id}-pw`} className="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
         <div className="relative">
-          <input id={`${id}-pw`} name="password" type={shown ? 'text' : 'password'} required autoComplete="current-password" aria-invalid={invalid} className={`${field} pr-16`} />
+          <input id={`${id}-pw`} name="password" type={shown ? 'text' : 'password'} required autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={invalid} className={`${field} pr-16`} />
           <button type="button" onClick={() => setShown((s) => !s)} aria-pressed={shown} className="absolute inset-y-0 right-0 rounded-r-lg px-3 text-xs font-medium text-slate-500 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
             {shown ? 'Hide' : 'Show'}
           </button>

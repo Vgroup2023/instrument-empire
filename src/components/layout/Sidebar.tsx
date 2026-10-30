@@ -1,7 +1,10 @@
 import { NavLinksList } from './NavLinksList';
 import { BRAND } from '@/lib/brand';
+import { groupsFor } from './navGroups';
+import { getCurrentUser } from '@/lib/auth/current';
 
-export function Sidebar() {
+export async function Sidebar() {
+  const me = await getCurrentUser().catch(() => null);
   return (
     <aside className="hidden print:hidden w-64 shrink-0 flex-col border-r border-white/10 bg-header-gradient lg:flex">
       <div className="flex flex-col items-center gap-1 border-b border-white/10 px-4 py-5">
@@ -10,7 +13,7 @@ export function Sidebar() {
         <span className="text-center text-xs font-semibold uppercase tracking-wide text-slate-100">{BRAND.name}</span>
         <span className="text-center text-[11px] text-steel-400">{BRAND.tagline}</span>
       </div>
-      <NavLinksList />
+      <NavLinksList groups={groupsFor(me)} />
     </aside>
   );
 }

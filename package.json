@@ -24,7 +24,8 @@
     "qa:workforce": "tsx scripts/qa/workforce.test.ts",
     "qa:payroll": "tsx scripts/qa/payroll.test.ts",
     "qa:dashboard": "tsx scripts/qa/dashboard.test.ts",
-    "qa:crm": "tsx scripts/qa/crm.test.ts"
+    "qa:crm": "tsx scripts/qa/crm.test.ts",
+    "qa:auth": "tsx scripts/qa/auth.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

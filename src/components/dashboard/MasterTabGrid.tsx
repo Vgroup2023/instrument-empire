@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { navGroups } from '@/components/layout/navGroups';
+import { groupsFor } from '@/components/layout/navGroups';
+import { getCurrentUser } from '@/lib/auth/current';
 import { Badge } from '@/components/ui/Badge';
 import { providers } from '@/lib/config';
 
@@ -8,10 +9,11 @@ import { providers } from '@/lib/config';
  * open-work counts where there are any. Reads navGroups, so a new page shows
  * up here as soon as it is added to the navigation.
  */
-export function MasterTabGrid({ badges, excludeHref }: { badges: Record<string, number>; excludeHref?: string }) {
+export async function MasterTabGrid({ badges, excludeHref }: { badges: Record<string, number>; excludeHref?: string }) {
+  const me = await getCurrentUser().catch(() => null);
   return (
     <div className="space-y-8">
-      {navGroups.map((group) => {
+      {groupsFor(me).map((group) => {
         const items = group.items.filter((i) => i.href !== excludeHref);
         if (!items.length) return null;
         return (

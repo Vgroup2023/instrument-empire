@@ -1233,3 +1233,47 @@ export const crmReports = pgTable(
   },
   (t) => [uniqueIndex('ux_crm_reports_period').on(t.kind, t.period)],
 );
+
+// ---------------------------------------------------------------------------
+// People who sign in. Each has their own email and password, a role, and the departments they work in. Invite and
+// password-reset links are stored as hashes only, so a database copy does not reveal a working link.
+// ---------------------------------------------------------------------------
+export const appUsers = pgTable(
+  'app_users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    name: text('name').notNull(),
+    /** Null until the person accepts their invitation and chooses a password. */
+    passwordHash: text('password_hash'),
+    /** owner, admin, manager, member or viewer. */
+    role: text('role').notNull().default('member'),
+    /** Department keys: finance, sales, operations, people, admin. */
+    departments: text('departments').array().notNull().default(sql`'{}'::text[]`),
+    /** invited, active or disabled. */
+    status: text('status').notNull().default('invited'),
+    /** Raised when a password is changed or the account is disabled, so older sign-ins stop working. */
+    sessionVersion: integer('session_version').notNull().default(1),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    invitedBy: text('invited_by'),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('ux_app_users_email').on(sql`lower(${t.email})`)],
+);
+
+export const appUserTokens = pgTable(
+  'app_user_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    /** invite or reset. */
+    kind: text('kind').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('ux_app_user_tokens_hash').on(t.tokenHash), index('ix_app_user_tokens_user').on(t.userId)],
+);

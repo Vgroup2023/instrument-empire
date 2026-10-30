@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
-import { navGroups, type NavGroup } from './navGroups';
+import { type NavGroup } from './navGroups';
 
 // Each section header is a button with an arrow that opens and closes the pages under it. Which
 // sections are closed is remembered in this browser, so the menu comes back the way it was left.
@@ -57,7 +57,7 @@ function slug(title: string) {
 // Done per link on intent only, so loading the menu itself still makes no server calls.
 const warmed = new Set<string>();
 
-export function NavLinksList() {
+export function NavLinksList({ groups }: { groups: NavGroup[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const warm = (href: string) => {
@@ -71,9 +71,9 @@ export function NavLinksList() {
   // Going to a page inside a closed section opens that section, so the current page is never hidden.
   useEffect(() => {
     const current = closedTitles(read());
-    const owner = navGroups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
+    const owner = groups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
     if (owner && current.delete(owner.title)) write([...current].join('|'));
-  }, [pathname]);
+  }, [pathname, groups]);
 
   function toggle(title: string) {
     const next = closedTitles(read());
@@ -83,7 +83,7 @@ export function NavLinksList() {
 
   return (
     <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-label="Main menu">
-      {navGroups.map((group) => (
+      {groups.map((group) => (
         <Section key={group.title || 'root'} group={group} pathname={pathname} open={!closed.has(group.title)} onToggle={() => toggle(group.title)} onWarm={warm} />
       ))}
     </nav>

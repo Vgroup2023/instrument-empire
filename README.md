@@ -662,6 +662,10 @@ The app is hosted on Netlify. To serve it at `globlexai.io`:
    - QuickBooks (only if connected): `QBO_REDIRECT_URI=https://globlexai.io/api/auth/callback`, and the same redirect URI in the Intuit app
    - People who installed the app from the old address need to install it again from the new one; installs belong to one address.
 
+### The first page after a quiet spell is slow
+
+The app runs on serverless functions that sleep when unused; waking one takes several seconds (about 5 s measured), which can look like a hang. `netlify/functions/keep-warm.mjs` is a Netlify scheduled function: Netlify itself calls the sign-in page and `/api/health` every 5 minutes on the published production site, so a server stays awake. (The older GitHub Actions "Keep the app warm" workflow is kept as a backup, but GitHub runs scheduled workflows on a quiet repository only every few hours, so it cannot be relied on.) After it deploys, **Netlify, Logs, Functions, keep-warm** shows each run. It needs no setup and no secrets.
+
 ## If a page shows "Inactivity Timeout"
 
 That message is Netlify giving up because the server sent nothing for 10 seconds. The sign-in

@@ -57,6 +57,25 @@ async function main() {
   assert.ok(!(await verifyPassword('wrong horse battery', h)));
   assert.ok(!(await verifyPassword('anything', null)), 'unknown account is a plain no');
   assert.notEqual(h, await hashPassword('correct horse battery'), 'salted');
+  // The same password typed on different devices still signs in: accented letters in either Unicode form, full-width
+  // letters, and a space a phone keyboard adds at the end. Wrong passwords, a leading space and other changes still fail.
+  const unicode = await hashPassword('P\u00e4ssw\u00f6rd-correct-7'); // typed as single accented characters
+  assert.ok(await verifyPassword('P\u00e4ssw\u00f6rd-correct-7', unicode));
+  assert.ok(await verifyPassword('Pa\u0308ssvo\u0308rd-correct-7'.replace('v', 'w'), unicode), 'accents typed as letter + accent mark');
+  assert.ok(await verifyPassword('P\u00e4ssw\u00f6rd-correct-7 ', unicode), 'one trailing space');
+  assert.ok(await verifyPassword('P\u00e4ssw\u00f6rd-correct-7  \t', unicode), 'trailing whitespace');
+  assert.ok(!(await verifyPassword(' P\u00e4ssw\u00f6rd-correct-7', unicode)), 'a leading space is not forgiven');
+  assert.ok(!(await verifyPassword('p\u00e4ssw\u00f6rd-correct-7', unicode)), 'case still matters');
+  assert.ok(!(await verifyPassword('P\u00e4ssw\u00f6rd-correct-8', unicode)));
+  const ascii = await hashPassword('river-stone-lamp-91');
+  assert.ok(await verifyPassword('\uff52iver-stone-lamp-91', ascii), 'full-width letter equals the plain letter');
+  assert.ok(!(await verifyPassword('', ascii)) && !(await verifyPassword('   ', ascii)));
+  // A hash made before this rule (over exactly what was typed) still works for exactly that input.
+  const { scryptSync, randomBytes } = await import('node:crypto');
+  const salt = randomBytes(16);
+  const old = `scrypt$${salt.toString('hex')}$${scryptSync('Old pass phrase 12', salt, 32, { N: 16384, r: 8, p: 1 }).toString('hex')}`;
+  assert.ok(await verifyPassword('Old pass phrase 12', old), 'older stored hashes keep working');
+  assert.ok(!(await verifyPassword('Old pass phrase 13', old)));
   const tk = newToken();
   assert.equal(tk.hash, hashToken(tk.token));
   assert.notEqual(tk.token, newToken().token);

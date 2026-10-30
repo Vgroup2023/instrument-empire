@@ -34,9 +34,9 @@ export function PasswordChangeForm() {
   return (
     <form onSubmit={submit} className="space-y-3">
       {error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      <div><Label htmlFor="cur">Current password</Label><Input id="cur" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></div>
-      <div><Label htmlFor="new">New password</Label><Input id="new" type="password" required minLength={10} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /></div>
-      <div><Label htmlFor="again">New password again</Label><Input id="again" type="password" required autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} /></div>
+      <div><Label htmlFor="cur">Current password</Label><Input id="cur" type="password" required autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={current} onChange={(e) => setCurrent(e.target.value)} /></div>
+      <div><Label htmlFor="new">New password</Label><Input id="new" type="password" required minLength={10} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={next} onChange={(e) => setNext(e.target.value)} /></div>
+      <div><Label htmlFor="again">New password again</Label><Input id="again" type="password" required autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={again} onChange={(e) => setAgain(e.target.value)} /></div>
       <Button type="submit" loading={busy}>Change password</Button>
     </form>
   );

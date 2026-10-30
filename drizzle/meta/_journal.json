@@ -134,6 +134,13 @@
       "when": 1793295925270,
       "tag": "0018_invoice_document_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793325454072,
+      "tag": "0019_crm",
+      "breakpoints": true
     }
   ]
 }

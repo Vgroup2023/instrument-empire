@@ -40,6 +40,9 @@ jobs:
       - name: Dashboard calculation tests
         run: npm run qa:dashboard
 
+      - name: CRM calculation tests
+        run: npm run qa:crm
+
       - name: Build
         run: npm run build
         env:

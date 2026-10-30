@@ -23,7 +23,8 @@
     "qa:files": "tsx scripts/qa/files.test.ts",
     "qa:workforce": "tsx scripts/qa/workforce.test.ts",
     "qa:payroll": "tsx scripts/qa/payroll.test.ts",
-    "qa:dashboard": "tsx scripts/qa/dashboard.test.ts"
+    "qa:dashboard": "tsx scripts/qa/dashboard.test.ts",
+    "qa:crm": "tsx scripts/qa/crm.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

@@ -1101,3 +1101,78 @@ export const payRunItems = pgTable(
   },
   (t) => [uniqueIndex('ux_pay_run_items_run_employee').on(t.runId, t.employeeId), index('ix_pay_run_items_employee').on(t.employeeId)],
 );
+
+// ---------------------------------------------------------------------------
+// CRM: contacts and leads, deals moving through pipeline stages, and an activity log (calls, emails, meetings, notes,
+// tasks, and the changes the system records itself). People have no logins here, so owners and actors are plain names.
+// ---------------------------------------------------------------------------
+export const crmContacts = pgTable(
+  'crm_contacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    company: text('company'),
+    jobTitle: text('job_title'),
+    email: text('email'),
+    phone: text('phone'),
+    /** Where the lead came from: website, referral, event, cold outreach, other. */
+    source: text('source').notNull().default('other'),
+    /** lead, qualified, customer or archived. */
+    status: text('status').notNull().default('lead'),
+    owner: text('owner'),
+    /** Set once the contact is also a customer on the books. */
+    customerId: uuid('customer_id').references(() => customers.id),
+    notes: text('notes'),
+    ...timestamps,
+  },
+  (t) => [index('ix_crm_contacts_status').on(t.status), index('ix_crm_contacts_customer').on(t.customerId)],
+);
+
+export const crmDeals = pgTable(
+  'crm_deals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+    customerId: uuid('customer_id').references(() => customers.id),
+    value: numeric('value', { precision: 14, scale: 2 }).notNull().default('0'),
+    currency: text('currency').notNull().default('USD'),
+    /** lead, qualified, proposal, negotiation, won or lost. */
+    stage: text('stage').notNull().default('lead'),
+    expectedClose: date('expected_close'),
+    owner: text('owner'),
+    source: text('source').notNull().default('other'),
+    lostReason: text('lost_reason'),
+    /** When the deal was won or lost; null while it is open. */
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    notes: text('notes'),
+    ...timestamps,
+  },
+  (t) => [index('ix_crm_deals_stage').on(t.stage), index('ix_crm_deals_contact').on(t.contactId), index('ix_crm_deals_updated').on(t.updatedAt)],
+);
+
+export const crmActivities = pgTable(
+  'crm_activities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dealId: uuid('deal_id').references(() => crmDeals.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'cascade' }),
+    /** call, email, meeting, note, task, or a system entry: created, stage, won, lost, customer. */
+    kind: text('kind').notNull(),
+    summary: text('summary').notNull(),
+    detail: text('detail'),
+    /** For calls and meetings: how long it ran. */
+    durationSeconds: integer('duration_seconds'),
+    /** For tasks: when it is due, and when it was done. */
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    actor: text('actor').notNull().default('Office team'),
+    ...timestamps,
+  },
+  (t) => [
+    index('ix_crm_activities_deal').on(t.dealId),
+    index('ix_crm_activities_contact').on(t.contactId),
+    index('ix_crm_activities_created').on(t.createdAt),
+    index('ix_crm_activities_updated').on(t.updatedAt),
+  ],
+);

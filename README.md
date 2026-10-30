@@ -538,6 +538,12 @@ Everyone signs in with their own email and password. One company, with departmen
 - **Everyday use:** the menu shows only what a person may open, the CRM and activity records carry the person's real name, and **My account** lets anyone change their password.
 - Needs migration `0021_app_users` (run the **Database migrate** workflow after merging). Tests: `npm run qa:auth`.
 
+### Hand-offs between teams
+
+- **Won deal to invoice:** when a CRM deal is moved to Won, the app creates the customer (as before), a draft invoice for the deal value, and a task for Finance in the **Team inbox** to review and send it. It happens once per deal, however often the deal is moved around. A deal with no value still tells Finance to set up billing.
+- **Team inbox:** work handed to you, or to a department you work in, with a bell and count in the top bar. Anyone who is not view-only can hand work to a department or a colleague, with an optional due date, and mark work done, dismiss it or reopen it. **Handed on** lists what you passed to others.
+- Needs migration `0022_team_tasks`. Tests: `npm run qa:handoffs` (and the CRM test covers the won-deal hand-off).
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

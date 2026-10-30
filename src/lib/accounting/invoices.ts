@@ -271,6 +271,22 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice>
   });
 }
 
+/**
+ * An unsent invoice made on someone's behalf (a won CRM deal) inside the caller's transaction. It is an ordinary
+ * invoice: Finance reviews it, edits it and sends it from the Invoices tab like any other.
+ */
+export async function createDraftInvoiceTx(tx: Tx, d: { customerId: string; description: string; amount: number; currency: string; notes?: string }): Promise<{ id: string; docNumber: string | null }> {
+  const lines = parseSalesLines([{ description: d.description, quantity: 1, unitPrice: d.amount }]);
+  checkedTotal(lines);
+  const docNumber = await nextDocNumber(tx, 'invoice', 'INV');
+  const [row] = await tx
+    .insert(invoices)
+    .values({ docNumber, customerId: d.customerId, txnDate: todayIso(), currencyCode: d.currency, notes: d.notes ?? null, template: 'pro-forma' })
+    .returning();
+  await tx.insert(invoiceLines).values(toLineInsertRows(lines).map((line) => ({ ...line, invoiceId: row.id })));
+  return { id: row.id, docNumber: row.docNumber };
+}
+
 // ---------------------------------------------------------------------------
 // Milestone/progress invoicing — one contract value split into several
 // invoices by percentage (e.g. "50% deposit", "50% on completion"), created

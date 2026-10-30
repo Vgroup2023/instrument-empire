@@ -46,6 +46,9 @@ jobs:
       - name: Accounts and access tests
         run: npm run qa:auth
 
+      - name: Team hand-off tests
+        run: npm run qa:handoffs
+
       - name: Build
         run: npm run build
         env:

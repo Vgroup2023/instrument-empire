@@ -1141,6 +1141,8 @@ export const crmDeals = pgTable(
     title: text('title').notNull(),
     contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
     customerId: uuid('customer_id').references(() => customers.id),
+    /** The draft invoice made when the deal was won, so winning it twice never bills twice. */
+    invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
     value: numeric('value', { precision: 14, scale: 2 }).notNull().default('0'),
     currency: text('currency').notNull().default('USD'),
     /** lead, qualified, proposal, negotiation, won or lost. */
@@ -1276,4 +1278,37 @@ export const appUserTokens = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('ux_app_user_tokens_hash').on(t.tokenHash), index('ix_app_user_tokens_user').on(t.userId)],
+);
+
+
+// ---------------------------------------------------------------------------
+// Team hand-offs: work passed between departments or to a person ("Finance: review this draft invoice").
+// ---------------------------------------------------------------------------
+export const teamTasks = pgTable(
+  'team_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    detail: text('detail'),
+    fromUserId: uuid('from_user_id'),
+    fromName: text('from_name').notNull(),
+    /** The department it is for, and/or the one person. At least one is set. */
+    toDepartment: text('to_department'),
+    toUserId: uuid('to_user_id').references(() => appUsers.id, { onDelete: 'set null' }),
+    /** open, done or dismissed. */
+    status: text('status').notNull().default('open'),
+    /** Where to go to do it. */
+    href: text('href'),
+    /** What created it automatically (for example "crm-won:<deal id>"), so the same event never makes two. */
+    source: text('source'),
+    dueDate: date('due_date'),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    doneByName: text('done_by_name'),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('ux_team_tasks_source').on(t.source).where(sql`${t.source} is not null`),
+    index('ix_team_tasks_open').on(t.status, t.toDepartment),
+    index('ix_team_tasks_user').on(t.toUserId, t.status),
+  ],
 );

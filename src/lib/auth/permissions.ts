@@ -44,6 +44,7 @@ const RULES: [string, Need][] = [
   ['/install', 'all'],
   ['/dashboard/files', 'all'],
   ['/dashboard/account', 'all'],
+  ['/dashboard/inbox', 'all'],
   ['/dashboard/team', 'manage'],
   ['/dashboard/settings', ['admin']],
   ['/dashboard/counsel', ['admin']],
@@ -82,6 +83,7 @@ const RULES: [string, Need][] = [
 
   ['/api/team', 'manage'],
   ['/api/auth', 'all'],
+  ['/api/tasks', 'all'],
   ['/api/options', 'all'],
   ['/api/files', 'all'],
   ['/api/documents', 'all'],

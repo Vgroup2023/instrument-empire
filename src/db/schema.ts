@@ -1123,6 +1123,12 @@ export const crmContacts = pgTable(
     /** Set once the contact is also a customer on the books. */
     customerId: uuid('customer_id').references(() => customers.id),
     notes: text('notes'),
+    /** How often to follow up, in days (7 = weekly). Null means no regular follow-up. */
+    followUpDays: integer('follow_up_days'),
+    /** Set when the person asked to stop (for example replied "unsubscribe"): no email drafts are made for them. */
+    doNotContact: boolean('do_not_contact').notNull().default(false),
+    /** The last call, email, text, meeting or note with them, in either direction. */
+    lastContactAt: timestamp('last_contact_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [index('ix_crm_contacts_status').on(t.status), index('ix_crm_contacts_customer').on(t.customerId)],
@@ -1167,12 +1173,63 @@ export const crmActivities = pgTable(
     dueAt: timestamp('due_at', { withTimezone: true }),
     doneAt: timestamp('done_at', { withTimezone: true }),
     actor: text('actor').notNull().default('Office team'),
+    /** How it travelled: email, sms, call, whatsapp or web. Null for notes, tasks and system entries. */
+    channel: text('channel'),
+    /** 'in' (received) or 'out' (sent or made by us). */
+    direction: text('direction'),
+    /** The sender's own id for a received message or call, so the same one is never recorded twice. */
+    externalId: text('external_id'),
+    /** When an agent last read this received message and decided what to do about it. */
+    triagedAt: timestamp('triaged_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
+    uniqueIndex('ux_crm_activities_external').on(t.externalId).where(sql`external_id is not null`),
     index('ix_crm_activities_deal').on(t.dealId),
     index('ix_crm_activities_contact').on(t.contactId),
     index('ix_crm_activities_created').on(t.createdAt),
     index('ix_crm_activities_updated').on(t.updatedAt),
   ],
+);
+
+/** Messages the CRM agents have written for a person to read, edit and send. Nothing in here goes out by itself. */
+export const crmDrafts = pgTable(
+  'crm_drafts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => crmContacts.id, { onDelete: 'cascade' }),
+    dealId: uuid('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+    channel: text('channel').notNull().default('email'),
+    subject: text('subject'),
+    body: text('body').notNull(),
+    /** Why the agent wrote it, shown above the draft. */
+    reason: text('reason'),
+    /** pending, sent, dismissed or failed. */
+    status: text('status').notNull().default('pending'),
+    createdBy: text('created_by').notNull().default('Follow-up agent'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    error: text('error'),
+    ...timestamps,
+  },
+  (t) => [index('ix_crm_drafts_status').on(t.status), index('ix_crm_drafts_contact').on(t.contactId)],
+);
+
+/** The daily and weekly reports the digest agent writes, kept so they can be read again later. */
+export const crmReports = pgTable(
+  'crm_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** daily or weekly. */
+    kind: text('kind').notNull(),
+    /** The calendar day (daily) or the Monday (weekly) it covers, so one is written per period. */
+    period: date('period').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    data: jsonb('data'),
+    emailedAt: timestamp('emailed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('ux_crm_reports_period').on(t.kind, t.period)],
 );

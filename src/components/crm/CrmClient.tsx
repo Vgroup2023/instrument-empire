@@ -6,22 +6,29 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { crmMetrics, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type StageKey } from '@/lib/crm/model';
+import { OPEN_STAGES, crmMetrics, followUpDue, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type Draft, type Report, type StageKey } from '@/lib/crm/model';
 import { crmCall, loadActor, saveActor } from './api';
 import { CrmDashboard } from './CrmDashboard';
 import { PipelineBoard } from './PipelineBoard';
 import { DealDialog } from './DealDialog';
 import { ContactsPanel } from './ContactsPanel';
 import { ActivityPanel } from './ActivityPanel';
+import { UpcomingPanel } from './UpcomingPanel';
+import { DraftsPanel } from './DraftsPanel';
+import { ReportsPanel } from './ReportsPanel';
+import { ConnectionsPanel } from './ConnectionsPanel';
 
-type Snap = { deals: Deal[]; contacts: Contact[]; activities: Activity[]; now: string };
-type Tab = 'dashboard' | 'pipeline' | 'contacts' | 'activity' | 'tasks';
+type Snap = { deals: Deal[]; contacts: Contact[]; activities: Activity[]; drafts: Draft[]; reports: Report[]; now: string };
+type Tab = 'dashboard' | 'pipeline' | 'contacts' | 'activity' | 'upcoming' | 'review' | 'reports' | 'connections';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'pipeline', label: 'Pipeline', icon: '🧲' },
   { id: 'contacts', label: 'Contacts', icon: '👤' },
   { id: 'activity', label: 'Activity', icon: '⚡' },
-  { id: 'tasks', label: 'Tasks', icon: '✅' },
+  { id: 'upcoming', label: 'Upcoming', icon: '📅' },
+  { id: 'review', label: 'Review', icon: '✍️' },
+  { id: 'reports', label: 'Reports', icon: '📑' },
+  { id: 'connections', label: 'Connections & agents', icon: '🔌' },
 ];
 
 const POLL_MS = 4000;
@@ -43,6 +50,10 @@ export function CrmClient({ initial }: { initial: Snap }) {
   const [deals, setDeals] = useState(initial.deals);
   const [contacts, setContacts] = useState(initial.contacts);
   const [activities, setActivities] = useState(initial.activities);
+  const [drafts, setDrafts] = useState(initial.drafts);
+  const [reports, setReports] = useState(initial.reports);
+  const [openContactId, setOpenContactId] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>('dashboard');
   const [actor, setActor] = useState('Office team');
   const [nameOpen, setNameOpen] = useState(false);
@@ -58,6 +69,11 @@ export function CrmClient({ initial }: { initial: Snap }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- the saved name lives in this browser, readable only after hydration
   useEffect(() => setActor(loadActor()), []);
   useEffect(() => { actorRef.current = actor; }, [actor]);
+  // "Due" and "overdue" counts are measured against this, refreshed twice a minute so they stay right on a page left open.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const addActivity = useCallback((a: Activity) => {
     known.current.add(a.id);
@@ -77,7 +93,7 @@ export function CrmClient({ initial }: { initial: Snap }) {
         if (Date.now() - lastFull > FULL_REFRESH_MS) {
           const s = await crmCall<Snap>('/api/crm');
           if (stopped) return;
-          setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities);
+          setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities); setDrafts(s.drafts); setReports(s.reports);
           s.activities.forEach((a) => known.current.add(a.id));
           since.current = s.now;
           lastFull = Date.now();
@@ -88,6 +104,8 @@ export function CrmClient({ initial }: { initial: Snap }) {
           if (stopped) return;
           setDeals((p) => merge(p, s.deals));
           setContacts((p) => merge(p, s.contacts));
+          setDrafts((p) => merge(p, s.drafts));
+          setReports((p) => merge(p, s.reports));
           const fresh = s.activities.filter((a) => !known.current.has(a.id));
           for (const a of fresh) {
             known.current.add(a.id);
@@ -115,6 +133,19 @@ export function CrmClient({ initial }: { initial: Snap }) {
 
   const metrics = useMemo(() => crmMetrics(deals, activities), [deals, activities]);
   const openDeal = deals.find((d) => d.id === dealId) ?? null;
+  const attention = useMemo(() => {
+    const withOpenDeal = new Set(deals.filter((d) => OPEN_STAGES.includes(d.stage) && d.contactId).map((d) => d.contactId));
+    const horizon = new Date(now + 7 * 86_400_000).toISOString();
+    const nowIso = new Date(now).toISOString();
+    return {
+      drafts: drafts.filter((d) => d.status === 'pending' || d.status === 'failed').length,
+      followUps: contacts.filter((c) => {
+        const days = c.followUpDays ?? (withOpenDeal.has(c.id) ? 7 : null);
+        return days !== null && c.status !== 'archived' && followUpDue({ ...c, followUpDays: days }, now);
+      }).length,
+      meetings: activities.filter((a) => a.kind === 'meeting' && !a.doneAt && a.dueAt && a.dueAt > nowIso && a.dueAt <= horizon).length,
+    };
+  }, [deals, contacts, drafts, activities, now]);
 
   function upsertDeal(d: Deal) {
     setDeals((p) => [d, ...p.filter((x) => x.id !== d.id)]);
@@ -168,23 +199,30 @@ export function CrmClient({ initial }: { initial: Snap }) {
       />
       <div role="tablist" className="mb-5 flex flex-wrap gap-2">
         {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => { setOpenContactId(null); setTab(t.id); }}
             className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${tab === t.id ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
             <span aria-hidden className="mr-1">{t.icon}</span>{t.label}
-            {t.id === 'tasks' && metrics.tasksOpen ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${metrics.tasksOverdue ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700'}`}>{metrics.tasksOpen}</span> : null}
+            {t.id === 'upcoming' && metrics.tasksOpen ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${metrics.tasksOverdue ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700'}`}>{metrics.tasksOpen}</span> : null}
+            {t.id === 'review' && attention.drafts ? <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 text-xs text-white">{attention.drafts}</span> : null}
           </button>
         ))}
       </div>
 
-      {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={deals} activities={activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} /> : null}
+      {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={deals} activities={activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} attention={attention} onGo={setTab} /> : null}
       {tab === 'pipeline' ? <PipelineBoard deals={deals} contacts={contacts} onOpen={setDealId} onMove={move} onNew={(stage) => setNewDeal({ stage })} /> : null}
       {tab === 'contacts' ? (
         <ContactsPanel contacts={contacts} deals={deals} activities={activities} actor={actor} onSaved={upsertContact}
           onDeleted={(id) => setContacts((p) => p.filter((c) => c.id !== id))} onActivity={addActivity} onToggleTask={toggleTask}
-          onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} />
+          onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} initialOpenId={openContactId} />
       ) : null}
       {tab === 'activity' ? <ActivityPanel mode="feed" activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask} /> : null}
-      {tab === 'tasks' ? <ActivityPanel mode="tasks" activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask} /> : null}
+      {tab === 'upcoming' ? (
+        <UpcomingPanel activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask}
+          onOpenContact={(id) => { setOpenContactId(id); setTab('contacts'); }} />
+      ) : null}
+      {tab === 'review' ? <DraftsPanel drafts={drafts} contacts={contacts} actor={actor} onChanged={(d) => setDrafts((p) => merge(p, [d]))} onActivity={addActivity} /> : null}
+      {tab === 'reports' ? <ReportsPanel reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} /> : null}
+      {tab === 'connections' ? <ConnectionsPanel onRan={() => void crmCall<Snap>('/api/crm').then((s) => { setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities); setDrafts(s.drafts); setReports(s.reports); since.current = s.now; }).catch(() => undefined)} /> : null}
 
       <DealDialog
         open={openDeal !== null || newDeal !== null}

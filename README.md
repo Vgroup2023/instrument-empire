@@ -507,6 +507,26 @@ payment, or a mailbox connector. Tracking numbers are entered by staff or pushed
 `shipment` call above. Product matching uses your product names (every word of a product name
 must appear in the order line) and stock comes from `qtyOnHand` on Inventory-type products.
 
+## CRM: leads, deals, communications and agents
+
+The **CRM** tab (Sales & CRM in the menu) holds contacts, a drag-and-drop deal pipeline, a sales dashboard, and a live record of
+every call, email, text and meeting. Winning a deal creates the customer on your books.
+
+**Receiving emails, texts and calls.** Set `INTEGRATION_KEY` (the same key the order desk uses), then point your services at
+`POST /api/integrations/crm/{email|sms|whatsapp|call|web}` with `Authorization: Bearer <INTEGRATION_KEY>` (or `?key=<INTEGRATION_KEY>`
+for services that cannot send a header). It understands JSON and the form posts that Twilio, Mailgun, SendGrid and Postmark send.
+Each message or call is matched to a contact by email address or phone number (a new contact is added if there is none), filed on their
+open deal, and recorded once even if the service delivers it twice. A reply asking to stop is acted on at once. The CRM page's
+**Connections & agents** tab shows each address, when it last received something, and a test command.
+
+**Sending.** Email uses the same `SMTP_*` settings as invoices. Texts use Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`.
+
+**Agents.** Four CRM agents run with the hourly agent run (`/api/agents/run`, the same schedule as the trade and desk agents), or on
+demand from the CRM page. They read incoming messages and make tasks, write a follow-up email draft for anyone not contacted for their
+follow-up period (weekly by default), flag quiet deals, and write a daily report each morning and a weekly report each Monday. They never
+send anything to a customer: drafts wait under **Review** for a person to approve. Set `CRM_REPORT_EMAIL` (comma separated) to have the
+reports emailed. With `ANTHROPIC_API_KEY` set, Claude writes the follow-ups and report summaries; without it they use plain templates.
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

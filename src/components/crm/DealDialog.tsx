@@ -130,7 +130,7 @@ function DealDialogInner({
         {deal ? (
           <div className="lg:col-span-3">
             <h3 className="mb-2 text-sm font-semibold text-slate-900">Record activity <span className="font-normal text-slate-500">· as {actor}</span></h3>
-            <Composer dealId={deal.id} contactId={deal.contactId ?? undefined} actor={actor} onLogged={onActivity} />
+            <Composer dealId={deal.id} contactId={deal.contactId ?? undefined} contact={contacts.find((c) => c.id === deal.contactId) ?? null} actor={actor} onLogged={onActivity} />
             <h3 className="mb-1 mt-5 text-sm font-semibold text-slate-900">History <span className="font-normal text-slate-500">· {stageInfo(deal.stage).label}</span></h3>
             {history.length === 0 ? <p className="text-sm text-slate-500">Nothing recorded yet.</p> : (
               <ul className="divide-y divide-slate-100">{history.map((a) => <ActivityRow key={a.id} a={a} onToggleTask={onToggleTask} />)}</ul>

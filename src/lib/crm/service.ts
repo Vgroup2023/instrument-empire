@@ -1,9 +1,11 @@
 import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { normalizePhone, parseAddress, classifyInbound, type Channel, type Draft, type Report } from './model';
+import { sendEmail, sendSms } from './comms';
 import { getDb } from '@/db/client';
-import { crmActivities, crmContacts, crmDeals, customers } from '@/db/schema';
-import { NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
+import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, customers } from '@/db/schema';
+import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
-  CONTACT_STATUSES, MANUAL_KINDS, SOURCES, STAGE_KEYS, stageInfo,
+  CHANNELS, CONTACT_STATUSES, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
   type Activity, type ActivityKind, type Contact, type Deal, type StageKey,
 } from './model';
 
@@ -12,40 +14,81 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
-function toContact(r: typeof crmContacts.$inferSelect): Contact {
+export function toContact(r: typeof crmContacts.$inferSelect): Contact {
   return {
     id: r.id, name: r.name, company: r.company, jobTitle: r.jobTitle, email: r.email, phone: r.phone,
     source: r.source as Contact['source'], status: r.status as Contact['status'], owner: r.owner, customerId: r.customerId,
-    notes: r.notes, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
+    notes: r.notes, followUpDays: r.followUpDays, doNotContact: r.doNotContact, lastContactAt: iso(r.lastContactAt),
+    createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
-function toDeal(r: typeof crmDeals.$inferSelect): Deal {
+export function toDeal(r: typeof crmDeals.$inferSelect): Deal {
   return {
     id: r.id, title: r.title, contactId: r.contactId, customerId: r.customerId, value: Number(r.value), currency: r.currency,
     stage: r.stage as StageKey, expectedClose: r.expectedClose, owner: r.owner, source: r.source as Deal['source'],
     lostReason: r.lostReason, closedAt: iso(r.closedAt), notes: r.notes, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
-function toActivity(r: typeof crmActivities.$inferSelect): Activity {
+export function toActivity(r: typeof crmActivities.$inferSelect): Activity {
   return {
     id: r.id, dealId: r.dealId, contactId: r.contactId, kind: r.kind as ActivityKind, summary: r.summary, detail: r.detail,
     durationSeconds: r.durationSeconds, dueAt: iso(r.dueAt), doneAt: iso(r.doneAt), actor: r.actor,
+    channel: (r.channel as Activity['channel']) ?? null, direction: (r.direction as Activity['direction']) ?? null,
     createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
+}
+export function toDraft(r: typeof crmDrafts.$inferSelect): Draft {
+  return {
+    id: r.id, contactId: r.contactId, dealId: r.dealId, channel: r.channel as Channel, subject: r.subject, body: r.body, reason: r.reason,
+    status: r.status as Draft['status'], createdBy: r.createdBy, sentAt: iso(r.sentAt), error: r.error,
+    createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
+  };
+}
+export function toReport(r: typeof crmReports.$inferSelect): Report {
+  return { id: r.id, kind: r.kind as Report['kind'], period: r.period, title: r.title, body: r.body, emailedAt: iso(r.emailedAt), createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() };
 }
 
 function actorName(v: unknown): string {
   return optText(v, 'Your name', 60) ?? 'Office team';
 }
 
-async function record(tx: Tx | Db, e: { dealId?: string | null; contactId?: string | null; kind: ActivityKind; summary: string; detail?: string | null; actor: string; durationSeconds?: number | null; dueAt?: Date | null }) {
+export interface RecordInput {
+  dealId?: string | null;
+  contactId?: string | null;
+  kind: ActivityKind;
+  summary: string;
+  detail?: string | null;
+  actor: string;
+  durationSeconds?: number | null;
+  dueAt?: Date | null;
+  channel?: Channel | null;
+  direction?: 'in' | 'out' | null;
+  externalId?: string | null;
+  at?: Date;
+}
+
+/** Kinds that count as being in touch with the person (so they reset the follow-up clock). */
+const TOUCH_KINDS: readonly ActivityKind[] = ['call', 'email', 'sms', 'meeting', 'note'];
+
+export async function record(tx: Tx | Db, e: RecordInput) {
+  const at = e.at ?? new Date();
   const [row] = await tx
     .insert(crmActivities)
     .values({
       dealId: e.dealId ?? null, contactId: e.contactId ?? null, kind: e.kind, summary: e.summary, detail: e.detail ?? null,
       actor: e.actor, durationSeconds: e.durationSeconds ?? null, dueAt: e.dueAt ?? null,
+      channel: e.channel ?? null, direction: e.direction ?? null, externalId: e.externalId ?? null,
+      createdAt: at, updatedAt: at,
     })
     .returning();
+  // A meeting booked for later has not happened yet, so it does not count as contact.
+  const scheduledLater = e.kind === 'meeting' && e.dueAt && e.dueAt.getTime() > Date.now();
+  if (e.contactId && TOUCH_KINDS.includes(e.kind) && !scheduledLater) {
+    await tx
+      .update(crmContacts)
+      .set({ lastContactAt: sql`greatest(coalesce(${crmContacts.lastContactAt}, ${at.toISOString()}::timestamptz), ${at.toISOString()}::timestamptz)` })
+      .where(eq(crmContacts.id, e.contactId));
+  }
   return toActivity(row);
 }
 
@@ -57,6 +100,9 @@ export interface Snapshot {
   deals: Deal[];
   contacts: Contact[];
   activities: Activity[];
+  /** Messages written by the agents that are waiting for a person (pending) or recently handled. */
+  drafts: Draft[];
+  reports: Report[];
   /** The database's own clock, handed back as the starting point for the next "what changed" call. */
   now: string;
 }
@@ -67,17 +113,19 @@ const ACTIVITY_CAP = 300;
 
 export async function snapshot(): Promise<Snapshot> {
   const db = getDb();
-  const [deals, contacts, recent, openTasks, [clock]] = await Promise.all([
+  const [deals, contacts, recent, openTasks, drafts, reports, [clock]] = await Promise.all([
     db.select().from(crmDeals).orderBy(desc(crmDeals.updatedAt)).limit(DEAL_CAP),
     db.select().from(crmContacts).orderBy(desc(crmContacts.updatedAt)).limit(CONTACT_CAP),
     db.select().from(crmActivities).orderBy(desc(crmActivities.createdAt)).limit(ACTIVITY_CAP),
-    db.select().from(crmActivities).where(and(eq(crmActivities.kind, 'task'), isNull(crmActivities.doneAt))).limit(ACTIVITY_CAP),
+    db.select().from(crmActivities).where(and(inArray(crmActivities.kind, ['task', 'meeting']), isNull(crmActivities.doneAt))).limit(ACTIVITY_CAP),
+    db.select().from(crmDrafts).orderBy(desc(crmDrafts.createdAt)).limit(100),
+    db.select().from(crmReports).orderBy(desc(crmReports.period), desc(crmReports.createdAt)).limit(40),
     db.execute<{ now: string }>(sql`select to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as now`),
   ]);
   const byId = new Map<string, Activity>();
   for (const a of [...recent, ...openTasks]) byId.set(a.id, toActivity(a));
   const activities = [...byId.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return { deals: deals.map(toDeal), contacts: contacts.map(toContact), activities, now: clock.now };
+  return { deals: deals.map(toDeal), contacts: contacts.map(toContact), activities, drafts: drafts.map(toDraft), reports: reports.map(toReport), now: clock.now };
 }
 
 /** Everything added or changed after `since` (an ISO time), for the live feed. */
@@ -85,13 +133,15 @@ export async function changesSince(since: string): Promise<Snapshot> {
   const t = new Date(since);
   if (Number.isNaN(t.getTime())) throw new ValidationError('"since" must be a time.');
   const db = getDb();
-  const [deals, contacts, acts, [clock]] = await Promise.all([
+  const [deals, contacts, acts, drafts, reports, [clock]] = await Promise.all([
     db.select().from(crmDeals).where(gt(crmDeals.updatedAt, t)).limit(DEAL_CAP),
     db.select().from(crmContacts).where(gt(crmContacts.updatedAt, t)).limit(CONTACT_CAP),
     db.select().from(crmActivities).where(gt(crmActivities.updatedAt, t)).orderBy(desc(crmActivities.createdAt)).limit(ACTIVITY_CAP),
+    db.select().from(crmDrafts).where(gt(crmDrafts.updatedAt, t)).limit(100),
+    db.select().from(crmReports).where(gt(crmReports.updatedAt, t)).limit(40),
     db.execute<{ now: string }>(sql`select to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as now`),
   ]);
-  return { deals: deals.map(toDeal), contacts: contacts.map(toContact), activities: acts.map(toActivity), now: clock.now };
+  return { deals: deals.map(toDeal), contacts: contacts.map(toContact), activities: acts.map(toActivity), drafts: drafts.map(toDraft), reports: reports.map(toReport), now: clock.now };
 }
 
 export async function activitiesFor(opts: { dealId?: string; contactId?: string }): Promise<Activity[]> {
@@ -117,6 +167,13 @@ function contactFields(raw: Record<string, unknown>, partial: boolean) {
   if (!partial || has('status')) out.status = raw.status === undefined || raw.status === '' ? 'lead' : oneOf(raw.status, 'Status', CONTACT_STATUSES);
   if (!partial || has('owner')) out.owner = optText(raw.owner, 'Owner', 60) ?? null;
   if (!partial || has('notes')) out.notes = optText(raw.notes, 'Notes', 2000) ?? null;
+  if (has('followUpDays')) {
+    const v = raw.followUpDays;
+    if (v === null || v === '' || v === 0) out.followUpDays = null;
+    else if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 365) out.followUpDays = v;
+    else throw new ValidationError('Follow up every must be a whole number of days between 1 and 365.');
+  }
+  if (has('doNotContact')) out.doNotContact = raw.doNotContact === true;
   return out;
 }
 
@@ -279,6 +336,8 @@ export async function logActivity(input: unknown): Promise<Activity> {
     if (Number.isNaN(dueAt.getTime())) throw new ValidationError('Due date is not a valid time.');
   }
   if (kind === 'task' && !dueAt) throw new ValidationError('A task needs a due date.');
+  const channel: Channel | null = kind === 'email' ? 'email' : kind === 'sms' ? 'sms' : kind === 'call' ? 'call' : null;
+  const direction = channel ? (raw.direction === 'in' ? 'in' : 'out') : null;
 
   return getDb().transaction(async (tx) => {
     let contact = contactId ?? null;
@@ -287,7 +346,7 @@ export async function logActivity(input: unknown): Promise<Activity> {
       if (!deal) throw new ValidationError('That deal no longer exists.');
       contact = contact ?? deal.contactId;
     } else if (contactId) await requireContact(tx, contactId);
-    const a = await record(tx, { dealId: dealId ?? null, contactId: contact, kind, summary, detail, actor, durationSeconds, dueAt: kind === 'task' ? dueAt : null });
+    const a = await record(tx, { dealId: dealId ?? null, contactId: contact, kind, summary, detail, actor, durationSeconds, dueAt: kind === 'task' || kind === 'meeting' ? dueAt : null, channel, direction });
     // A logged touch counts as movement on the deal, so it shows up as changed in the live feed.
     if (dealId) await tx.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, dealId));
     return a;
@@ -300,9 +359,9 @@ export async function setTaskDone(id: string, done: boolean): Promise<Activity> 
   const [row] = await db
     .update(crmActivities)
     .set({ doneAt: done ? new Date() : null, updatedAt: new Date() })
-    .where(and(eq(crmActivities.id, id), eq(crmActivities.kind, 'task')))
+    .where(and(eq(crmActivities.id, id), inArray(crmActivities.kind, ['task', 'meeting'])))
     .returning();
-  if (!row) throw new NotFoundError('Task not found.');
+  if (!row) throw new NotFoundError('Task or meeting not found.');
   return toActivity(row);
 }
 
@@ -315,3 +374,197 @@ export async function deleteActivity(id: string): Promise<void> {
   if (!row) throw new NotFoundError('Activity not found, or it is a system entry that cannot be deleted.');
 }
 
+
+// ---------------------------------------------------------------------------
+// Receiving: emails, texts and calls arriving from outside
+// ---------------------------------------------------------------------------
+
+export interface InboundInput {
+  channel: Channel;
+  direction?: 'in' | 'out';
+  /** Who it came from (an email address with an optional name, or a phone number). */
+  from?: string;
+  /** Who it went to; used instead of `from` when direction is 'out'. */
+  to?: string;
+  name?: string;
+  subject?: string;
+  body?: string;
+  /** The sender's own id for this message or call, so a repeat delivery is recorded only once. */
+  externalId?: string;
+  durationSeconds?: number;
+  occurredAt?: string;
+  status?: string;
+}
+
+export interface InboundResult {
+  activity: Activity;
+  contact: Contact;
+  duplicate: boolean;
+  createdContact: boolean;
+}
+
+async function findContact(tx: Tx | Db, email: string | null, phone: string | null) {
+  if (email) {
+    const [c] = await tx.select().from(crmContacts).where(sql`lower(${crmContacts.email}) = ${email}`).limit(1);
+    if (c) return c;
+  }
+  if (phone) {
+    const [c] = await tx
+      .select()
+      .from(crmContacts)
+      .where(sql`right(regexp_replace(coalesce(${crmContacts.phone}, ''), '\\D', '', 'g'), ${phone.length}) = ${phone}`)
+      .limit(1);
+    if (c) return c;
+  }
+  return null;
+}
+
+/** Records something that arrived from outside: matches the sender to a contact (or adds one), and files it on their open deal. */
+export async function ingestCommunication(input: unknown): Promise<InboundResult> {
+  const raw = asRecord(input, 'The message');
+  const channel = oneOf(raw.channel, 'Channel', CHANNELS);
+  const direction: 'in' | 'out' = raw.direction === 'out' ? 'out' : 'in';
+  const party = (direction === 'in' ? raw.from : raw.to) as unknown;
+  const partyText = typeof party === 'string' ? party.trim() : '';
+  const addr = channel === 'email' ? parseAddress(partyText) : { name: null, email: null };
+  const phone = channel === 'email' ? null : normalizePhone(partyText);
+  if (!addr.email && !phone) throw new ValidationError(channel === 'email' ? 'The email needs a valid sender address.' : 'The message needs a phone number.');
+  const externalId = optText(raw.externalId, 'Message id', 200);
+  const subject = optText(raw.subject, 'Subject', 300);
+  const body = optText(raw.body, 'Message', 20_000);
+  const nameHint = optText(raw.name, 'Name', 120) ?? addr.name ?? undefined;
+  const duration = typeof raw.durationSeconds === 'number' && Number.isFinite(raw.durationSeconds) && raw.durationSeconds >= 0 && raw.durationSeconds <= 86_400 ? Math.round(raw.durationSeconds) : null;
+  let at = new Date();
+  if (typeof raw.occurredAt === 'string' && raw.occurredAt) {
+    const t = new Date(raw.occurredAt);
+    if (!Number.isNaN(t.getTime()) && t.getTime() <= Date.now() + 60_000) at = t;
+  }
+  const status = optText(raw.status, 'Status', 40);
+
+  const kind: ActivityKind = channel === 'email' ? 'email' : channel === 'call' ? 'call' : channel === 'web' ? 'note' : 'sms';
+  const summary =
+    channel === 'email' ? (subject ?? '(no subject)')
+    : channel === 'call' ? `${direction === 'in' ? 'Incoming' : 'Outgoing'} call${status ? ` (${status.replace(/-/g, ' ')})` : ''}`
+    : channel === 'web' ? (subject ?? 'Web form message')
+    : (body ?? 'Text message').replace(/\s+/g, ' ').slice(0, 120);
+  const detail = channel === 'sms' || channel === 'whatsapp' ? (body && body.length > 120 ? body : null) : (body ?? null);
+
+  const db = getDb();
+  try {
+    return await db.transaction(async (tx) => {
+      if (externalId) {
+        const [dup] = await tx.select().from(crmActivities).where(eq(crmActivities.externalId, externalId));
+        if (dup) {
+          const [c] = dup.contactId ? await tx.select().from(crmContacts).where(eq(crmContacts.id, dup.contactId)) : [];
+          return { activity: toActivity(dup), contact: toContact(c), duplicate: true, createdContact: false } satisfies InboundResult;
+        }
+      }
+      let contact = await findContact(tx, addr.email, phone);
+      let createdContact = false;
+      if (!contact) {
+        const label = nameHint ?? addr.email?.split('@')[0] ?? partyText;
+        const [c] = await tx
+          .insert(crmContacts)
+          .values({ name: label.slice(0, 120), email: addr.email, phone: phone ? partyText.slice(0, 40) : null, source: 'other', status: 'lead' })
+          .returning();
+        contact = c;
+        createdContact = true;
+        await record(tx, { contactId: c.id, kind: 'created', summary: `Added ${c.name} from an incoming ${channel === 'email' ? 'email' : channel === 'call' ? 'call' : 'message'}`, actor: 'Inbox', at });
+      }
+      const [openDeal] = await tx
+        .select()
+        .from(crmDeals)
+        .where(and(eq(crmDeals.contactId, contact.id), inArray(crmDeals.stage, [...OPEN_STAGES])))
+        .orderBy(desc(crmDeals.updatedAt))
+        .limit(1);
+      const activity = await record(tx, {
+        dealId: openDeal?.id ?? null, contactId: contact.id, kind, summary, detail, actor: contact.name, channel, direction,
+        durationSeconds: duration, externalId: externalId ?? null, at,
+      });
+      if (openDeal) await tx.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, openDeal.id));
+      // Asking to stop is acted on straight away, not at the next agent run.
+      if (direction === 'in' && classifyInbound(subject, body) === 'unsubscribe') {
+        await tx.update(crmContacts).set({ doNotContact: true, followUpDays: null, updatedAt: new Date() }).where(eq(crmContacts.id, contact.id));
+        await record(tx, { contactId: contact.id, dealId: openDeal?.id ?? null, kind: 'note', summary: `${contact.name} asked to stop contact. No more follow-up messages will be drafted.`, actor: 'Inbox' });
+        await tx.update(crmActivities).set({ triagedAt: new Date() }).where(eq(crmActivities.id, activity.id));
+      }
+      const [fresh] = await tx.select().from(crmContacts).where(eq(crmContacts.id, contact.id));
+      return { activity, contact: toContact(fresh), duplicate: false, createdContact } satisfies InboundResult;
+    });
+  } catch (err) {
+    // Two copies of the same delivery arriving together: the database refuses the second. Treat it as already recorded.
+    if (externalId && (err as { code?: string }).code === '23505') {
+      const [dup] = await db.select().from(crmActivities).where(eq(crmActivities.externalId, externalId));
+      if (dup?.contactId) {
+        const [c] = await db.select().from(crmContacts).where(eq(crmContacts.id, dup.contactId));
+        return { activity: toActivity(dup), contact: toContact(c), duplicate: true, createdContact: false };
+      }
+    }
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sending, and the drafts the agents write for approval
+// ---------------------------------------------------------------------------
+
+/** Sends an email or text to a contact now, and records it on their history. */
+export async function sendToContact(input: unknown): Promise<Activity> {
+  const raw = asRecord(input, 'The message');
+  const contactId = uuid(raw.contactId, 'Contact');
+  const dealId = optUuid(raw.dealId, 'Deal');
+  const channel = oneOf(raw.channel, 'Channel', ['email', 'sms'] as const);
+  const subject = optText(raw.subject, 'Subject', 300);
+  const body = text(raw.body, 'Message', { max: 10_000 });
+  const actor = actorName(raw.actor);
+  return deliver({ contactId, dealId: dealId ?? null, channel, subject: subject ?? null, body, actor });
+}
+
+async function deliver(m: { contactId: string; dealId: string | null; channel: 'email' | 'sms'; subject: string | null; body: string; actor: string }): Promise<Activity> {
+  const db = getDb();
+  const [contact] = await db.select().from(crmContacts).where(eq(crmContacts.id, m.contactId));
+  if (!contact) throw new NotFoundError('Contact not found.');
+  if (contact.doNotContact) throw new ConflictError(`${contact.name} asked not to be contacted.`);
+  let result;
+  if (m.channel === 'email') {
+    if (!contact.email) throw new ValidationError(`${contact.name} has no email address.`);
+    result = await sendEmail(contact.email, m.subject ?? 'Following up', m.body);
+  } else {
+    if (!contact.phone) throw new ValidationError(`${contact.name} has no phone number.`);
+    result = await sendSms(contact.phone, m.body);
+  }
+  if (!result.ok) throw new ConflictError(result.reason);
+  return record(db, {
+    dealId: m.dealId, contactId: contact.id, kind: m.channel === 'email' ? 'email' : 'sms',
+    summary: m.channel === 'email' ? (m.subject ?? 'Following up') : m.body.replace(/\s+/g, ' ').slice(0, 120),
+    detail: m.channel === 'email' ? m.body : m.body.length > 120 ? m.body : null,
+    actor: m.actor, channel: m.channel, direction: 'out',
+  });
+}
+
+/** Sends a draft (optionally edited first), or dismisses it. Only a person calls this; agents only ever write drafts. */
+export async function actOnDraft(id: string, input: unknown): Promise<{ draft: Draft; activity: Activity | null }> {
+  uuid(id, 'Draft');
+  const raw = asRecord(input, 'The request');
+  const action = oneOf(raw.action, 'Action', ['send', 'dismiss'] as const);
+  const actor = actorName(raw.actor);
+  const db = getDb();
+  const [draft] = await db.select().from(crmDrafts).where(eq(crmDrafts.id, id));
+  if (!draft) throw new NotFoundError('Draft not found.');
+  if (draft.status !== 'pending' && draft.status !== 'failed') throw new ConflictError('That draft has already been handled.');
+  if (action === 'dismiss') {
+    const [row] = await db.update(crmDrafts).set({ status: 'dismissed', updatedAt: new Date() }).where(eq(crmDrafts.id, id)).returning();
+    return { draft: toDraft(row), activity: null };
+  }
+  const subject = raw.subject === undefined ? draft.subject : (optText(raw.subject, 'Subject', 300) ?? null);
+  const body = raw.body === undefined ? draft.body : text(raw.body, 'Message', { max: 10_000 });
+  try {
+    const activity = await deliver({ contactId: draft.contactId, dealId: draft.dealId, channel: draft.channel === 'sms' ? 'sms' : 'email', subject, body, actor });
+    const [row] = await db.update(crmDrafts).set({ status: 'sent', subject, body, sentAt: new Date(), error: null, updatedAt: new Date() }).where(eq(crmDrafts.id, id)).returning();
+    return { draft: toDraft(row), activity };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not send.';
+    await db.update(crmDrafts).set({ status: 'failed', subject, body, error: message, updatedAt: new Date() }).where(eq(crmDrafts.id, id));
+    throw err;
+  }
+}

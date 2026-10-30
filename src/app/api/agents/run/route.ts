@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { runAgentsNow } from '@/lib/agents/runner';
 import { runDesk } from '@/lib/desk/agents';
+import { runCrmAgents } from '@/lib/crm/agents';
 import { apiErrorResponse } from '@/lib/apiError';
 import { verifyPayload } from '@/lib/crypto';
 import { APP_SESSION_COOKIE } from '@/lib/cookieNames';
@@ -28,7 +29,11 @@ export async function POST(request: NextRequest) {
   if (!allowed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    return NextResponse.json({ results: await runAgentsNow(), desk: await runDesk() });
+    const results = await runAgentsNow();
+    const desk = await runDesk();
+    // A CRM problem must not hide the trade and desk results.
+    const crm = await runCrmAgents().catch((err) => [{ agent: 'crm', handled: 0, error: err instanceof Error ? err.message : 'CRM agents failed' }]);
+    return NextResponse.json({ results, desk, crm });
   } catch (err) {
     return apiErrorResponse(err);
   }

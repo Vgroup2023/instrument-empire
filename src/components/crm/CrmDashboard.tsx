@@ -25,8 +25,10 @@ function Bar({ pct, color }: { pct: number; color: string }) {
 
 /** The CRM overview: how much is in play, what is likely to close, who is winning, and what just happened. */
 export function CrmDashboard({
-  m, deals, activities, onOpenDeal, onToggleTask, live,
+  m, deals, activities, onOpenDeal, onToggleTask, live, attention, onGo,
 }: {
+  attention: { drafts: number; followUps: number; meetings: number };
+  onGo: (tab: 'review' | 'upcoming' | 'activity') => void;
   m: CrmMetrics;
   deals: Deal[];
   activities: Activity[];
@@ -94,8 +96,8 @@ export function CrmDashboard({
 
           <Card className="p-5">
             <h3 className="text-[15px] font-semibold text-[#0f2059]">Activity this week</h3>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {([['call', '📞', 'Calls'], ['email', '✉️', 'Emails'], ['meeting', '🤝', 'Meetings'], ['note', '📝', 'Notes']] as const).map(([k, icon, label]) => (
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {([['call', '📞', 'Calls'], ['email', '✉️', 'Emails'], ['sms', '💬', 'Texts'], ['meeting', '🤝', 'Meetings'], ['note', '📝', 'Notes']] as const).map(([k, icon, label]) => (
                 <div key={k} className="rounded-xl bg-slate-50 p-3 text-center">
                   <p className="text-lg">{icon}</p>
                   <p className="text-xl font-bold text-[#0f2059]">{m.activityWeek[k]}</p>
@@ -108,6 +110,25 @@ export function CrmDashboard({
         </div>
 
         <div className="space-y-5 xl:col-span-4">
+          <Card className="p-5">
+            <h3 className="text-[15px] font-semibold text-[#0f2059]">Needs your attention</h3>
+            <ul className="mt-2 divide-y divide-slate-100 text-sm">
+              {([
+                ['review', attention.drafts, 'follow-up emails to approve', '✍️'],
+                ['upcoming', attention.followUps, 'people due a follow-up', '🔔'],
+                ['upcoming', attention.meetings, 'meetings in the next 7 days', '📅'],
+                ['upcoming', m.tasksOverdue, 'overdue tasks', '⚠️'],
+              ] as const).map(([tab, n, label, icon]) => (
+                <li key={label}>
+                  <button type="button" onClick={() => onGo(tab)} className="flex w-full items-center justify-between gap-3 py-2 text-left hover:text-brand-700">
+                    <span><span aria-hidden className="mr-2">{icon}</span>{label}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${n ? 'bg-royal-gradient text-white' : 'bg-slate-100 text-slate-500'}`}>{n}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
           <Card className="p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-[15px] font-semibold text-[#0f2059]">Live activity</h3>

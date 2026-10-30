@@ -21,7 +21,18 @@ export interface NavGroup {
 // mobile drawer and the master dashboard's tab grid all read this list, so a
 // page added here shows up in all three and cannot be forgotten in one.
 // scripts/check-nav.mjs fails CI if a dashboard page is missing from it.
+// Insights comes first: it is the first layer of tabs in the sidebar, the mobile menu and the "All tabs" grid.
 export const navGroups: NavGroup[] = [
+  {
+    title: 'Insights',
+    items: [
+      { href: '/dashboard', label: 'Overview', icon: '📊', description: 'Profitability, cash flow and balance sheet health.' },
+      { href: '/dashboard/ar-ap', label: 'A/R & A/P aging', icon: '⏱️', description: 'Who owes you money, and which bills are coming due.' },
+      { href: '/dashboard/sales', label: 'Sales breakdown', icon: '📈', description: "What's driving revenue, by customer and by product." },
+      { href: '/dashboard/anomalies', label: 'Anomaly detection', icon: '🚨', description: 'Duplicates, unusual amounts and unbalanced entries in your ledger.' },
+      { href: '/dashboard/flux-analysis', label: 'Flux analysis', icon: '📐', description: 'What changed between periods, line by line.' },
+    ],
+  },
   {
     title: 'Trade & AI agents',
     items: [
@@ -43,16 +54,6 @@ export const navGroups: NavGroup[] = [
     title: 'Sales & CRM',
     items: [
       { href: '/dashboard/crm', label: 'CRM', icon: '🧲', description: 'Leads, deals and a live record of every call, email and meeting, with a pipeline board and sales dashboard.' },
-    ],
-  },
-  {
-    title: 'Insights',
-    items: [
-      { href: '/dashboard', label: 'Overview', icon: '📊', description: 'Profitability, cash flow and balance sheet health.' },
-      { href: '/dashboard/ar-ap', label: 'A/R & A/P aging', icon: '⏱️', description: 'Who owes you money, and which bills are coming due.' },
-      { href: '/dashboard/sales', label: 'Sales breakdown', icon: '📈', description: "What's driving revenue, by customer and by product." },
-      { href: '/dashboard/anomalies', label: 'Anomaly detection', icon: '🚨', description: 'Duplicates, unusual amounts and unbalanced entries in your ledger.' },
-      { href: '/dashboard/flux-analysis', label: 'Flux analysis', icon: '📐', description: 'What changed between periods, line by line.' },
     ],
   },
   {

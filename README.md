@@ -544,6 +544,21 @@ Everyone signs in with their own email and password. One company, with departmen
 - **Team inbox:** work handed to you, or to a department you work in, with a bell and count in the top bar. Anyone who is not view-only can hand work to a department or a colleague, with an optional due date, and mark work done, dismiss it or reopen it. **Handed on** lists what you passed to others.
 - Needs migration `0022_team_tasks`. Tests: `npm run qa:handoffs` (and the CRM test covers the won-deal hand-off).
 
+### Single sign-on (OpenID Connect)
+
+Optional. Works with any standard provider (Google Workspace, Microsoft Entra ID, Okta, Auth0, Keycloak). Set these in Netlify and redeploy:
+
+- `SSO_ISSUER`: the provider's issuer URL, for example `https://accounts.google.com` or `https://login.microsoftonline.com/<tenant id>/v2.0`. It must be `https`.
+- `SSO_CLIENT_ID` and `SSO_CLIENT_SECRET`: from the app you register with the provider.
+- `SSO_NAME` (optional): the button text, for example `Google`.
+- At the provider, register this redirect URL: `https://<your site>/api/auth/sso/callback` (it uses `APP_BASE_URL` when that is set).
+
+A **Sign in with ...** button then appears on the sign-in page. It only signs in people who already have an account here, matched by the email the provider has verified; nobody is created from outside. An invited person who signs in this way is activated (no password needed). Disabled people stay out. Email and password keeps working beside it, so the owner is never locked out if the provider has a problem.
+
+### Task emails
+
+When work is handed to one specific person, they also get an email (when email is set up) with a link to the Team inbox. Work handed to a whole department shows in the inbox and the bell only.
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

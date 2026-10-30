@@ -4,6 +4,7 @@ import { PasswordField } from '@/components/auth/PasswordField';
 import { AccountFields } from '@/components/auth/AccountFields';
 import { getCurrentUser, legacyAllowed } from '@/lib/auth/current';
 import { safeNext } from '@/lib/safeNext';
+import { ssoConfig } from '@/lib/auth/sso';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,9 @@ export default async function LoginPage({
   } catch {
     // The database is unreachable: fall back to the passphrase form so the owner is never locked out.
   }
+  const sso = ssoConfig();
+  const isSsoError = params.error === 'sso';
+  const isSsoNoAccount = params.error === 'sso_no_account';
   const passphraseWorks = !accounts || process.env.PASSPHRASE_LOGIN === 'on';
 
   return (
@@ -76,6 +80,14 @@ export default async function LoginPage({
               <p id="login-error" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 The shared passphrase has been switched off. Sign in with your own email and password.
               </p>
+            ) : isSsoNoAccount ? (
+              <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                That account is not set up here. Ask your administrator to add you, then try again.
+              </p>
+            ) : isSsoError ? (
+              <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                Single sign-on did not work. Try again, or use your email and password.
+              </p>
             ) : isAccountError ? (
               <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                 That email and password do not match an active account.
@@ -86,6 +98,18 @@ export default async function LoginPage({
               </p>
             ) : null}
           </div>
+
+          {sso ? (
+            <div className={accounts ? 'mb-5' : 'mb-5 border-b border-slate-200 pb-5'}>
+              <a
+                href={`/api/auth/sso/start?next=${encodeURIComponent(next)}`}
+                className="flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              >
+                Sign in with {sso.name}
+              </a>
+              {accounts ? <p className="mt-3 text-center text-xs text-slate-500">or use your email and password</p> : null}
+            </div>
+          ) : null}
 
           {accounts ? (
             <form action="/api/login" method="POST" className="space-y-4">

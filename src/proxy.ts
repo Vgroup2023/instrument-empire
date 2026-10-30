@@ -42,6 +42,8 @@ export async function proxy(request: NextRequest) {
     // Accepting an invitation or a password-reset link happens before the person has a session.
     pathname.startsWith('/invite/') ||
     pathname === '/api/auth/accept' ||
+    // The single-sign-on round trip with the provider happens before there is a session.
+    pathname.startsWith('/api/auth/sso/') ||
     // Called by this gate itself; it checks the signed cookie it is handed.
     pathname === '/api/auth/session' ||
     pathname.startsWith('/api/login') ||

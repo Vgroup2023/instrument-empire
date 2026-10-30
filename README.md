@@ -561,6 +561,16 @@ A **Sign in with ...** button then appears on the sign-in page. It only signs in
 
 When work is handed to one specific person, they also get an email (when email is set up) with a link to the Team inbox. Work handed to a whole department shows in the inbox and the bell only.
 
+### Moving the database to another region
+
+The database lives in a Supabase project; a project's region cannot be changed, so a move means a new project and a copy.
+
+1. Create the new project in the region you want (Supabase: New project). Reset its database password and copy the **Session pooler** connection string from **Connect**.
+2. Add it as the repository secret `NEW_DATABASE_URL` (Settings, Secrets and variables, Actions).
+3. Pick a quiet moment, then run **Actions, Copy database to another project**, typing `COPY`. It dumps the old database (read only), restores it into the new one, and compares row counts table by table; it fails rather than letting you switch if anything differs. It refuses to run into a database that already has tables.
+4. Switch over: in Netlify set `DATABASE_URL` (Production) to the new project's **Transaction pooler** string and redeploy; update the `DATABASE_URL` repository secret to the same new value so the migrate workflow follows. Anything written to the old database after the copy is not carried over, so do steps 3 and 4 back to back.
+5. Check `/api/health` shows `"database":"ok","schema":"ok"`. Keep the old project for at least a week as a backup before pausing it, and do not delete a project that other apps still use.
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

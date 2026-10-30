@@ -7,14 +7,16 @@ import { NavIcon } from './NavIcon';
 // Two bells like a mail and alerts tray: urgent findings from the agents, and work waiting on a person.
 // The counts are fetched after the page has shown, so the top bar never holds a page back.
 export function AlertBells() {
-  const [counts, setCounts] = useState<{ urgent: number; waiting: number } | null>(null);
+  const [counts, setCounts] = useState<{ urgent: number; waiting: number; team: number } | null>(null);
   useEffect(() => {
     let alive = true;
     const load = () =>
-      fetch('/api/dashboard/alerts', { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => alive && d && setCounts(d))
-        .catch(() => {});
+      Promise.all([
+        fetch('/api/dashboard/alerts', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch('/api/tasks/count', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]).then(([a, t]) => {
+        if (alive && (a || t)) setCounts({ urgent: a?.urgent ?? 0, waiting: a?.waiting ?? 0, team: t?.open ?? 0 });
+      });
     load();
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
@@ -36,6 +38,7 @@ export function AlertBells() {
     <div className="flex items-center">
       {bell('/dashboard/agents', 'Urgent agent findings', counts?.urgent ?? 0, 'bell')}
       {bell('/dashboard/orders', 'Work waiting on you', counts?.waiting ?? 0, 'inbox')}
+      {bell('/dashboard/inbox', 'Team inbox', counts?.team ?? 0, 'users')}
     </div>
   );
 }

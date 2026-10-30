@@ -1,3 +1,5 @@
+import { createDraftInvoiceTx } from '@/lib/accounting/invoices';
+import { createSystemTask } from '@/lib/team/tasks';
 import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { normalizePhone, parseAddress, classifyInbound, type Channel, type Draft, type Report } from './model';
 import { sendEmail, sendSms } from './comms';
@@ -261,6 +263,35 @@ async function ensureCustomer(tx: Tx, deal: typeof crmDeals.$inferSelect, actor:
   return customer.id;
 }
 
+
+/**
+ * A won deal becomes work for Finance: a draft invoice for the deal value (once, however often the deal is moved
+ * around) and a task in Finance's inbox to review and send it. A deal with no value still tells Finance to set up billing.
+ */
+async function handOffWonDeal(tx: Tx, deal: typeof crmDeals.$inferSelect, customerId: string, actor: string): Promise<void> {
+  const amount = Number(deal.value);
+  let invoiceId = deal.invoiceId;
+  let docNumber: string | null = null;
+  if (!invoiceId && amount > 0) {
+    const inv = await createDraftInvoiceTx(tx, {
+      customerId, description: deal.title.slice(0, 480), amount, currency: deal.currency, notes: `From the won deal "${deal.title}" (recorded by ${actor}).`,
+    });
+    invoiceId = inv.id;
+    docNumber = inv.docNumber;
+    await tx.update(crmDeals).set({ invoiceId }).where(eq(crmDeals.id, deal.id));
+    await record(tx, { dealId: deal.id, contactId: deal.contactId, kind: 'note', summary: `Draft invoice ${docNumber ?? ''} created for Finance to review`.replace('  ', ' '), actor });
+  }
+  const money = `${deal.currency} ${amount.toLocaleString('en-US')}`;
+  await createSystemTask(tx, {
+    source: `crm-won:${deal.id}`,
+    fromName: actor,
+    toDepartment: 'finance',
+    title: invoiceId ? `Review and send the invoice for the won deal "${deal.title}"` : `Set up billing for the won deal "${deal.title}"`,
+    detail: invoiceId ? `${actor} won this deal (${money}). A draft invoice${docNumber ? ` (${docNumber})` : ''} is ready in Invoices: check the lines, terms and due date, then send it.` : `${actor} won this deal. It has no value yet, so no invoice was drafted. Agree the amount with Sales, then create the invoice.`,
+    href: '/dashboard/invoices',
+  });
+}
+
 export async function updateDeal(id: string, input: unknown): Promise<Deal> {
   uuid(id, 'Deal');
   const raw = asRecord(input, 'The deal');
@@ -292,7 +323,8 @@ export async function updateDeal(id: string, input: unknown): Promise<Deal> {
       const to = stageInfo(newStage).label;
       if (newStage === 'won') {
         await record(tx, { dealId: id, contactId: row.contactId, kind: 'won', summary: `Deal won (${row.currency} ${Number(row.value).toLocaleString('en-US')})`, detail: `Moved from ${from}`, actor });
-        await ensureCustomer(tx, row, actor);
+        const customerId = await ensureCustomer(tx, row, actor);
+        await handOffWonDeal(tx, row, customerId, actor);
       } else if (newStage === 'lost') {
         await record(tx, { dealId: id, contactId: row.contactId, kind: 'lost', summary: 'Deal lost', detail: row.lostReason ? `Reason: ${row.lostReason}` : `Moved from ${from}`, actor });
       } else {

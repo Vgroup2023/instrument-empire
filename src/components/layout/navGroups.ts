@@ -110,6 +110,7 @@ export const navGroups: NavGroup[] = [
     title: 'App',
     items: [
       { href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️', description: 'Optional QuickBooks connection and provider status.' },
+      { href: '/dashboard/inbox', label: 'Team inbox', icon: '📨', description: 'Work handed to you or your department, and work you handed to others, such as a won deal waiting for its invoice.' },
       { href: '/dashboard/team', label: 'Team & access', icon: '👥', description: 'Invite people, give each a role and departments, and see who can do what.' },
       { href: '/dashboard/account', label: 'My account', icon: '🔑', description: 'Your name, role and password.' },
       { href: '/dashboard/files', label: 'Files', icon: '📁', description: 'Upload, open and download documents and photos from any device.' },

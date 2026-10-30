@@ -125,7 +125,7 @@ async function db() {
   const { customers, crmDeals, crmContacts } = await import('../../src/db/schema');
   const and0 = <T>(x: T) => x;
   const { inArray, eq } = await import('drizzle-orm');
-  const made = { deals: [] as string[], contacts: [] as string[], customers: [] as string[] };
+  const made = { deals: [] as string[], contacts: [] as string[], customers: [] as string[], invoices: [] as string[] };
   try {
     const c = await svc.createContact({ name: 'QA Contact', company: 'QA Corp', email: 'qa@example.com', source: 'referral', actor: 'Tester' });
     made.contacts.push(c.id);
@@ -175,6 +175,23 @@ async function db() {
     await svc.updateDeal(deal.id, { stage: 'negotiation', actor: 'Tester' });
     const again = await svc.updateDeal(deal.id, { stage: 'won', actor: 'Tester' });
     assert.equal(again.customerId, won.customerId);
+
+    // ...and hands the work to Finance once: one draft invoice for the deal value and one task in Finance's inbox
+    const { invoices, invoiceLines, teamTasks } = await import('../../src/db/schema');
+    const [afterWin] = await getDb().select().from(crmDeals).where(eq(crmDeals.id, deal.id));
+    assert.ok(afterWin.invoiceId, 'won deal has a draft invoice');
+    made.invoices.push(afterWin.invoiceId!);
+    const [inv] = await getDb().select().from(invoices).where(eq(invoices.id, afterWin.invoiceId!));
+    assert.equal(inv.customerId, won.customerId);
+    const lines = await getDb().select().from(invoiceLines).where(eq(invoiceLines.invoiceId, inv.id));
+    assert.equal(lines.length, 1);
+    assert.equal(Number(lines[0].amount), 2500);
+    const handoffs = await getDb().select().from(teamTasks).where(eq(teamTasks.source, `crm-won:${deal.id}`));
+    assert.equal(handoffs.length, 1);
+    assert.equal(handoffs[0].toDepartment, 'finance');
+    assert.equal(handoffs[0].status, 'open');
+    const invCount = await getDb().select().from(invoices).where(eq(invoices.customerId, won.customerId!));
+    assert.equal(invCount.length, 1, 'winning twice does not bill twice');
 
     const history = await svc.activitiesFor({ dealId: deal.id });
     const kinds = history.map((h) => h.kind);
@@ -303,6 +320,9 @@ async function db() {
     const d2 = getDb();
     if (made.deals.length) await d2.delete(crmDeals).where(inArray(crmDeals.id, made.deals));
     if (made.contacts.length) await d2.delete(crmContacts).where(inArray(crmContacts.id, made.contacts));
+    const { invoices: invT, teamTasks: ttT } = await import('../../src/db/schema');
+    if (made.deals.length) for (const id of made.deals) await d2.delete(ttT).where(eq(ttT.source, `crm-won:${id}`));
+    if (made.invoices.length) await d2.delete(invT).where(inArray(invT.id, made.invoices));
     if (made.customers.length) await d2.delete(customers).where(inArray(customers.id, made.customers));
   }
 }

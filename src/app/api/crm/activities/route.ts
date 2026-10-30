@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { activitiesFor, logActivity } from '@/lib/crm/service';
 import { apiErrorResponse } from '@/lib/apiError';
-import { readJson } from '@/lib/http';
+import { readJsonAsUser } from '@/lib/crm/signedBody';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    return NextResponse.json({ activity: await logActivity(await readJson(request)) });
+    return NextResponse.json({ activity: await logActivity(await readJsonAsUser(request)) });
   } catch (err) {
     return apiErrorResponse(err);
   }

@@ -527,6 +527,17 @@ follow-up period (weekly by default), flag quiet deals, and write a daily report
 send anything to a customer: drafts wait under **Review** for a person to approve. Set `CRM_REPORT_EMAIL` (comma separated) to have the
 reports emailed. With `ANTHROPIC_API_KEY` set, Claude writes the follow-ups and report summaries; without it they use plain templates.
 
+## Teams, users and departments
+
+Everyone signs in with their own email and password. One company, with departments inside it.
+
+- **Roles:** Owner and Admin (everything; admins cannot touch owners), Department manager (full access to their departments and manages the members and viewers in them), Team member (full access to their departments), View only (can look, cannot change anything).
+- **Departments:** Finance & accounting, Sales & CRM, Operations & logistics, People & payroll, Administration & legal. Each page and API endpoint belongs to one or more departments (the table is in `src/lib/auth/permissions.ts`). A page nobody has listed is closed to everyone except owners and admins.
+- **Getting started:** sign in with the shared passphrase as before, open **Team & access**, and create your own owner account. From then on the shared passphrase stops working (set `PASSPHRASE_LOGIN=on` to keep it as an admin login). Then **Add a person**: they get a one-time link (also emailed if email is set up) to choose a password. Links expire after 7 days (invitations) or 24 hours (resets).
+- **Safety:** passwords are hashed with scrypt; links are stored only as hashes and work once; changing someone's role, departments or status, or a password change, signs them out of every device within about 30 seconds; there is always at least one active owner; nobody can change their own role.
+- **Everyday use:** the menu shows only what a person may open, the CRM and activity records carry the person's real name, and **My account** lets anyone change their password.
+- Needs migration `0021_app_users` (run the **Database migrate** workflow after merging). Tests: `npm run qa:auth`.
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

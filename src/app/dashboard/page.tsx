@@ -18,9 +18,13 @@ import { KpiRow, SalesCard, OrdersCard, ActivityCard, InventoryCard, CustomerCar
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardHomePage() {
+export default async function DashboardHomePage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
+  const { denied } = await searchParams;
   return (
     <div>
+      {denied ? (
+        <p role="alert" className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">Your account does not have access to that page. Ask an administrator if you need it.</p>
+      ) : null}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#0f2447]">Dashboard</h1>

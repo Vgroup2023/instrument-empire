@@ -43,6 +43,9 @@ jobs:
       - name: CRM calculation tests
         run: npm run qa:crm
 
+      - name: Accounts and access tests
+        run: npm run qa:auth
+
       - name: Build
         run: npm run build
         env:

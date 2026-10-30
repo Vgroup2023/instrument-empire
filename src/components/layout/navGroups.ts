@@ -1,3 +1,5 @@
+import { canAccess, type Principal } from '@/lib/auth/permissions';
+
 export type DemoProvider = 'payments' | 'payroll' | 'capital' | 'benchmark';
 
 export interface NavItem {
@@ -108,6 +110,8 @@ export const navGroups: NavGroup[] = [
     title: 'App',
     items: [
       { href: '/dashboard/settings', label: 'Settings & connection', icon: '⚙️', description: 'Optional QuickBooks connection and provider status.' },
+      { href: '/dashboard/team', label: 'Team & access', icon: '👥', description: 'Invite people, give each a role and departments, and see who can do what.' },
+      { href: '/dashboard/account', label: 'My account', icon: '🔑', description: 'Your name, role and password.' },
       { href: '/dashboard/files', label: 'Files', icon: '📁', description: 'Upload, open and download documents and photos from any device.' },
       { href: '/dashboard/guide', label: 'Training guide', icon: '📖', description: 'How to use every tab. Read it here or download the Word file.' },
       { href: '/install', label: 'Install the app', icon: '⬇️', description: 'Add GloblexAI Office ERP to your desktop or phone.' },
@@ -116,3 +120,11 @@ export const navGroups: NavGroup[] = [
 ];
 
 export const allNavItems: NavItem[] = navGroups.flatMap((g) => g.items);
+
+/** The menu a person gets: only the pages their role and departments allow. */
+export function groupsFor(p: Principal | null): NavGroup[] {
+  const who: Principal = p ?? { role: 'viewer', departments: [] };
+  return navGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => canAccess(who, i.href, 'GET')) }))
+    .filter((g) => g.items.length > 0);
+}

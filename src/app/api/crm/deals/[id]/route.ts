@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteDeal, updateDeal } from '@/lib/crm/service';
 import { apiErrorResponse } from '@/lib/apiError';
-import { readJson } from '@/lib/http';
+import { readJsonAsUser } from '@/lib/crm/signedBody';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    return NextResponse.json({ deal: await updateDeal(id, await readJson(request)) });
+    return NextResponse.json({ deal: await updateDeal(id, await readJsonAsUser(request)) });
   } catch (err) {
     return apiErrorResponse(err);
   }

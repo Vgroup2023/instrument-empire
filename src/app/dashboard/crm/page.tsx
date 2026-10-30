@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { describeError } from '@/lib/errors';
 import { snapshot } from '@/lib/crm/service';
+import { getCurrentUser } from '@/lib/auth/current';
 import { CrmClient } from '@/components/crm/CrmClient';
 
 export const dynamic = 'force-dynamic';
@@ -22,5 +23,6 @@ export default async function CrmPage() {
       </div>
     );
   }
-  return <CrmClient initial={initial} />;
+  const me = await getCurrentUser().catch(() => null);
+  return <CrmClient initial={initial} signedInAs={me?.id ? me.name : null} />;
 }

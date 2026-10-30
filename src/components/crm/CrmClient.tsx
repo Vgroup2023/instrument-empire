@@ -45,7 +45,7 @@ function merge<T extends { id: string; updatedAt: string }>(list: T[], changed: 
   return [...byId.values()];
 }
 
-export function CrmClient({ initial }: { initial: Snap }) {
+export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?: string | null }) {
   const { notify } = useToast();
   const [deals, setDeals] = useState(initial.deals);
   const [contacts, setContacts] = useState(initial.contacts);
@@ -55,7 +55,7 @@ export function CrmClient({ initial }: { initial: Snap }) {
   const [openContactId, setOpenContactId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [actor, setActor] = useState('Office team');
+  const [actor, setActor] = useState(signedInAs ?? 'Office team');
   const [nameOpen, setNameOpen] = useState(false);
   const [live, setLive] = useState(true);
   const [dealId, setDealId] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function CrmClient({ initial }: { initial: Snap }) {
   const actorRef = useRef(actor);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- the saved name lives in this browser, readable only after hydration
-  useEffect(() => setActor(loadActor()), []);
+  useEffect(() => { if (!signedInAs) setActor(loadActor()); }, [signedInAs]);
   useEffect(() => { actorRef.current = actor; }, [actor]);
   // "Due" and "overdue" counts are measured against this, refreshed twice a minute so they stay right on a page left open.
   useEffect(() => {
@@ -189,9 +189,13 @@ export function CrmClient({ initial }: { initial: Snap }) {
         description="Leads, deals and every call, email and meeting, recorded as it happens."
         actions={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setNameOpen(true)} className="rounded-lg px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100" title="Your name on the activity you record">
-              Recording as <b>{actor}</b>
-            </button>
+            {signedInAs ? (
+              <span className="px-2.5 py-1.5 text-xs text-slate-600">Recording as <b>{signedInAs}</b></span>
+            ) : (
+              <button type="button" onClick={() => setNameOpen(true)} className="rounded-lg px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100" title="Your name on the activity you record">
+                Recording as <b>{actor}</b>
+              </button>
+            )}
             <Button variant="secondary" onClick={() => setTab('contacts')}>+ Contact</Button>
             <Button onClick={() => setNewDeal({ stage: 'lead' })}>+ New deal</Button>
           </div>

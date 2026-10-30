@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { runAgentsNow } from '@/lib/agents/runner';
 import { runDesk } from '@/lib/desk/agents';
 import { runCrmAgents } from '@/lib/crm/agents';
 import { apiErrorResponse } from '@/lib/apiError';
-import { verifyPayload } from '@/lib/crypto';
-import { APP_SESSION_COOKIE } from '@/lib/cookieNames';
+import { getCurrentUser } from '@/lib/auth/current';
+import { canAccess } from '@/lib/auth/permissions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,10 +20,9 @@ export async function POST(request: NextRequest) {
   const bearer = request.headers.get('authorization')?.replace('Bearer ', '');
   let allowed = Boolean(cronSecret) && bearer === cronSecret;
   if (!allowed) {
-    const secret = process.env.SESSION_SECRET;
-    const token = (await cookies()).get(APP_SESSION_COOKIE)?.value;
-    const payload = secret ? await verifyPayload<{ ok: boolean }>(token, secret) : null;
-    allowed = Boolean(payload?.ok);
+    // A signed-in person who may work in Operations and is not view-only.
+    const user = await getCurrentUser();
+    allowed = Boolean(user) && canAccess(user!, '/api/agents/run', 'POST');
   }
   if (!allowed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

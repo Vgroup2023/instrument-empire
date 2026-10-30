@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { NavLinksList } from './NavLinksList';
+import type { NavGroup } from './navGroups';
 
 // Below the lg breakpoint (phones and tablets), the full always-visible
 // Sidebar is hidden and this hamburger + slide-in drawer takes its place —
 // same grouped nav links, just collapsed until opened, so the top bar stays
 // a single compact row instead of a second horizontal tab strip.
-export function MobileNavDrawer() {
+export function MobileNavDrawer({ groups }: { groups: NavGroup[] }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -83,7 +84,7 @@ export function MobileNavDrawer() {
                     ✕
                   </button>
                 </div>
-                <NavLinksList />
+                <NavLinksList groups={groups} />
               </div>
             </div>,
             document.body,

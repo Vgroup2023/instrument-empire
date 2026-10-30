@@ -72,7 +72,9 @@ jobs:
           ls -lh dump.bin
 
           echo "Restoring into the new database..."
-          pg_restore --no-owner --no-privileges --exit-on-error --dbname="$TGT" dump.bin
+          # The new project already has an (empty) public schema, so leave the dump's "CREATE SCHEMA public" out.
+          pg_restore -l dump.bin | grep -v -E ' SCHEMA - public ' > restore.list
+          pg_restore --no-owner --no-privileges --exit-on-error --use-list=restore.list --dbname="$TGT" dump.bin
 
           echo "Comparing row counts table by table..."
           bad=0; n=0

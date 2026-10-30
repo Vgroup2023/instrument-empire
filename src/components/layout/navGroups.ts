@@ -38,6 +38,12 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: 'Sales & CRM',
+    items: [
+      { href: '/dashboard/crm', label: 'CRM', icon: '🧲', description: 'Leads, deals and a live record of every call, email and meeting, with a pipeline board and sales dashboard.' },
+    ],
+  },
+  {
     title: 'Insights',
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊', description: 'Profitability, cash flow and balance sheet health.' },

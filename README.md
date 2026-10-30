@@ -519,6 +519,8 @@ Each message or call is matched to a contact by email address or phone number (a
 open deal, and recorded once even if the service delivers it twice. A reply asking to stop is acted on at once. The CRM page's
 **Connections & agents** tab shows each address, when it last received something, and a test command.
 
+**Gmail and Outlook.** `integrations/gmail-to-crm/` has a ready-to-paste Google Apps Script and a step-by-step guide that records labeled Gmail messages (including Outlook mail redirected into Gmail) in the CRM, with sent mail recorded as outgoing.
+
 **Sending.** Email uses the same `SMTP_*` settings as invoices. Texts use Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`.
 
 **Agents.** Four CRM agents run with the hourly agent run (`/api/agents/run`, the same schedule as the trade and desk agents), or on

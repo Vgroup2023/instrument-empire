@@ -1,0 +1,73 @@
+name: Copy database to another project
+
+# One-time tool for moving the app's database to a new Supabase project (for example in another region).
+# It READS the old database and WRITES the new one; the old one is never changed.
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   DATABASE_URL      the current (old) database, already set for the migrate workflow
+#   NEW_DATABASE_URL  the new project's connection string (Supabase: Connect > Session pooler)
+#
+# It copies the app's own tables (schema "public") and the migration history (schema "drizzle") only. Anything else
+# stored in the old project, such as other apps' schemas, is left where it is.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type COPY to confirm'
+        required: true
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the request
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SRC: ${{ secrets.DATABASE_URL }}
+          TGT: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          [ "$CONFIRM" = "COPY" ] || { echo "Type COPY to confirm."; exit 1; }
+          [ -n "$SRC" ] || { echo "Set the DATABASE_URL secret."; exit 1; }
+          [ -n "$TGT" ] || { echo "Set the NEW_DATABASE_URL secret."; exit 1; }
+          [ "$SRC" != "$TGT" ] || { echo "NEW_DATABASE_URL must be a different database from DATABASE_URL."; exit 1; }
+
+      - name: Install the PostgreSQL 17 tools
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Copy
+        env:
+          SRC_RAW: ${{ secrets.DATABASE_URL }}
+          TGT_RAW: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          export PATH=/usr/lib/postgresql/17/bin:$PATH
+          # A Supabase "transaction pooler" address (port 6543) cannot run a dump; the same host on 5432 is the session pooler.
+          SRC="${SRC_RAW//:6543\//:5432/}"
+          TGT="${TGT_RAW//:6543\//:5432/}"
+
+          echo "Checking the new database is empty..."
+          existing=$(psql "$TGT" -Atc "select count(*) from information_schema.tables where table_schema in ('public','drizzle')")
+          [ "$existing" = "0" ] || { echo "The new database already has $existing tables in public/drizzle. Stopping so nothing is overwritten."; exit 1; }
+
+          echo "Dumping the old database (read only)..."
+          pg_dump "$SRC" --format=custom --no-owner --no-privileges --schema=public --schema=drizzle -f dump.bin
+          ls -lh dump.bin
+
+          echo "Restoring into the new database..."
+          pg_restore --no-owner --no-privileges --exit-on-error --dbname="$TGT" dump.bin
+
+          echo "Comparing row counts table by table..."
+          bad=0; n=0
+          while IFS= read -r t; do
+            a=$(psql "$SRC" -Atc "select count(*) from $t")
+            b=$(psql "$TGT" -Atc "select count(*) from $t")
+            n=$((n+1))
+            if [ "$a" != "$b" ]; then echo "MISMATCH $t old=$a new=$b"; bad=1; fi
+          done < <(psql "$SRC" -Atc "select format('%I.%I', schemaname, tablename) from pg_tables where schemaname in ('public','drizzle') order by 1")
+          echo "Compared $n tables."
+          [ "$bad" = "0" ] || { echo "Row counts differ. Do not switch over."; exit 1; }
+          echo "All row counts match. The new database is ready to switch to."

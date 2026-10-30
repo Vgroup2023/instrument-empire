@@ -45,9 +45,23 @@ jobs:
         run: |
           set -euo pipefail
           export PATH=/usr/lib/postgresql/17/bin:$PATH
+          # Tidy stray spaces or line breaks from pasting, then make sure each value really is a database address.
+          # (A value that is not one makes psql quietly try a database on this machine instead, so say so clearly.)
+          SRC_RAW="$(printf '%s' "$SRC_RAW" | tr -d '[:space:]')"
+          TGT_RAW="$(printf '%s' "$TGT_RAW" | tr -d '[:space:]')"
+          for name in SRC_RAW TGT_RAW; do
+            v="${!name}"
+            if ! [[ "$v" =~ ^postgres(ql)?://[^:/@]+:.+@[^/@]+/[^/]+ ]] || [[ "$v" == *"[YOUR-PASSWORD]"* ]]; then
+              label="DATABASE_URL"; [ "$name" = "TGT_RAW" ] && label="NEW_DATABASE_URL"
+              echo "The $label secret is not a database address. It must look like postgresql://USER:PASSWORD@HOST:PORT/postgres (copy the Session pooler string from Supabase > Connect and put your password in place of [YOUR-PASSWORD], with no brackets). It starts with: ${v:0:6}..."
+              exit 1
+            fi
+          done
           # A Supabase "transaction pooler" address (port 6543) cannot run a dump; the same host on 5432 is the session pooler.
           SRC="${SRC_RAW//:6543\//:5432/}"
           TGT="${TGT_RAW//:6543\//:5432/}"
+          echo "Source host: $(printf '%s' "$SRC" | sed -E 's#^[^@]*@([^/:]+).*#\1#')"
+          echo "Target host: $(printf '%s' "$TGT" | sed -E 's#^[^@]*@([^/:]+).*#\1#')"
 
           echo "Checking the new database is empty..."
           existing=$(psql "$TGT" -Atc "select count(*) from information_schema.tables where table_schema in ('public','drizzle')")

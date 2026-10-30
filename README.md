@@ -664,7 +664,7 @@ The app is hosted on Netlify. To serve it at `globlexai.io`:
 
 ### The first page after a quiet spell is slow
 
-The app runs on serverless functions that sleep when unused; waking one takes several seconds (about 5 s measured), which can look like a hang. `netlify/functions/keep-warm.mjs` is a Netlify scheduled function: Netlify itself calls the sign-in page and `/api/health` every 5 minutes on the published production site, so a server stays awake. (The older GitHub Actions "Keep the app warm" workflow is kept as a backup, but GitHub runs scheduled workflows on a quiet repository only every few hours, so it cannot be relied on.) After it deploys, **Netlify, Logs, Functions, keep-warm** shows each run. It needs no setup and no secrets.
+The app runs on serverless functions that sleep when unused; waking one takes several seconds (about 5 s measured), which can look like a hang. `netlify/functions/keep-warm.mjs` is a Netlify scheduled function: Netlify itself calls the sign-in page (three requests at once, so several copies of the server stay warm) and `/api/health` every 5 minutes on the published production site. That is roughly 43,000 function calls a month; if your Netlify plan counts them, lower the number of requests in the file. (The older GitHub Actions "Keep the app warm" workflow is kept as a backup, but GitHub runs scheduled workflows on a quiet repository only every few hours, so it cannot be relied on.) After it deploys, **Netlify, Logs, Functions, keep-warm** shows each run. It needs no setup and no secrets.
 
 ## If a page shows "Inactivity Timeout"
 

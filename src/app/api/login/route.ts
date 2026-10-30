@@ -42,8 +42,17 @@ export async function POST(request: NextRequest) {
     }
     if (!user) {
       keys.forEach(recordFailedAttempt);
+      // Phones and browsers remember the old shared passphrase for this site and offer to fill it in beside an email.
+      // When that is what was sent (and the passphrase no longer works), say so, so the person knows what to clear.
+      let oldPassphrase = false;
+      try {
+        const legacy = await legacyAllowed().catch(() => ({ allowed: true }));
+        oldPassphrase = !legacy.allowed && password.length > 0 && samePassphrase(password, getAppPassword());
+      } catch {
+        // APP_PASSWORD is not set: nothing to compare with.
+      }
       const url = new URL('/login', request.url);
-      url.searchParams.set('error', 'account');
+      url.searchParams.set('error', oldPassphrase ? 'old_passphrase' : 'account');
       url.searchParams.set('next', next);
       return NextResponse.redirect(url, { status: 303 });
     }

@@ -15,20 +15,29 @@ import { ContactsPanel } from './ContactsPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { UpcomingPanel } from './UpcomingPanel';
 import { DraftsPanel } from './DraftsPanel';
-import { ReportsPanel } from './ReportsPanel';
 import { ConnectionsPanel } from './ConnectionsPanel';
+import { LeadsPanel } from './LeadsPanel';
+import { AccountsPanel } from './AccountsPanel';
+import { PostSalesPanel } from './PostSalesPanel';
+import { SalesOpsPanel } from './SalesOpsPanel';
 
 type Snap = { deals: Deal[]; contacts: Contact[]; activities: Activity[]; drafts: Draft[]; reports: Report[]; now: string };
-type Tab = 'dashboard' | 'pipeline' | 'contacts' | 'activity' | 'upcoming' | 'review' | 'reports' | 'connections';
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'pipeline', label: 'Pipeline', icon: '🧲' },
-  { id: 'contacts', label: 'Contacts', icon: '👤' },
-  { id: 'activity', label: 'Activity', icon: '⚡' },
-  { id: 'upcoming', label: 'Upcoming', icon: '📅' },
-  { id: 'review', label: 'Review', icon: '✍️' },
-  { id: 'reports', label: 'Reports', icon: '📑' },
-  { id: 'connections', label: 'Connections & agents', icon: '🔌' },
+type Tab = 'dashboard' | 'leads' | 'contacts' | 'pipeline' | 'postsales' | 'salesops' | 'connections' | 'upcoming' | 'activity' | 'review';
+/** The workflow, in the order a customer moves through it. */
+const FLOW: { id: Tab; label: string; icon: string; step?: number; about: string }[] = [
+  { id: 'dashboard', label: 'Overview', icon: '📊', about: 'Where the pipeline stands today and what needs attention.' },
+  { id: 'leads', label: 'Leads', icon: '🎯', step: 1, about: 'Collect leads from any source, qualify each one, and score them so the best to call come first.' },
+  { id: 'contacts', label: 'Contacts & accounts', icon: '👤', step: 2, about: 'A full picture of every person and company: details, history, deals, and the next follow-up.' },
+  { id: 'pipeline', label: 'Deals', icon: '🧲', step: 3, about: 'Drag deals between stages. Winning one drafts its invoice and sends Finance a task automatically.' },
+  { id: 'postsales', label: 'Post-sales', icon: '🧾', step: 4, about: 'After the win: onboarding, billing and collections, so nothing slips once the deal is closed.' },
+  { id: 'salesops', label: 'Sales ops', icon: '📈', step: 5, about: 'How each person and the team are doing, plus the daily and weekly reports.' },
+  { id: 'connections', label: 'Integrations', icon: '🔌', step: 6, about: 'Email, text and call services that feed the CRM, and the agents that work it for you.' },
+];
+/** Day-to-day work that cuts across every step. */
+const DAILY: { id: Tab; label: string; icon: string; about: string }[] = [
+  { id: 'upcoming', label: 'Upcoming', icon: '📅', about: 'Tasks and meetings coming up, soonest first.' },
+  { id: 'activity', label: 'Activity', icon: '⚡', about: 'Every call, email, meeting and change, as it happens.' },
+  { id: 'review', label: 'Review', icon: '✍️', about: 'Drafts the follow-up agent wrote. Approve before anything is sent.' },
 ];
 
 const POLL_MS = 4000;
@@ -55,6 +64,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
   const [openContactId, setOpenContactId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [peopleView, setPeopleView] = useState<'people' | 'accounts'>('people');
   const [actor, setActor] = useState(signedInAs ?? 'Office team');
   const [nameOpen, setNameOpen] = useState(false);
   const [live, setLive] = useState(true);
@@ -157,6 +167,9 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
     void crmCall<{ activities: Activity[] }>(`/api/crm/activities?contactId=${c.id}`).then((r) => r.activities.forEach(addActivity)).catch(() => {});
   }
 
+  function goTab(t: Tab) { setOpenContactId(null); setTab(t); }
+  function openContact(id: string) { setOpenContactId(id); setPeopleView('people'); setTab('contacts'); }
+
   async function move(id: string, stage: StageKey, reason?: string) {
     const deal = deals.find((d) => d.id === id);
     if (!deal || deal.stage === stage) return;
@@ -196,25 +209,49 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
                 Recording as <b>{actor}</b>
               </button>
             )}
-            <Button variant="secondary" onClick={() => setTab('contacts')}>+ Contact</Button>
+            <Button variant="secondary" onClick={() => goTab('leads')}>+ Lead</Button>
             <Button onClick={() => setNewDeal({ stage: 'lead' })}>+ New deal</Button>
           </div>
         }
       />
-      <div role="tablist" className="mb-5 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => { setOpenContactId(null); setTab(t.id); }}
+      <nav aria-label="CRM workflow" role="tablist" className="mb-2 flex flex-wrap gap-2">
+        {FLOW.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
             className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${tab === t.id ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            {t.step ? <span aria-hidden className={`mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${tab === t.id ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>{t.step}</span> : <span aria-hidden className="mr-1">{t.icon}</span>}
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      <div role="tablist" aria-label="Daily work" className="mb-3 flex flex-wrap items-center gap-1.5 text-sm">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Daily work</span>
+        {DAILY.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
+            className={`rounded-lg px-2.5 py-1 font-medium ${tab === t.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
             <span aria-hidden className="mr-1">{t.icon}</span>{t.label}
             {t.id === 'upcoming' && metrics.tasksOpen ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${metrics.tasksOverdue ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700'}`}>{metrics.tasksOpen}</span> : null}
             {t.id === 'review' && attention.drafts ? <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 text-xs text-white">{attention.drafts}</span> : null}
           </button>
         ))}
       </div>
+      <p className="mb-5 text-sm text-slate-600">{[...FLOW, ...DAILY].find((t) => t.id === tab)?.about}</p>
 
       {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={deals} activities={activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} attention={attention} onGo={setTab} /> : null}
+      {tab === 'leads' ? (
+        <LeadsPanel contacts={contacts} deals={deals} activities={activities} actor={actor} onSaved={upsertContact}
+          onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} onOpenContact={openContact} />
+      ) : null}
       {tab === 'pipeline' ? <PipelineBoard deals={deals} contacts={contacts} onOpen={setDealId} onMove={move} onNew={(stage) => setNewDeal({ stage })} /> : null}
       {tab === 'contacts' ? (
+        <div className="mb-3 inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm" role="group" aria-label="View">
+          {(['people', 'accounts'] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={peopleView === v} onClick={() => setPeopleView(v)}
+              className={`rounded-md px-3 py-1 font-medium ${peopleView === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{v === 'people' ? 'People' : 'Accounts'}</button>
+          ))}
+        </div>
+      ) : null}
+      {tab === 'contacts' && peopleView === 'accounts' ? <AccountsPanel contacts={contacts} deals={deals} onOpenContact={openContact} onOpenDeal={setDealId} /> : null}
+      {tab === 'contacts' && peopleView === 'people' ? (
         <ContactsPanel contacts={contacts} deals={deals} activities={activities} actor={actor} onSaved={upsertContact}
           onDeleted={(id) => setContacts((p) => p.filter((c) => c.id !== id))} onActivity={addActivity} onToggleTask={toggleTask}
           onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} initialOpenId={openContactId} />
@@ -222,10 +259,11 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
       {tab === 'activity' ? <ActivityPanel mode="feed" activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask} /> : null}
       {tab === 'upcoming' ? (
         <UpcomingPanel activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask}
-          onOpenContact={(id) => { setOpenContactId(id); setTab('contacts'); }} />
+          onOpenContact={openContact} />
       ) : null}
       {tab === 'review' ? <DraftsPanel drafts={drafts} contacts={contacts} actor={actor} onChanged={(d) => setDrafts((p) => merge(p, [d]))} onActivity={addActivity} /> : null}
-      {tab === 'reports' ? <ReportsPanel reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} /> : null}
+      {tab === 'postsales' ? <PostSalesPanel deals={deals} contacts={contacts} activities={activities} onOpenDeal={setDealId} /> : null}
+      {tab === 'salesops' ? <SalesOpsPanel m={metrics} activities={activities} reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} now={now} /> : null}
       {tab === 'connections' ? <ConnectionsPanel onRan={() => void crmCall<Snap>('/api/crm').then((s) => { setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities); setDrafts(s.drafts); setReports(s.reports); since.current = s.now; }).catch(() => undefined)} /> : null}
 
       <DealDialog

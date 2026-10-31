@@ -1236,6 +1236,22 @@ export const crmReports = pgTable(
   (t) => [uniqueIndex('ux_crm_reports_period').on(t.kind, t.period)],
 );
 
+/** A monthly sales target: for the whole team (owner is empty) or for one person, so progress can be shown against it. */
+export const crmTargets = pgTable(
+  'crm_targets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** The month, as YYYY-MM. */
+    period: text('period').notNull(),
+    /** The deal owner's name as it appears on deals; empty for the whole team. */
+    owner: text('owner').notNull().default(''),
+    amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    setBy: text('set_by'),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('ux_crm_targets_period_owner').on(t.period, t.owner)],
+);
+
 // ---------------------------------------------------------------------------
 // People who sign in. Each has their own email and password, a role, and the departments they work in. Invite and
 // password-reset links are stored as hashes only, so a database copy does not reveal a working link.

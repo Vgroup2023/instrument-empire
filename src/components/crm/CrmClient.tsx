@@ -263,7 +263,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
       ) : null}
       {tab === 'review' ? <DraftsPanel drafts={drafts} contacts={contacts} actor={actor} onChanged={(d) => setDrafts((p) => merge(p, [d]))} onActivity={addActivity} /> : null}
       {tab === 'postsales' ? <PostSalesPanel deals={deals} contacts={contacts} activities={activities} onOpenDeal={setDealId} /> : null}
-      {tab === 'salesops' ? <SalesOpsPanel m={metrics} activities={activities} reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} now={now} /> : null}
+      {tab === 'salesops' ? <SalesOpsPanel m={metrics} deals={deals} actor={actor} activities={activities} reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} now={now} /> : null}
       {tab === 'connections' ? <ConnectionsPanel onRan={() => void crmCall<Snap>('/api/crm').then((s) => { setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities); setDrafts(s.drafts); setReports(s.reports); since.current = s.now; }).catch(() => undefined)} /> : null}
 
       <DealDialog

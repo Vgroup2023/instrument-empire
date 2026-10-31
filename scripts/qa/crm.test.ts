@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   ago, bucketUpcoming, classifyInbound, crmMetrics, followUpDue, formatDuration, leadScore, nextFollowUp, normalizePhone, parseAddress,
-  renderReport, summarizePeriod, type Activity, type Contact, type Deal,
+  monthOf, monthProgress, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
 } from '../../src/lib/crm/model';
 
 // ---- pure ----
@@ -23,7 +23,7 @@ assert.ok(leadScore(bare, 99, 99999) <= 100);
 assert.ok(leadScore({ ...bare, source: 'referral' }, 0, 0) > leadScore({ ...bare, source: 'outreach' }, 0, 0));
 
 const d = (o: Partial<Deal>): Deal => ({
-  id: Math.random().toString(), title: 't', contactId: null, customerId: null, value: 0, currency: 'USD', stage: 'lead', expectedClose: null,
+  id: Math.random().toString(), title: 't', contactId: null, customerId: null, invoiceId: null, value: 0, currency: 'USD', stage: 'lead', expectedClose: null,
   owner: 'Ana', source: 'other', lostReason: null, closedAt: null, notes: null, createdAt: '', updatedAt: '', ...o,
 });
 const t = (o: Partial<Activity>): Activity => ({
@@ -118,6 +118,12 @@ assert.match(text, /Received: 1 emails, 1 texts, 0 calls/);
 assert.match(text, /Quiet one: nothing for/);
 assert.match(text, /Demo/);
 
+assert.equal(monthOf('2026-10-31T23:59:59Z'), '2026-10');
+assert.equal(monthOf('2026-11-01T00:00:00Z'), '2026-11');
+assert.equal(monthProgress('2026-11', Date.parse('2026-10-15T00:00:00Z')), 0);
+assert.equal(monthProgress('2026-11', Date.parse('2026-12-15T00:00:00Z')), 1);
+assert.equal(monthProgress('2026-11', Date.parse('2026-11-16T00:00:00Z')), 0.5);
+
 // ---- database ----
 async function db() {
   const svc = await import('../../src/lib/crm/service');
@@ -192,6 +198,30 @@ async function db() {
     assert.equal(handoffs[0].status, 'open');
     const invCount = await getDb().select().from(invoices).where(eq(invoices.customerId, won.customerId!));
     assert.equal(invCount.length, 1, 'winning twice does not bill twice');
+
+    // collections: the won deal's invoice shows as billed and still owed
+    const coll = (await svc.collections()).find((x) => x.dealId === deal.id);
+    assert.ok(coll, 'collections include the won deal');
+    assert.equal(coll!.total, 2500);
+    assert.equal(coll!.paid, 0);
+    assert.equal(coll!.balance, 2500);
+    assert.equal(coll!.overdue, false);
+
+    // targets: set, change, read back and clear, for the team and for a person
+    const month = '2099-01';
+    await svc.setTarget({ period: month, amount: 50000 }, 'Tester');
+    await svc.setTarget({ period: month, owner: 'QA Rep', amount: 12000 }, 'Tester');
+    let tg = await svc.listTargets(month);
+    assert.equal(tg.find((x) => x.owner === '')?.amount, 50000);
+    await svc.setTarget({ period: month, amount: 60000 }, 'Tester');
+    tg = await svc.listTargets(month);
+    assert.equal(tg.length, 2);
+    assert.equal(tg.find((x) => x.owner === '')?.amount, 60000);
+    await assert.rejects(() => svc.setTarget({ period: '2099-13', amount: 1 }, 'Tester'));
+    await assert.rejects(() => svc.setTarget({ period: month, amount: -5 }, 'Tester'));
+    await svc.setTarget({ period: month, amount: 0 }, 'Tester');
+    await svc.setTarget({ period: month, owner: 'QA Rep' }, 'Tester');
+    assert.equal((await svc.listTargets(month)).length, 0);
 
     const history = await svc.activitiesFor({ dealId: deal.id });
     const kinds = history.map((h) => h.kind);

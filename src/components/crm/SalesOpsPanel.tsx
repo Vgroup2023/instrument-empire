@@ -3,15 +3,18 @@
 import { useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
-import type { Activity, CrmMetrics, Report } from '@/lib/crm/model';
+import type { Activity, CrmMetrics, Deal, Report } from '@/lib/crm/model';
 import { formatCurrency } from '@/lib/format';
 import { ReportsPanel } from './ReportsPanel';
+import { TargetsCard } from './TargetsCard';
 
 /** Step 5, sales operations: how each person and the team are doing, then the daily and weekly reports. */
 export function SalesOpsPanel({
-  m, activities, reports, onReport, now,
+  m, deals, actor, activities, reports, onReport, now,
 }: {
   m: CrmMetrics;
+  deals: Deal[];
+  actor: string;
   activities: Activity[];
   reports: Report[];
   onReport: (r: Report) => void;
@@ -34,6 +37,7 @@ export function SalesOpsPanel({
 
   return (
     <div className="space-y-6">
+      <TargetsCard deals={deals} actor={actor} now={now} />
       <section aria-label="Team performance">
         <h3 className="mb-1 text-[15px] font-semibold text-slate-900">Team performance</h3>
         <p className="mb-2 text-xs text-slate-500">Pipeline and wins are by deal owner (wins over the last 90 days). Outreach is calls, emails, texts and meetings sent or held this week, by who recorded them.</p>

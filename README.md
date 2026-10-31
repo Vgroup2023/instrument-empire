@@ -529,6 +529,12 @@ follow-up period (weekly by default), flag quiet deals, and write a daily report
 send anything to a customer: drafts wait under **Review** for a person to approve. Set `CRM_REPORT_EMAIL` (comma separated) to have the
 reports emailed. With `ANTHROPIC_API_KEY` set, Claude writes the follow-ups and report summaries; without it they use plain templates.
 
+**Collections and targets.** The CRM tab follows the sales workflow (Leads, Contacts & accounts, Deals, Post-sales, Sales ops, Integrations).
+**Post-sales** shows what each won deal's invoice has billed, collected, still owes and has overdue, read live from Invoices and payments.
+**Sales ops** holds monthly sales targets for the whole team and for each person (the name must match the deal owner), shown against the
+value of deals won that month and the pace for today. Targets live in the `crm_targets` table (migration 0023: run migrations once after
+this change).
+
 ## Teams, users and departments
 
 Everyone signs in with their own email and password. One company, with departments inside it.

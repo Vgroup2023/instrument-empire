@@ -66,6 +66,8 @@ export interface Deal {
   title: string;
   contactId: string | null;
   customerId: string | null;
+  /** The invoice made when the deal was won, if any. */
+  invoiceId: string | null;
   value: number;
   currency: string;
   stage: StageKey;
@@ -452,3 +454,30 @@ export function summarizePeriod(
 
 /** A deal with nothing recorded for this many days counts as quiet. */
 export const STALE_DEAL_DAYS = 14;
+
+/** One won deal's invoice and how much of it has been paid. */
+export interface Collection {
+  dealId: string;
+  invoiceId: string;
+  docNumber: string | null;
+  currency: string;
+  total: number;
+  paid: number;
+  balance: number;
+  dueDate: string | null;
+  overdue: boolean;
+}
+
+/** A month's sales target for the whole team (owner is empty) or one person. */
+export interface Target { period: string; owner: string; amount: number }
+
+/** The month (YYYY-MM, UTC) a timestamp falls in. */
+export const monthOf = (isoTime: string | number | Date): string => new Date(isoTime).toISOString().slice(0, 7);
+
+/** How far through a month we are, 0 to 1: before it starts 0, after it ends 1. */
+export function monthProgress(period: string, now = Date.now()): number {
+  const [y, m] = period.split('-').map(Number);
+  const start = Date.UTC(y, m - 1, 1);
+  const end = Date.UTC(y, m, 1);
+  return Math.max(0, Math.min(1, (now - start) / (end - start)));
+}

@@ -535,6 +535,12 @@ reports emailed. With `ANTHROPIC_API_KEY` set, Claude writes the follow-ups and 
 value of deals won that month and the pace for today. Targets live in the `crm_targets` table (migration 0023: run migrations once after
 this change).
 
+**Businesses.** Every contact and deal can be tagged with one of the group's businesses (Dr. Simplicios, BlueStarImex, PIVIT Fishing, Globlex AI;
+the list is `BUSINESSES` in `src/lib/crm/model.ts`). A deal takes its contact's business, and a new contact is tagged automatically when the email
+domain says so (for example `@bluestarimex.com`; see `DOMAIN_BUSINESS`). The Business chips at the top of the CRM narrow every tab to one business,
+and the Overview shows all of them side by side: leads, customers, follow-ups due, pipeline, won, and billed, collected and overdue. An invoice
+belongs to the business of the CRM contact who is that customer, so tag the contact and their invoices follow. Needs migration 0024.
+
 ## Teams, users and departments
 
 Everyone signs in with their own email and password. One company, with departments inside it.

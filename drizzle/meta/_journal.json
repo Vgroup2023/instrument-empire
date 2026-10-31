@@ -169,6 +169,13 @@
       "when": 1793417835003,
       "tag": "0023_crm_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793418466399,
+      "tag": "0024_crm_business",
+      "breakpoints": true
     }
   ]
 }

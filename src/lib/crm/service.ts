@@ -7,8 +7,8 @@ import { getDb } from '@/db/client';
 import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets, customers, invoiceLines, invoicePayments, invoices } from '@/db/schema';
 import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
-  CHANNELS, CONTACT_STATUSES, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
-  type Activity, type ActivityKind, type Collection, type Contact, type Deal, type StageKey, type Target,
+  BUSINESS_KEYS, CHANNELS, CONTACT_STATUSES, guessBusiness, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
+  type Activity, type ActivityKind, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target,
 } from './model';
 
 type Db = ReturnType<typeof getDb>;
@@ -19,7 +19,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 export function toContact(r: typeof crmContacts.$inferSelect): Contact {
   return {
     id: r.id, name: r.name, company: r.company, jobTitle: r.jobTitle, email: r.email, phone: r.phone,
-    source: r.source as Contact['source'], status: r.status as Contact['status'], owner: r.owner, customerId: r.customerId,
+    source: r.source as Contact['source'], status: r.status as Contact['status'], owner: r.owner, business: r.business, customerId: r.customerId,
     notes: r.notes, followUpDays: r.followUpDays, doNotContact: r.doNotContact, lastContactAt: iso(r.lastContactAt),
     createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
@@ -27,7 +27,7 @@ export function toContact(r: typeof crmContacts.$inferSelect): Contact {
 export function toDeal(r: typeof crmDeals.$inferSelect): Deal {
   return {
     id: r.id, title: r.title, contactId: r.contactId, customerId: r.customerId, invoiceId: r.invoiceId, value: Number(r.value), currency: r.currency,
-    stage: r.stage as StageKey, expectedClose: r.expectedClose, owner: r.owner, source: r.source as Deal['source'],
+    stage: r.stage as StageKey, expectedClose: r.expectedClose, owner: r.owner, business: r.business, source: r.source as Deal['source'],
     lostReason: r.lostReason, closedAt: iso(r.closedAt), notes: r.notes, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
@@ -157,6 +157,12 @@ export async function activitiesFor(opts: { dealId?: string; contactId?: string 
 // Contacts
 // ---------------------------------------------------------------------------
 
+/** A business key, or null for none. Untagged ('' or missing) is allowed. */
+function optBusiness(v: unknown): string | null {
+  if (v === undefined || v === null || v === '') return null;
+  return oneOf(v, 'Business', BUSINESS_KEYS);
+}
+
 function contactFields(raw: Record<string, unknown>, partial: boolean) {
   const out: Partial<typeof crmContacts.$inferInsert> = {};
   const has = (k: string) => raw[k] !== undefined;
@@ -168,6 +174,8 @@ function contactFields(raw: Record<string, unknown>, partial: boolean) {
   if (!partial || has('source')) out.source = raw.source === undefined || raw.source === '' ? 'other' : oneOf(raw.source, 'Source', SOURCES);
   if (!partial || has('status')) out.status = raw.status === undefined || raw.status === '' ? 'lead' : oneOf(raw.status, 'Status', CONTACT_STATUSES);
   if (!partial || has('owner')) out.owner = optText(raw.owner, 'Owner', 60) ?? null;
+  if (has('business')) out.business = optBusiness(raw.business);
+  else if (!partial) out.business = guessBusiness(out.email);
   if (!partial || has('notes')) out.notes = optText(raw.notes, 'Notes', 2000) ?? null;
   if (has('followUpDays')) {
     const v = raw.followUpDays;
@@ -224,6 +232,7 @@ function dealFields(raw: Record<string, unknown>, partial: boolean) {
   if (!partial || has('currency')) out.currency = optText(raw.currency, 'Currency', 3)?.toUpperCase() ?? 'USD';
   if (!partial || has('expectedClose')) out.expectedClose = optIsoDate(raw.expectedClose, 'Expected close date') ?? null;
   if (!partial || has('owner')) out.owner = optText(raw.owner, 'Owner', 60) ?? null;
+  if (has('business')) out.business = optBusiness(raw.business);
   if (!partial || has('source')) out.source = raw.source === undefined || raw.source === '' ? 'other' : oneOf(raw.source, 'Source', SOURCES);
   if (!partial || has('notes')) out.notes = optText(raw.notes, 'Notes', 2000) ?? null;
   return out;
@@ -238,7 +247,7 @@ export async function createDeal(input: unknown): Promise<Deal> {
   const fields = dealFields(raw, false) as typeof crmDeals.$inferInsert;
   return getDb().transaction(async (tx) => {
     const contact = await requireContact(tx, contactId);
-    const [row] = await tx.insert(crmDeals).values({ ...fields, stage, contactId: contactId ?? null, source: fields.source ?? contact?.source ?? 'other' }).returning();
+    const [row] = await tx.insert(crmDeals).values({ ...fields, stage, contactId: contactId ?? null, source: fields.source ?? contact?.source ?? 'other', business: fields.business ?? contact?.business ?? null }).returning();
     await record(tx, { dealId: row.id, contactId: contactId ?? null, kind: 'created', summary: `Deal created in ${stageInfo(stage).label}`, actor });
     return toDeal(row);
   });
@@ -497,7 +506,7 @@ export async function ingestCommunication(input: unknown): Promise<InboundResult
         const label = nameHint ?? addr.email?.split('@')[0] ?? partyText;
         const [c] = await tx
           .insert(crmContacts)
-          .values({ name: label.slice(0, 120), email: addr.email, phone: phone ? partyText.slice(0, 40) : null, source: 'other', status: 'lead' })
+          .values({ name: label.slice(0, 120), email: addr.email, phone: phone ? partyText.slice(0, 40) : null, source: 'other', status: 'lead', business: guessBusiness(addr.email) })
           .returning();
         contact = c;
         createdContact = true;
@@ -664,4 +673,26 @@ export async function setTarget(input: unknown, actor: string): Promise<Target[]
       .onConflictDoUpdate({ target: [crmTargets.period, crmTargets.owner], set: { amount: String(amount), setBy: actor, updatedAt: new Date() } });
   }
   return listTargets(period);
+}
+
+/**
+ * Billed, paid and overdue invoice amounts for each business, per currency. An invoice belongs to the business of the
+ * CRM contact who is that customer, so invoices made by hand in Invoices count too once the contact is tagged.
+ */
+export async function businessFinance(): Promise<BusinessFinance[]> {
+  const db = getDb();
+  const rows = await db.execute<{ business: string | null; currency: string; billed: string; paid: string; overdue: string }>(sql`
+    with line_totals as (select invoice_id, sum(amount) as total from invoice_lines group by invoice_id),
+         pay_totals as (select invoice_id, sum(amount) as paid from invoice_payments group by invoice_id),
+         owner_of as (select customer_id, min(business) as business from crm_contacts where customer_id is not null and business is not null group by customer_id)
+    select o.business as business, i.currency_code as currency,
+           coalesce(sum(l.total), 0) as billed,
+           coalesce(sum(coalesce(p.paid, 0)), 0) as paid,
+           coalesce(sum(case when i.due_date < current_date and l.total - coalesce(p.paid, 0) > 0 then l.total - coalesce(p.paid, 0) else 0 end), 0) as overdue
+    from invoices i
+    join line_totals l on l.invoice_id = i.id
+    left join pay_totals p on p.invoice_id = i.id
+    left join owner_of o on o.customer_id = i.customer_id
+    group by o.business, i.currency_code`);
+  return [...rows].map((r) => ({ business: r.business, currency: r.currency, billed: Number(r.billed), paid: Number(r.paid), overdue: Number(r.overdue) }));
 }

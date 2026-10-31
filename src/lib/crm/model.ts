@@ -14,6 +14,27 @@ export const STAGE_KEYS = STAGES.map((s) => s.key) as unknown as readonly StageK
 export const OPEN_STAGES: readonly StageKey[] = ['lead', 'qualified', 'proposal', 'negotiation'];
 export const stageInfo = (key: string) => STAGES.find((s) => s.key === key) ?? STAGES[0];
 
+/** The group's businesses. A contact or deal belongs to at most one; untagged ones show as "Not tagged". */
+export const BUSINESSES = [
+  { key: 'dr-simplicios', name: 'Dr. Simplicios', tagline: 'Concierge care for seniors', color: '#0e7490' },
+  { key: 'bluestarimex', name: 'BlueStarImex', tagline: 'Global trade solutions', color: '#6d28d9' },
+  { key: 'pivit-fishing', name: 'PIVIT Fishing', tagline: 'Premium jigs and lures', color: '#0369a1' },
+  { key: 'globlex-ai', name: 'Globlex AI', tagline: 'The AI architect co.', color: '#b45309' },
+] as const;
+export type BusinessKey = (typeof BUSINESSES)[number]['key'];
+export const BUSINESS_KEYS = BUSINESSES.map((b) => b.key) as unknown as readonly BusinessKey[];
+export const businessInfo = (key: string | null | undefined) => BUSINESSES.find((b) => b.key === key) ?? null;
+
+/** Email domains that identify a business, used to tag new contacts automatically. Anything else stays untagged. */
+const DOMAIN_BUSINESS: Record<string, BusinessKey> = {
+  'bluestarimex.com': 'bluestarimex',
+  'globlexai.com': 'globlex-ai',
+};
+export function guessBusiness(email: string | null | undefined): BusinessKey | null {
+  const domain = email?.split('@')[1]?.trim().toLowerCase();
+  return (domain && DOMAIN_BUSINESS[domain]) || null;
+}
+
 export const SOURCES = ['website', 'referral', 'event', 'outreach', 'other'] as const;
 export type Source = (typeof SOURCES)[number];
 
@@ -51,6 +72,7 @@ export interface Contact {
   source: Source;
   status: ContactStatus;
   owner: string | null;
+  business: string | null;
   customerId: string | null;
   notes: string | null;
   /** Follow up every this many days (7 = weekly); null for none. */
@@ -73,6 +95,7 @@ export interface Deal {
   stage: StageKey;
   expectedClose: string | null;
   owner: string | null;
+  business: string | null;
   source: Source;
   lostReason: string | null;
   closedAt: string | null;
@@ -481,3 +504,6 @@ export function monthProgress(period: string, now = Date.now()): number {
   const end = Date.UTC(y, m, 1);
   return Math.max(0, Math.min(1, (now - start) / (end - start)));
 }
+
+/** One business's billed, paid and overdue invoice amounts in one currency. */
+export interface BusinessFinance { business: string | null; currency: string; billed: number; paid: number; overdue: number }

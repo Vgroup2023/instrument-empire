@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   ago, bucketUpcoming, classifyInbound, crmMetrics, followUpDue, formatDuration, leadScore, nextFollowUp, normalizePhone, parseAddress,
-  monthOf, monthProgress, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
+  guessBusiness, monthOf, monthProgress, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
 } from '../../src/lib/crm/model';
 
 // ---- pure ----
@@ -23,7 +23,7 @@ assert.ok(leadScore(bare, 99, 99999) <= 100);
 assert.ok(leadScore({ ...bare, source: 'referral' }, 0, 0) > leadScore({ ...bare, source: 'outreach' }, 0, 0));
 
 const d = (o: Partial<Deal>): Deal => ({
-  id: Math.random().toString(), title: 't', contactId: null, customerId: null, invoiceId: null, value: 0, currency: 'USD', stage: 'lead', expectedClose: null,
+  id: Math.random().toString(), title: 't', contactId: null, customerId: null, invoiceId: null, business: null, value: 0, currency: 'USD', stage: 'lead', expectedClose: null,
   owner: 'Ana', source: 'other', lostReason: null, closedAt: null, notes: null, createdAt: '', updatedAt: '', ...o,
 });
 const t = (o: Partial<Activity>): Activity => ({
@@ -77,7 +77,7 @@ assert.equal(classifyInbound('Order', 'I am very disappointed with the delay'), 
 assert.equal(classifyInbound('Hi', 'Where is my package?'), 'question');
 assert.equal(classifyInbound('Thanks', 'Got it'), 'other');
 const person = (o: Partial<Contact>): Contact => ({
-  id: 'c', name: 'P', company: null, jobTitle: null, email: 'p@x.co', phone: null, source: 'other', status: 'lead', owner: null, customerId: null, notes: null,
+  id: 'c', name: 'P', company: null, jobTitle: null, email: 'p@x.co', phone: null, source: 'other', status: 'lead', owner: null, business: null, customerId: null, notes: null,
   followUpDays: 7, doNotContact: false, lastContactAt: '2026-10-20T12:00:00Z', createdAt: '2026-09-01T00:00:00Z', updatedAt: '', ...o,
 });
 assert.equal(nextFollowUp(person({})), '2026-10-27T12:00:00.000Z');
@@ -118,6 +118,10 @@ assert.match(text, /Received: 1 emails, 1 texts, 0 calls/);
 assert.match(text, /Quiet one: nothing for/);
 assert.match(text, /Demo/);
 
+assert.equal(guessBusiness('mario@bluestarimex.com'), 'bluestarimex');
+assert.equal(guessBusiness('X@BlueStarImex.COM'), 'bluestarimex');
+assert.equal(guessBusiness('someone@gmail.com'), null);
+assert.equal(guessBusiness(null), null);
 assert.equal(monthOf('2026-10-31T23:59:59Z'), '2026-10');
 assert.equal(monthOf('2026-11-01T00:00:00Z'), '2026-11');
 assert.equal(monthProgress('2026-11', Date.parse('2026-10-15T00:00:00Z')), 0);
@@ -206,6 +210,24 @@ async function db() {
     assert.equal(coll!.paid, 0);
     assert.equal(coll!.balance, 2500);
     assert.equal(coll!.overdue, false);
+
+    // business: tagged by hand, inherited by a deal from its contact, guessed from the email domain, and validated
+    assert.equal(c.business, null, 'a plain email stays untagged');
+    const tagged = await svc.updateContact(c.id, { business: 'pivit-fishing' });
+    assert.equal(tagged.business, 'pivit-fishing');
+    const bizDeal = await svc.createDeal({ title: 'QA business deal', value: 100, contactId: c.id, actor: 'Tester' });
+    made.deals.push(bizDeal.id);
+    assert.equal(bizDeal.business, 'pivit-fishing', 'a deal takes its contact\'s business');
+    const retagged = await svc.updateDeal(bizDeal.id, { business: 'globlex-ai' });
+    assert.equal(retagged.business, 'globlex-ai');
+    const cleared = await svc.updateContact(c.id, { business: '' });
+    assert.equal(cleared.business, null);
+    await assert.rejects(() => svc.updateContact(c.id, { business: 'nope' }));
+    const auto = await svc.createContact({ name: 'QA Auto', email: 'qa-auto@bluestarimex.com', actor: 'Tester' });
+    made.contacts.push(auto.id);
+    assert.equal(auto.business, 'bluestarimex', 'the email domain tags a new contact');
+    const fin = await svc.businessFinance();
+    assert.ok(Array.isArray(fin));
 
     // targets: set, change, read back and clear, for the team and for a person
     const month = '2099-01';

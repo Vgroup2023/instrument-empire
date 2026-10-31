@@ -8,16 +8,18 @@ import { Card } from '@/components/ui/Card';
 import { Input, Label, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
-import { CONTACT_STATUSES, OPEN_STAGES, SOURCES, ago, leadScore, nextFollowUp, type Activity, type Contact, type Deal } from '@/lib/crm/model';
+import { BUSINESSES, CONTACT_STATUSES, OPEN_STAGES, SOURCES, ago, leadScore, nextFollowUp, type Activity, type Contact, type Deal } from '@/lib/crm/model';
 import { crmCall } from './api';
 import { ActivityRow, Composer } from './ActivityParts';
+import { BusinessBadge } from './BusinessBadge';
 
 const tone = (s: Contact['status']) => (s === 'customer' ? 'success' : s === 'qualified' ? 'brand' : s === 'archived' ? 'neutral' : 'warning');
 
 export function ContactsPanel({
-  contacts, deals, activities, actor, onSaved, onDeleted, onActivity, onToggleTask, onNewDeal, initialOpenId,
+  contacts, deals, activities, actor, onSaved, onDeleted, onActivity, onToggleTask, onNewDeal, initialOpenId, defaultBusiness,
 }: {
   initialOpenId?: string | null;
+  defaultBusiness?: string;
   contacts: Contact[];
   deals: Deal[];
   activities: Activity[];
@@ -64,7 +66,7 @@ export function ContactsPanel({
             <Tbody>
               {shown.map(({ c, score, deals: n }) => (
                 <Tr key={c.id} className="cursor-pointer" onClick={() => setEditing(c)}>
-                  <Td className="font-medium text-slate-900">{c.name}<p className="text-xs font-normal text-slate-500">{c.email ?? c.phone ?? ''}</p></Td>
+                  <Td className="font-medium text-slate-900">{c.name} <BusinessBadge business={c.business} /><p className="text-xs font-normal text-slate-500">{c.email ?? c.phone ?? ''}</p></Td>
                   <Td>{c.company ?? '—'}</Td>
                   <Td><Badge tone={tone(c.status)}>{c.status}</Badge></Td>
                   <Td className="capitalize">{c.source}</Td>
@@ -93,6 +95,7 @@ export function ContactsPanel({
         onActivity={onActivity}
         onToggleTask={onToggleTask}
         onNewDeal={(id) => { setEditing(null); onNewDeal(id); }}
+        defaultBusiness={defaultBusiness}
       />
     </div>
   );
@@ -100,7 +103,7 @@ export function ContactsPanel({
 
 type ContactDialogProps = {
   open: boolean; onClose: () => void; contact: Contact | null; activities: Activity[]; actor: string;
-  onSaved: (c: Contact) => void; onDeleted: (id: string) => void; onActivity: (a: Activity) => void; onToggleTask: (a: Activity) => void; onNewDeal: (id: string) => void;
+  onSaved: (c: Contact) => void; onDeleted: (id: string) => void; onActivity: (a: Activity) => void; onToggleTask: (a: Activity) => void; onNewDeal: (id: string) => void; defaultBusiness?: string;
 };
 
 /** Mounts a fresh form each time the dialog opens or a different contact is shown. */
@@ -110,12 +113,12 @@ function ContactDialog(props: ContactDialogProps) {
 }
 
 function ContactDialogInner({
-  open, onClose, contact, activities, actor, onSaved, onDeleted, onActivity, onToggleTask, onNewDeal,
+  open, onClose, contact, activities, actor, onSaved, onDeleted, onActivity, onToggleTask, onNewDeal, defaultBusiness,
 }: ContactDialogProps) {
   const { notify } = useToast();
   const [f, setF] = useState({
     name: contact?.name ?? '', company: contact?.company ?? '', jobTitle: contact?.jobTitle ?? '', email: contact?.email ?? '', phone: contact?.phone ?? '',
-    source: (contact?.source ?? 'other') as string, status: (contact?.status ?? 'lead') as string, owner: contact?.owner ?? actor, notes: contact?.notes ?? '',
+    source: (contact?.source ?? 'other') as string, status: (contact?.status ?? 'lead') as string, owner: contact?.owner ?? actor, business: contact?.business ?? defaultBusiness ?? '', notes: contact?.notes ?? '',
     followUpDays: contact?.followUpDays ? String(contact.followUpDays) : '', doNotContact: contact?.doNotContact ?? false,
   });
   const [busy, setBusy] = useState(false);
@@ -128,7 +131,8 @@ function ContactDialogInner({
     setBusy(true);
     setError(null);
     try {
-      const body = { ...f, followUpDays: f.followUpDays ? Number(f.followUpDays) : null };
+      // A new contact with no business chosen is left for the server to tag from the email domain.
+      const body = { ...f, business: f.business || (contact ? '' : undefined), followUpDays: f.followUpDays ? Number(f.followUpDays) : null };
       const res = contact
         ? await crmCall<{ contact: Contact }>(`/api/crm/contacts/${contact.id}`, 'PATCH', body)
         : await crmCall<{ contact: Contact }>('/api/crm/contacts', 'POST', { ...body, actor });
@@ -171,6 +175,13 @@ function ContactDialogInner({
             <div><Label htmlFor="ct-source">Source</Label><Select id="ct-source" value={f.source} onChange={set('source')}>{SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
             <div><Label htmlFor="ct-status">Status</Label><Select id="ct-status" value={f.status} onChange={set('status')}>{CONTACT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
             <div><Label htmlFor="ct-owner">Owner</Label><Input id="ct-owner" value={f.owner} onChange={set('owner')} maxLength={60} /></div>
+          </div>
+          <div>
+            <Label htmlFor="ct-business">Business</Label>
+            <Select id="ct-business" value={f.business} onChange={set('business')}>
+              <option value="">Not tagged</option>
+              {BUSINESSES.map((b) => <option key={b.key} value={b.key}>{b.name}</option>)}
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

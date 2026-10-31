@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { OPEN_STAGES, STAGES, ago, type Contact, type Deal, type StageKey } from '@/lib/crm/model';
 import { formatCurrency } from '@/lib/format';
+import { BusinessBadge } from './BusinessBadge';
 
 /** Deals as cards in a column per stage. Drag a card to another column, or use the stage menu on the card. */
 export function PipelineBoard({
@@ -64,6 +65,7 @@ export function PipelineBoard({
                   >
                     <button type="button" onClick={() => onOpen(d.id)} className="block w-full text-left">
                       <p className="text-sm font-semibold text-slate-900">{d.title}</p>
+                      {d.business ? <p className="mt-0.5"><BusinessBadge business={d.business} /></p> : null}
                       <p className="mt-0.5 text-sm font-bold text-[#0f2059]">{formatCurrency(d.value, d.currency)}</p>
                       {c ? <p className="mt-0.5 truncate text-xs text-slate-600">{c.name}{c.company ? ` · ${c.company}` : ''}</p> : null}
                       <p className="mt-1 text-[11px] text-slate-500">

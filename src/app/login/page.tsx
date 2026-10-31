@@ -38,6 +38,7 @@ export default async function LoginPage({
     // The database is unreachable: fall back to the passphrase form so the owner is never locked out.
   }
   const sso = ssoConfig();
+  const isOldPassphrase = params.error === 'old_passphrase';
   const isSsoError = params.error === 'sso';
   const isSsoNoAccount = params.error === 'sso_no_account';
   const passphraseWorks = !accounts || process.env.PASSPHRASE_LOGIN === 'on';
@@ -88,6 +89,10 @@ export default async function LoginPage({
               <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                 Single sign-on did not work. Try again, or use your email and password.
               </p>
+            ) : isOldPassphrase ? (
+              <p id="login-error" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                That is the <b>old shared passphrase</b>, which no longer works. Your phone or browser probably filled it in from its saved passwords. Tap <b>Clear</b>, then type your own email and password.
+              </p>
             ) : isAccountError ? (
               <p id="login-error" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                 That email and password do not match an active account. On a phone, tap <b>Show</b> to check the password, and make sure no capital letter or space was added.
@@ -122,6 +127,14 @@ export default async function LoginPage({
                 Sign in
               </button>
               <p className="text-xs text-slate-500">Forgot your password? Ask your administrator for a new link.</p>
+              <details className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                <summary className="cursor-pointer font-medium text-slate-700">iPhone or iPad filling in the wrong email or password?</summary>
+                <ol className="mt-2 list-decimal space-y-1 pl-4">
+                  <li>Tap <b>Clear</b> above, then type your email and password by hand (tap <b>Show</b> to check it).</li>
+                  <li>To remove the old saved login: open <b>Settings</b>, then <b>Passwords</b>, search for <b>globlexus</b>, and delete the old entries.</li>
+                  <li>After you sign in, choose <b>Save Password</b> when Safari offers, so the right one is filled in next time.</li>
+                </ol>
+              </details>
             </form>
           ) : null}
 

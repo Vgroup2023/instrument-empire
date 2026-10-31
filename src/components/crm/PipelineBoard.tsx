@@ -20,6 +20,11 @@ export function PipelineBoard({
   const cap = (key: StageKey, list: Deal[]) => (OPEN_STAGES.includes(key) ? list : list.slice(0, 8));
 
   return (
+    <div>
+    <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+      <span aria-hidden>⚙️</span>
+      <span>When a deal moves to <b>Won</b>: a draft invoice is created, Finance gets a task, and the contact becomes a customer. Open deals with no activity get a check-in task from the Pipeline agent.</span>
+    </p>
     <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-3">
       {STAGES.map((stage) => {
         const all = deals.filter((d) => d.stage === stage.key).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
@@ -41,7 +46,7 @@ export function PipelineBoard({
             <header className="flex items-center justify-between rounded-t-xl2 px-3 py-2.5" style={{ borderTop: `4px solid ${stage.color}`, borderRadius: '1rem 1rem 0 0' }}>
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">{stage.label}</h3>
-                <p className="text-xs text-slate-500">{all.length} deal{all.length === 1 ? '' : 's'} · {formatCurrency(total)}</p>
+                <p className="text-xs text-slate-500">{all.length} deal{all.length === 1 ? '' : 's'} · {formatCurrency(total)}{OPEN_STAGES.includes(stage.key) ? ` · ${stage.probability}%` : ''}</p>
               </div>
               {OPEN_STAGES.includes(stage.key) ? (
                 <button type="button" onClick={() => onNew(stage.key)} aria-label={`Add a deal to ${stage.label}`} className="rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white hover:text-slate-900">+</button>
@@ -84,6 +89,7 @@ export function PipelineBoard({
           </section>
         );
       })}
+    </div>
     </div>
   );
 }

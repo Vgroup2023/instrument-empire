@@ -1120,6 +1120,8 @@ export const crmContacts = pgTable(
     /** lead, qualified, customer or archived. */
     status: text('status').notNull().default('lead'),
     owner: text('owner'),
+    /** Which of the group's businesses this person belongs to (a key from the CRM model); null until tagged. */
+    business: text('business'),
     /** Set once the contact is also a customer on the books. */
     customerId: uuid('customer_id').references(() => customers.id),
     notes: text('notes'),
@@ -1149,6 +1151,8 @@ export const crmDeals = pgTable(
     stage: text('stage').notNull().default('lead'),
     expectedClose: date('expected_close'),
     owner: text('owner'),
+    /** Which of the group's businesses this deal is for; null until tagged. */
+    business: text('business'),
     source: text('source').notNull().default('other'),
     lostReason: text('lost_reason'),
     /** When the deal was won or lost; null while it is open. */

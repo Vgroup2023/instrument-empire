@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Select, Textarea } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { SOURCES, STAGES, stageInfo, type Activity, type Contact, type Deal, type StageKey } from '@/lib/crm/model';
+import { BUSINESSES, SOURCES, STAGES, stageInfo, type Activity, type Contact, type Deal, type StageKey } from '@/lib/crm/model';
 import { crmCall } from './api';
 import { ActivityRow, Composer } from './ActivityParts';
 
@@ -17,6 +17,7 @@ type DealDialogProps = {
   deal: Deal | null;
   startStage: StageKey;
   initialContactId?: string;
+  defaultBusiness?: string;
   contacts: Contact[];
   activities: Activity[];
   actor: string;
@@ -33,7 +34,7 @@ export function DealDialog(props: DealDialogProps) {
 }
 
 function DealDialogInner({
-  open, onClose, deal, startStage, initialContactId, contacts, activities, actor, onSaved, onDeleted, onActivity, onToggleTask,
+  open, onClose, deal, startStage, initialContactId, contacts, activities, actor, onSaved, onDeleted, onActivity, onToggleTask, defaultBusiness,
 }: DealDialogProps) {
   const { notify } = useToast();
   const [title, setTitle] = useState(deal?.title ?? '');
@@ -41,6 +42,7 @@ function DealDialogInner({
   const [stage, setStage] = useState<StageKey>(deal?.stage ?? startStage);
   const [contactId, setContactId] = useState(deal?.contactId ?? initialContactId ?? '');
   const [owner, setOwner] = useState(deal?.owner ?? actor);
+  const [business, setBusiness] = useState(deal?.business ?? contacts.find((c) => c.id === (initialContactId ?? ''))?.business ?? defaultBusiness ?? '');
   const [expectedClose, setExpectedClose] = useState(deal?.expectedClose ?? '');
   const [source, setSource] = useState<string>(deal?.source ?? 'other');
   const [notes, setNotes] = useState(deal?.notes ?? '');
@@ -54,7 +56,7 @@ function DealDialogInner({
     setError(null);
     try {
       const body = {
-        title, value: value === '' ? 0 : Number(value), contactId: contactId || null, owner, source, notes,
+        title, value: value === '' ? 0 : Number(value), contactId: contactId || null, owner, source, notes, business: business || (deal ? '' : undefined),
         expectedClose: expectedClose || null, actor, stage, lostReason: stage === 'lost' ? lostReason : undefined,
       };
       const res = deal
@@ -100,7 +102,7 @@ function DealDialogInner({
           {stage === 'lost' ? <div><Label htmlFor="deal-lost">Why was it lost?</Label><Input id="deal-lost" value={lostReason} onChange={(e) => setLostReason(e.target.value)} maxLength={300} /></div> : null}
           <div>
             <Label htmlFor="deal-contact">Contact</Label>
-            <Select id="deal-contact" value={contactId} onChange={(e) => setContactId(e.target.value)}>
+            <Select id="deal-contact" value={contactId} onChange={(e) => { setContactId(e.target.value); const cb = contacts.find((c) => c.id === e.target.value)?.business; if (cb && !business) setBusiness(cb); }}>
               <option value="">No contact yet</option>
               {contacts.filter((c) => c.status !== 'archived' || c.id === contactId).map((c) => <option key={c.id} value={c.id}>{c.name}{c.company ? ` · ${c.company}` : ''}</option>)}
             </Select>
@@ -108,6 +110,13 @@ function DealDialogInner({
           <div className="grid grid-cols-2 gap-3">
             <div><Label htmlFor="deal-owner">Owner</Label><Input id="deal-owner" value={owner} onChange={(e) => setOwner(e.target.value)} maxLength={60} /></div>
             <div><Label htmlFor="deal-close">Expected close</Label><Input id="deal-close" type="date" value={expectedClose} onChange={(e) => setExpectedClose(e.target.value)} /></div>
+          </div>
+          <div>
+            <Label htmlFor="deal-business">Business</Label>
+            <Select id="deal-business" value={business} onChange={(e) => setBusiness(e.target.value)}>
+              <option value="">Not tagged</option>
+              {BUSINESSES.map((b) => <option key={b.key} value={b.key}>{b.name}</option>)}
+            </Select>
           </div>
           <div><Label htmlFor="deal-source">Source</Label><Select id="deal-source" value={source} onChange={(e) => setSource(e.target.value)}>{SOURCES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</Select></div>
           <div><Label htmlFor="deal-notes">Notes</Label><Textarea id="deal-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} /></div>

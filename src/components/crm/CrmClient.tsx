@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { OPEN_STAGES, crmMetrics, followUpDue, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type Draft, type Report, type StageKey } from '@/lib/crm/model';
+import { BUSINESSES, OPEN_STAGES, crmMetrics, followUpDue, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type Draft, type Report, type StageKey } from '@/lib/crm/model';
 import { crmCall, loadActor, saveActor } from './api';
 import { CrmDashboard } from './CrmDashboard';
 import { PipelineBoard } from './PipelineBoard';
@@ -17,6 +17,7 @@ import { UpcomingPanel } from './UpcomingPanel';
 import { DraftsPanel } from './DraftsPanel';
 import { ConnectionsPanel } from './ConnectionsPanel';
 import { LeadsPanel } from './LeadsPanel';
+import { BusinessBoard } from './BusinessBoard';
 import { AccountsPanel } from './AccountsPanel';
 import { PostSalesPanel } from './PostSalesPanel';
 import { SalesOpsPanel } from './SalesOpsPanel';
@@ -64,6 +65,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
   const [openContactId, setOpenContactId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [biz, setBiz] = useState<string>('all');
   const [peopleView, setPeopleView] = useState<'people' | 'accounts'>('people');
   const [actor, setActor] = useState(signedInAs ?? 'Office team');
   const [nameOpen, setNameOpen] = useState(false);
@@ -141,21 +143,42 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
     };
   }, [notify]);
 
-  const metrics = useMemo(() => crmMetrics(deals, activities), [deals, activities]);
+  // Looking at one business narrows everything below to its contacts, deals and the activity on them.
+  const view = useMemo(() => {
+    if (biz === 'all') return { contacts, deals, activities, drafts };
+    const match = (b: string | null) => (biz === 'none' ? !b : b === biz);
+    const cs = contacts.filter((c) => match(c.business));
+    const ds = deals.filter((d) => match(d.business));
+    const cIds = new Set(cs.map((c) => c.id));
+    const dIds = new Set(ds.map((d) => d.id));
+    return {
+      contacts: cs,
+      deals: ds,
+      activities: activities.filter((a) => (a.contactId && cIds.has(a.contactId)) || (a.dealId && dIds.has(a.dealId))),
+      drafts: drafts.filter((d) => cIds.has(d.contactId)),
+    };
+  }, [biz, contacts, deals, activities, drafts]);
+  const bizCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of contacts) if (c.status !== 'archived') m.set(c.business ?? 'none', (m.get(c.business ?? 'none') ?? 0) + 1);
+    return m;
+  }, [contacts]);
+
+  const metrics = useMemo(() => crmMetrics(view.deals, view.activities), [view.deals, view.activities]);
   const openDeal = deals.find((d) => d.id === dealId) ?? null;
   const attention = useMemo(() => {
-    const withOpenDeal = new Set(deals.filter((d) => OPEN_STAGES.includes(d.stage) && d.contactId).map((d) => d.contactId));
+    const withOpenDeal = new Set(view.deals.filter((d) => OPEN_STAGES.includes(d.stage) && d.contactId).map((d) => d.contactId));
     const horizon = new Date(now + 7 * 86_400_000).toISOString();
     const nowIso = new Date(now).toISOString();
     return {
-      drafts: drafts.filter((d) => d.status === 'pending' || d.status === 'failed').length,
-      followUps: contacts.filter((c) => {
+      drafts: view.drafts.filter((d) => d.status === 'pending' || d.status === 'failed').length,
+      followUps: view.contacts.filter((c) => {
         const days = c.followUpDays ?? (withOpenDeal.has(c.id) ? 7 : null);
         return days !== null && c.status !== 'archived' && followUpDue({ ...c, followUpDays: days }, now);
       }).length,
-      meetings: activities.filter((a) => a.kind === 'meeting' && !a.doneAt && a.dueAt && a.dueAt > nowIso && a.dueAt <= horizon).length,
+      meetings: view.activities.filter((a) => a.kind === 'meeting' && !a.doneAt && a.dueAt && a.dueAt > nowIso && a.dueAt <= horizon).length,
     };
-  }, [deals, contacts, drafts, activities, now]);
+  }, [view, now]);
 
   function upsertDeal(d: Deal) {
     setDeals((p) => [d, ...p.filter((x) => x.id !== d.id)]);
@@ -167,6 +190,8 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
     void crmCall<{ activities: Activity[] }>(`/api/crm/activities?contactId=${c.id}`).then((r) => r.activities.forEach(addActivity)).catch(() => {});
   }
 
+  // New records start in the business being looked at.
+  const dflt = biz === 'all' || biz === 'none' ? undefined : biz;
   function goTab(t: Tab) { setOpenContactId(null); setTab(t); }
   function openContact(id: string) { setOpenContactId(id); setPeopleView('people'); setTab('contacts'); }
 
@@ -214,6 +239,16 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           </div>
         }
       />
+      <div role="group" aria-label="Business" className="mb-3 flex flex-wrap items-center gap-1.5 text-sm">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Business</span>
+        {[{ key: 'all', name: 'All businesses', color: '#0f2059' }, ...BUSINESSES.map((b) => ({ key: b.key as string, name: b.name, color: b.color as string })), ...((bizCounts.get('none') ?? 0) > 0 || biz === 'none' ? [{ key: 'none', name: 'Not tagged', color: '#64748b' }] : [])].map((b) => (
+          <button key={b.key} type="button" aria-pressed={biz === b.key} onClick={() => setBiz(b.key)}
+            className={`rounded-full border px-3 py-1 font-medium ${biz === b.key ? 'text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+            style={biz === b.key ? { background: b.color, borderColor: b.color } : undefined}>
+            {b.name}{b.key !== 'all' && bizCounts.get(b.key) ? <span className={`ml-1.5 text-xs ${biz === b.key ? 'text-white/80' : 'text-slate-400'}`}>{bizCounts.get(b.key)}</span> : null}
+          </button>
+        ))}
+      </div>
       <nav aria-label="CRM workflow" role="tablist" className="mb-2 flex flex-wrap gap-2">
         {FLOW.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
@@ -236,12 +271,13 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
       </div>
       <p className="mb-5 text-sm text-slate-600">{[...FLOW, ...DAILY].find((t) => t.id === tab)?.about}</p>
 
-      {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={deals} activities={activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} attention={attention} onGo={setTab} /> : null}
+      {tab === 'dashboard' && biz === 'all' ? <div className="mb-5"><BusinessBoard contacts={contacts} deals={deals} now={now} onPick={setBiz} /></div> : null}
+      {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={view.deals} activities={view.activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} attention={attention} onGo={setTab} /> : null}
       {tab === 'leads' ? (
-        <LeadsPanel contacts={contacts} deals={deals} activities={activities} actor={actor} onSaved={upsertContact}
+        <LeadsPanel contacts={view.contacts} deals={view.deals} activities={view.activities} actor={actor} onSaved={upsertContact} defaultBusiness={dflt}
           onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} onOpenContact={openContact} />
       ) : null}
-      {tab === 'pipeline' ? <PipelineBoard deals={deals} contacts={contacts} onOpen={setDealId} onMove={move} onNew={(stage) => setNewDeal({ stage })} /> : null}
+      {tab === 'pipeline' ? <PipelineBoard deals={view.deals} contacts={contacts} onOpen={setDealId} onMove={move} onNew={(stage) => setNewDeal({ stage })} /> : null}
       {tab === 'contacts' ? (
         <div className="mb-3 inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm" role="group" aria-label="View">
           {(['people', 'accounts'] as const).map((v) => (
@@ -250,20 +286,20 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           ))}
         </div>
       ) : null}
-      {tab === 'contacts' && peopleView === 'accounts' ? <AccountsPanel contacts={contacts} deals={deals} onOpenContact={openContact} onOpenDeal={setDealId} /> : null}
+      {tab === 'contacts' && peopleView === 'accounts' ? <AccountsPanel contacts={view.contacts} deals={view.deals} onOpenContact={openContact} onOpenDeal={setDealId} /> : null}
       {tab === 'contacts' && peopleView === 'people' ? (
-        <ContactsPanel contacts={contacts} deals={deals} activities={activities} actor={actor} onSaved={upsertContact}
+        <ContactsPanel contacts={view.contacts} deals={view.deals} activities={view.activities} actor={actor} defaultBusiness={dflt} onSaved={upsertContact}
           onDeleted={(id) => setContacts((p) => p.filter((c) => c.id !== id))} onActivity={addActivity} onToggleTask={toggleTask}
           onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} initialOpenId={openContactId} />
       ) : null}
-      {tab === 'activity' ? <ActivityPanel mode="feed" activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask} /> : null}
+      {tab === 'activity' ? <ActivityPanel mode="feed" activities={view.activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask} /> : null}
       {tab === 'upcoming' ? (
-        <UpcomingPanel activities={activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask}
+        <UpcomingPanel activities={view.activities} deals={deals} contacts={contacts} onOpenDeal={setDealId} onToggleTask={toggleTask}
           onOpenContact={openContact} />
       ) : null}
-      {tab === 'review' ? <DraftsPanel drafts={drafts} contacts={contacts} actor={actor} onChanged={(d) => setDrafts((p) => merge(p, [d]))} onActivity={addActivity} /> : null}
-      {tab === 'postsales' ? <PostSalesPanel deals={deals} contacts={contacts} activities={activities} onOpenDeal={setDealId} /> : null}
-      {tab === 'salesops' ? <SalesOpsPanel m={metrics} deals={deals} actor={actor} activities={activities} reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} now={now} /> : null}
+      {tab === 'review' ? <DraftsPanel drafts={view.drafts} contacts={contacts} actor={actor} onChanged={(d) => setDrafts((p) => merge(p, [d]))} onActivity={addActivity} /> : null}
+      {tab === 'postsales' ? <PostSalesPanel deals={view.deals} contacts={contacts} activities={view.activities} onOpenDeal={setDealId} /> : null}
+      {tab === 'salesops' ? <SalesOpsPanel m={metrics} deals={deals} actor={actor} activities={view.activities} reports={reports} onReport={(r) => setReports((p) => merge(p, [r]))} now={now} /> : null}
       {tab === 'connections' ? <ConnectionsPanel onRan={() => void crmCall<Snap>('/api/crm').then((s) => { setDeals(s.deals); setContacts(s.contacts); setActivities(s.activities); setDrafts(s.drafts); setReports(s.reports); since.current = s.now; }).catch(() => undefined)} /> : null}
 
       <DealDialog
@@ -275,6 +311,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
         activities={activities}
         actor={actor}
         initialContactId={newDeal?.contactId}
+        defaultBusiness={dflt}
         onSaved={upsertDeal}
         onDeleted={(id) => setDeals((p) => p.filter((d) => d.id !== id))}
         onActivity={addActivity}

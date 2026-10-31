@@ -4,19 +4,21 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Field';
+import { Input, Select } from '@/components/ui/Field';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
-import { OPEN_STAGES, ago, leadScore, type Activity, type Contact, type Deal } from '@/lib/crm/model';
+import { BUSINESSES, OPEN_STAGES, ago, leadScore, type Activity, type Contact, type Deal } from '@/lib/crm/model';
 import { crmCall } from './api';
+import { BusinessBadge } from './BusinessBadge';
 
 /**
  * Step 1, lead management: everyone who is not yet a customer, split into new and qualified leads, scored so the best
  * to call come first. Qualify a lead, or turn it into a deal, in one click.
  */
 export function LeadsPanel({
-  contacts, deals, activities, actor, onSaved, onNewDeal, onOpenContact,
+  contacts, deals, activities, actor, onSaved, onNewDeal, onOpenContact, defaultBusiness,
 }: {
+  defaultBusiness?: string;
   contacts: Contact[];
   deals: Deal[];
   activities: Activity[];
@@ -29,6 +31,7 @@ export function LeadsPanel({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  const [business, setBusiness] = useState(defaultBusiness ?? '');
   const [busy, setBusy] = useState<string | null>(null);
 
   const rows = useMemo(() => contacts
@@ -47,7 +50,7 @@ export function LeadsPanel({
     setBusy('add');
     try {
       const { contact } = await crmCall<{ contact: Contact }>('/api/crm/contacts', 'POST', {
-        name: name.trim(), email: email.trim() || null, company: company.trim() || null, status: 'lead', source: 'other', actor,
+        name: name.trim(), email: email.trim() || null, company: company.trim() || null, status: 'lead', source: 'other', actor, business: business || undefined,
       });
       onSaved(contact);
       setName(''); setEmail(''); setCompany('');
@@ -90,6 +93,12 @@ export function LeadsPanel({
           <label className="min-w-[140px] flex-1 text-xs font-medium text-slate-700">Company
             <Input value={company} onChange={(e) => setCompany(e.target.value)} maxLength={120} placeholder="Company" />
           </label>
+          <label className="min-w-[150px] text-xs font-medium text-slate-700">Business
+            <Select value={business} onChange={(e) => setBusiness(e.target.value)}>
+              <option value="">Not tagged</option>
+              {BUSINESSES.map((b) => <option key={b.key} value={b.key}>{b.name}</option>)}
+            </Select>
+          </label>
           <Button type="submit" loading={busy === 'add'} disabled={!name.trim()}>+ Add lead</Button>
         </form>
         <p className="mt-2 text-xs text-slate-500">Leads also arrive on their own from email (Gmail or Outlook bridge), texts and calls. See Integrations.</p>
@@ -109,7 +118,7 @@ export function LeadsPanel({
                   {g.list.map(({ c, score, hasOpenDeal }) => (
                     <Tr key={c.id}>
                       <Td className="font-medium text-slate-900">
-                        <button type="button" className="text-left hover:underline" onClick={() => onOpenContact(c.id)}>{c.name}</button>
+                        <button type="button" className="text-left hover:underline" onClick={() => onOpenContact(c.id)}>{c.name}</button> <BusinessBadge business={c.business} />
                         <p className="text-xs font-normal text-slate-500">{c.email ?? c.phone ?? ''}{c.jobTitle ? ` · ${c.jobTitle}` : ''}</p>
                       </Td>
                       <Td className="text-xs text-slate-600">{c.owner ?? '—'}</Td>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Spinner } from '@/components/ui/Spinner';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { ago, type Activity, type Collection, type Contact, type Deal } from '@/lib/crm/model';
 import { formatCurrency } from '@/lib/format';
@@ -75,7 +76,7 @@ export function PostSalesPanel({
             <Link prefetch={false} href="/dashboard/inbox"><Button variant="secondary">Team inbox</Button></Link>
           </span>
         </div>
-        {collError ? <Card className="p-4 text-sm text-red-600">{collError}</Card> : coll === null ? <Card className="p-4 text-sm text-slate-500">Loading invoice totals…</Card> : totals.length === 0 ? (
+        {collError ? <Card className="p-4 text-sm text-red-600">{collError}</Card> : coll === null ? <Card className="flex items-center gap-2 p-4 text-sm text-slate-500"><Spinner size={16} />Loading invoice totals…</Card> : totals.length === 0 ? (
           <Card className="p-4 text-sm text-slate-500">No won deal has an invoice yet. Winning a deal with a value drafts one.</Card>
         ) : totals.map(([cur, t]) => (
           <div key={cur} className="mb-3">

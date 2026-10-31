@@ -73,3 +73,29 @@ body {
   tr, .break-inside-avoid { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* The thin bar across the top while a page is loading. It waits a moment before showing so quick page changes do not
+   flash it, then sweeps left to right until the page arrives. */
+@keyframes nav-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@keyframes nav-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.nav-bar {
+  opacity: 0;
+  animation: nav-fade-in 0.2s ease-out 0.2s forwards;
+}
+.nav-bar > span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3f5fe0, #deac37);
+  animation: nav-sweep 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-bar > span { animation: none; width: 100%; }
+}

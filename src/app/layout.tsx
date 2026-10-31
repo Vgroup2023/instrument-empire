@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { NavigationProgress } from '@/components/layout/NavigationProgress';
 import { BRAND } from '@/lib/brand';
 import './globals.css';
 
@@ -72,6 +73,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         {children}
+        <NavigationProgress />
         <ServiceWorkerRegister />
       </body>
     </html>

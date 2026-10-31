@@ -4,11 +4,11 @@ import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { normalizePhone, parseAddress, classifyInbound, type Channel, type Draft, type Report } from './model';
 import { sendEmail, sendSms } from './comms';
 import { getDb } from '@/db/client';
-import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, customers } from '@/db/schema';
+import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets, customers, invoiceLines, invoicePayments, invoices } from '@/db/schema';
 import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
   CHANNELS, CONTACT_STATUSES, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
-  type Activity, type ActivityKind, type Contact, type Deal, type StageKey,
+  type Activity, type ActivityKind, type Collection, type Contact, type Deal, type StageKey, type Target,
 } from './model';
 
 type Db = ReturnType<typeof getDb>;
@@ -26,7 +26,7 @@ export function toContact(r: typeof crmContacts.$inferSelect): Contact {
 }
 export function toDeal(r: typeof crmDeals.$inferSelect): Deal {
   return {
-    id: r.id, title: r.title, contactId: r.contactId, customerId: r.customerId, value: Number(r.value), currency: r.currency,
+    id: r.id, title: r.title, contactId: r.contactId, customerId: r.customerId, invoiceId: r.invoiceId, value: Number(r.value), currency: r.currency,
     stage: r.stage as StageKey, expectedClose: r.expectedClose, owner: r.owner, source: r.source as Deal['source'],
     lostReason: r.lostReason, closedAt: iso(r.closedAt), notes: r.notes, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
@@ -599,4 +599,69 @@ export async function actOnDraft(id: string, input: unknown): Promise<{ draft: D
     await db.update(crmDrafts).set({ status: 'failed', subject, body, error: message, updatedAt: new Date() }).where(eq(crmDrafts.id, id));
     throw err;
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Collections and targets
+// ---------------------------------------------------------------------------
+
+/** Each won deal's invoice with what has been billed, paid and is still owed. */
+export async function collections(): Promise<Collection[]> {
+  const db = getDb();
+  const lineTotals = db
+    .select({ invoiceId: invoiceLines.invoiceId, total: sql<string>`sum(${invoiceLines.amount})`.as('line_total') })
+    .from(invoiceLines).groupBy(invoiceLines.invoiceId).as('line_totals');
+  const paymentTotals = db
+    .select({ invoiceId: invoicePayments.invoiceId, paid: sql<string>`sum(${invoicePayments.amount})`.as('paid_total') })
+    .from(invoicePayments).groupBy(invoicePayments.invoiceId).as('payment_totals');
+  const rows = await db
+    .select({
+      dealId: crmDeals.id, invoiceId: invoices.id, docNumber: invoices.docNumber, currency: invoices.currencyCode,
+      dueDate: invoices.dueDate, total: lineTotals.total, paid: paymentTotals.paid, today: sql<string>`CURRENT_DATE::text`,
+    })
+    .from(crmDeals)
+    .innerJoin(invoices, eq(invoices.id, crmDeals.invoiceId))
+    .leftJoin(lineTotals, eq(lineTotals.invoiceId, invoices.id))
+    .leftJoin(paymentTotals, eq(paymentTotals.invoiceId, invoices.id))
+    .where(eq(crmDeals.stage, 'won'))
+    .limit(1000);
+  return rows.map((r) => {
+    const total = Number(r.total ?? 0);
+    const paid = Number(r.paid ?? 0);
+    const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
+    return {
+      dealId: r.dealId, invoiceId: r.invoiceId, docNumber: r.docNumber, currency: r.currency, total, paid, balance,
+      dueDate: r.dueDate, overdue: balance > 0 && !!r.dueDate && r.dueDate < r.today,
+    };
+  });
+}
+
+const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+const checkPeriod = (v: unknown): string => {
+  if (typeof v !== 'string' || !PERIOD.test(v)) throw new ValidationError('The month must look like 2026-11.');
+  return v;
+};
+
+export async function listTargets(period: string): Promise<Target[]> {
+  const db = getDb();
+  const rows = await db.select().from(crmTargets).where(eq(crmTargets.period, checkPeriod(period)));
+  return rows.map((r) => ({ period: r.period, owner: r.owner, amount: Number(r.amount) }));
+}
+
+/** Sets a month's target for the team (empty owner) or a person. An amount of 0 or none clears it. */
+export async function setTarget(input: unknown, actor: string): Promise<Target[]> {
+  const o = asRecord(input);
+  const period = checkPeriod(o.period);
+  const owner = optText(o.owner, 'Person', 120)?.trim() ?? '';
+  const raw = o.amount;
+  const db = getDb();
+  if (raw === undefined || raw === null || raw === '' || Number(raw) === 0) {
+    await db.delete(crmTargets).where(and(eq(crmTargets.period, period), eq(crmTargets.owner, owner)));
+  } else {
+    const amount = money(raw, 'Target');
+    await db.insert(crmTargets).values({ period, owner, amount: String(amount), setBy: actor })
+      .onConflictDoUpdate({ target: [crmTargets.period, crmTargets.owner], set: { amount: String(amount), setBy: actor, updatedAt: new Date() } });
+  }
+  return listTargets(period);
 }

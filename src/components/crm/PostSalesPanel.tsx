@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
-import { ago, type Activity, type Contact, type Deal } from '@/lib/crm/model';
+import { ago, type Activity, type Collection, type Contact, type Deal } from '@/lib/crm/model';
 import { formatCurrency } from '@/lib/format';
+import { crmCall } from './api';
 
 type Phase = 'pending' | 'progress' | 'active';
 const PHASES: { key: Phase; title: string; hint: string; color: string }[] = [
@@ -25,6 +26,27 @@ export function PostSalesPanel({
   activities: Activity[];
   onOpenDeal: (id: string) => void;
 }) {
+  const [coll, setColl] = useState<Collection[] | null>(null);
+  const [collError, setCollError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    crmCall<{ collections: Collection[] }>('/api/crm/collections')
+      .then((r) => { if (live) setColl(r.collections); })
+      .catch((err) => { if (live) setCollError(err instanceof Error ? err.message : 'Could not load the invoice totals.'); });
+    return () => { live = false; };
+  }, []);
+  const byDeal = useMemo(() => new Map((coll ?? []).map((c) => [c.dealId, c])), [coll]);
+  const totals = useMemo(() => {
+    const m = new Map<string, { billed: number; paid: number; owed: number; overdue: number; overdueCount: number }>();
+    for (const c of coll ?? []) {
+      const t = m.get(c.currency) ?? { billed: 0, paid: 0, owed: 0, overdue: 0, overdueCount: 0 };
+      t.billed += c.total; t.paid += c.paid; t.owed += c.balance;
+      if (c.overdue) { t.overdue += c.balance; t.overdueCount += 1; }
+      m.set(c.currency, t);
+    }
+    return [...m.entries()];
+  }, [coll]);
+
   const rows = useMemo(() => deals.filter((d) => d.stage === 'won').map((d) => {
     const tasks = activities.filter((a) => a.dealId === d.id && a.kind === 'task');
     const open = tasks.filter((t) => !t.doneAt);
@@ -44,14 +66,31 @@ export function PostSalesPanel({
         <Card className="p-4"><p className="text-xs font-medium text-slate-500">Open onboarding tasks</p><p className="mt-1.5 text-[26px] font-bold leading-none text-[#0f2059]">{openTasks}</p></Card>
       </div>
 
-      <Card className="flex flex-wrap items-center gap-3 p-4">
-        <div className="min-w-[220px] flex-1">
-          <h3 className="text-sm font-semibold text-slate-900">Billing and collections</h3>
-          <p className="text-xs text-slate-600">Winning a deal drafts its invoice and sends Finance a task. Review, send and track payment in Invoices.</p>
+      <section aria-label="Collections">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <h3 className="text-[15px] font-semibold text-slate-900">Collections</h3>
+          <span className="text-xs text-slate-500">Winning a deal drafts its invoice and sends Finance a task. Billed, paid and owed come from those invoices.</span>
+          <span className="ml-auto flex gap-2">
+            <Link prefetch={false} href="/dashboard/invoices"><Button variant="secondary">Open invoices</Button></Link>
+            <Link prefetch={false} href="/dashboard/inbox"><Button variant="secondary">Team inbox</Button></Link>
+          </span>
         </div>
-        <Link prefetch={false} href="/dashboard/invoices"><Button variant="secondary">Open invoices</Button></Link>
-        <Link prefetch={false} href="/dashboard/inbox"><Button variant="secondary">Team inbox</Button></Link>
-      </Card>
+        {collError ? <Card className="p-4 text-sm text-red-600">{collError}</Card> : coll === null ? <Card className="p-4 text-sm text-slate-500">Loading invoice totals…</Card> : totals.length === 0 ? (
+          <Card className="p-4 text-sm text-slate-500">No won deal has an invoice yet. Winning a deal with a value drafts one.</Card>
+        ) : totals.map(([cur, t]) => (
+          <div key={cur} className="mb-3">
+            {totals.length > 1 ? <p className="mb-1 text-xs font-semibold text-slate-600">{cur}</p> : null}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Card className="p-4"><p className="text-xs font-medium text-slate-500">Billed</p><p className="mt-1.5 text-xl font-bold text-[#0f2059]">{formatCurrency(t.billed, cur)}</p></Card>
+              <Card className="p-4"><p className="text-xs font-medium text-slate-500">Collected</p><p className="mt-1.5 text-xl font-bold text-emerald-600">{formatCurrency(t.paid, cur)}</p>
+                <p className="mt-1 text-xs text-slate-500">{t.billed > 0 ? `${Math.round((t.paid / t.billed) * 100)}% of billed` : ''}</p></Card>
+              <Card className="p-4"><p className="text-xs font-medium text-slate-500">Still owed</p><p className="mt-1.5 text-xl font-bold text-[#0f2059]">{formatCurrency(t.owed, cur)}</p></Card>
+              <Card className="p-4"><p className="text-xs font-medium text-slate-500">Overdue</p><p className={`mt-1.5 text-xl font-bold ${t.overdue ? 'text-red-600' : 'text-[#0f2059]'}`}>{formatCurrency(t.overdue, cur)}</p>
+                <p className="mt-1 text-xs text-slate-500">{t.overdueCount} invoice{t.overdueCount === 1 ? '' : 's'}</p></Card>
+            </div>
+          </div>
+        ))}
+      </section>
 
       {PHASES.map((p) => {
         const list = rows.filter((r) => r.phase === p.key);
@@ -64,7 +103,7 @@ export function PostSalesPanel({
             <Card>
               {list.length === 0 ? <p className="p-5 text-sm text-slate-500">Nothing here.</p> : (
                 <Table>
-                  <Thead><Tr><Th>Deal</Th><Th>Customer</Th><Th className="text-right">Value</Th><Th>Won</Th><Th>Owner</Th><Th>Tasks</Th></Tr></Thead>
+                  <Thead><Tr><Th>Deal</Th><Th>Customer</Th><Th className="text-right">Value</Th><Th>Won</Th><Th>Owner</Th><Th>Tasks</Th><Th>Invoice</Th></Tr></Thead>
                   <Tbody>
                     {list.map(({ d, contact, tasks, open }) => (
                       <Tr key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d.id)}>
@@ -74,6 +113,7 @@ export function PostSalesPanel({
                         <Td className="text-xs text-slate-600">{d.closedAt ? ago(d.closedAt) : '—'}</Td>
                         <Td className="text-xs text-slate-600">{d.owner ?? '—'}</Td>
                         <Td>{tasks === 0 ? <Badge tone="warning">none yet</Badge> : <Badge tone={open ? 'brand' : 'success'}>{tasks - open}/{tasks} done</Badge>}</Td>
+                        <Td><InvoiceBadge c={byDeal.get(d.id)} loaded={coll !== null} /></Td>
                       </Tr>
                     ))}
                   </Tbody>
@@ -85,4 +125,12 @@ export function PostSalesPanel({
       })}
     </div>
   );
+}
+
+function InvoiceBadge({ c, loaded }: { c: Collection | undefined; loaded: boolean }) {
+  if (!loaded) return <span className="text-xs text-slate-400">…</span>;
+  if (!c) return <Badge tone="neutral">no invoice</Badge>;
+  if (c.balance <= 0) return <Badge tone="success">paid</Badge>;
+  if (c.overdue) return <Badge tone="danger">overdue {formatCurrency(c.balance, c.currency)}</Badge>;
+  return <Badge tone="warning">owes {formatCurrency(c.balance, c.currency)}</Badge>;
 }

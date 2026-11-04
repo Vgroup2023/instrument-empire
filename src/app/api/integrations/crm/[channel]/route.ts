@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { ingestCommunication } from '@/lib/crm/service';
+import { afterInbound } from '@/lib/crm/inbound';
 import { apiErrorResponse } from '@/lib/apiError';
 import { CHANNELS, type Channel } from '@/lib/crm/model';
 
@@ -94,6 +95,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!fields) return NextResponse.json({ error: 'Send a JSON or form body.' }, { status: 400 });
   try {
     const result = await ingestCommunication(normalize(channel as Channel, fields));
+    // Read it and alert straight away (never fails the request; the agent run is the backstop).
+    await afterInbound(result);
     // Twilio expects XML back from a messaging or voice webhook; an empty response means "nothing more to do".
     if ((channel === 'sms' || channel === 'whatsapp' || channel === 'call') && (request.headers.get('content-type') ?? '').includes('form')) {
       return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', { headers: { 'Content-Type': 'text/xml' } });

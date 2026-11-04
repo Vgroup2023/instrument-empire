@@ -62,6 +62,21 @@ async function baselineIfNeeded(client: Sql) {
   console.log(`Existing database verified; recorded ${baseline.length} migrations as already applied (through ${BASELINE_TAG}).`);
 }
 
+/**
+ * On Supabase, every table in the public schema can be reached through the project's public REST address unless
+ * row-level security is on. This turns it on for any table that lacks it (no policy is added, so the public roles get
+ * nothing; the app's own database role skips it). Runs after every migration, so a table added later is covered too.
+ */
+async function secureTables(client: ReturnType<typeof postgres>) {
+  const [anon] = await client`select 1 from pg_roles where rolname = 'anon'`;
+  if (!anon) return;
+  const open = await client`
+    select c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity order by 1`;
+  for (const t of open) await client.unsafe(`alter table public."${String(t.name).replace(/"/g, '""')}" enable row level security`);
+  console.log(open.length ? `Row-level security switched on for: ${open.map((t) => t.name).join(', ')}` : 'Row-level security is on for every public table.');
+}
+
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
@@ -72,6 +87,7 @@ async function main() {
     await baselineIfNeeded(client);
     await migrate(drizzle(client), { migrationsFolder: './drizzle' });
     console.log('Migrations applied.');
+    await secureTables(client);
   } finally {
     await client.end({ timeout: 5 });
   }

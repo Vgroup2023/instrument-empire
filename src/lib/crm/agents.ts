@@ -2,10 +2,13 @@ import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { agentRuns, crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, workforceSettings } from '@/db/schema';
 import { askJson, llmEnabled, str, type LlmClient } from '@/lib/llm/json';
+import { deliverPending, enqueueAlert } from './alerts';
+import { raiseInboundAlert, BIG_DEAL } from './inbound';
+import { applyTriage, triageMessage } from './triage';
 import { companyName } from '@/lib/desk/notify';
 import { dateInZone, timeInZone } from '@/lib/workforce/time';
 import { sendEmail, reportRecipients } from './comms';
-import { record, toActivity, toContact, toDeal, toReport } from './service';
+import { collections, record, toActivity, toContact, toDeal, toReport } from './service';
 import {
   INTENT_LABEL, OPEN_STAGES, STALE_DEAL_DAYS, classifyInbound, followUpDue, renderReport, stageInfo, summarizePeriod,
   type Activity, type Contact, type Deal, type InboundIntent, type Report,
@@ -16,11 +19,12 @@ import {
 // their own: follow-ups are written as drafts for a person to read, change and send. With no ANTHROPIC_API_KEY they
 // fall back to plain rules and templates, so they always work.
 
-export type CrmAgentId = 'crm-inbox' | 'crm-follow-up' | 'crm-pipeline' | 'crm-digest';
+export type CrmAgentId = 'crm-inbox' | 'crm-follow-up' | 'crm-pipeline' | 'crm-alerts' | 'crm-digest';
 export const CRM_AGENTS: { id: CrmAgentId; name: string; summary: string }[] = [
   { id: 'crm-inbox', name: 'Inbox agent', summary: 'Reads every email, text and call that comes in, spots questions, meeting requests and "stop" replies, and makes the follow-up task.' },
   { id: 'crm-follow-up', name: 'Follow-up agent', summary: 'Finds people you have not been in touch with for their follow-up period (weekly by default) and writes a draft email for you to approve.' },
   { id: 'crm-pipeline', name: 'Pipeline agent', summary: 'Watches open deals for ones gone quiet or past their close date and adds a check-in task.' },
+  { id: 'crm-alerts', name: 'Alert agent', summary: 'Watches for big deals gone quiet and won deals whose invoice is overdue, and sends every waiting alert by email, text and Teams, retrying any that failed.' },
   { id: 'crm-digest', name: 'Reporting agent', summary: 'Writes the daily report each morning and the weekly report each Monday, and emails them if a recipient is set.' },
 ];
 
@@ -32,7 +36,7 @@ export interface CrmAgentSummary {
 
 const DAY = 86_400_000;
 const MAX_DRAFTS_PER_RUN = 25;
-const AGENT_ACTOR: Record<CrmAgentId, string> = { 'crm-inbox': 'Inbox agent', 'crm-follow-up': 'Follow-up agent', 'crm-pipeline': 'Pipeline agent', 'crm-digest': 'Reporting agent' };
+const AGENT_ACTOR: Record<CrmAgentId, string> = { 'crm-inbox': 'Inbox agent', 'crm-follow-up': 'Follow-up agent', 'crm-pipeline': 'Pipeline agent', 'crm-alerts': 'Alert agent', 'crm-digest': 'Reporting agent' };
 
 interface Deps {
   now: Date;
@@ -62,49 +66,25 @@ async function addTask(d: Deps, agent: CrmAgentId, t: { contactId: string | null
 // Inbox agent
 // ---------------------------------------------------------------------------
 
-const INTENTS: InboundIntent[] = ['unsubscribe', 'meeting_request', 'pricing', 'complaint', 'question', 'other'];
-
-async function readIntent(d: Deps, subject: string | null, body: string | null): Promise<InboundIntent> {
-  const rules = classifyInbound(subject, body);
-  if (!d.useLlm || rules === 'unsubscribe') return rules;
-  const raw = await askJson(
-    'You read messages that customers and leads send to a sales team.',
-    `Classify this message. Return {"intent": one of ${INTENTS.join(' | ')}}. Use "unsubscribe" only if they clearly ask to stop being contacted.\n\nSubject: ${subject ?? ''}\n\n${(body ?? '').slice(0, 4000)}`,
-    { client: d.llm },
-  );
-  const intent = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).intent : null;
-  return typeof intent === 'string' && (INTENTS as string[]).includes(intent) ? (intent as InboundIntent) : rules;
-}
-
 async function runInbox(d: Deps): Promise<number> {
   const db = getDb();
   const rows = await db
     .select()
     .from(crmActivities)
-    .where(and(eq(crmActivities.direction, 'in'), isNull(crmActivities.triagedAt), inArray(crmActivities.kind, ['email', 'sms']), gte(crmActivities.createdAt, new Date(d.now.getTime() - 14 * DAY))))
+    .where(and(eq(crmActivities.direction, 'in'), isNull(crmActivities.triagedAt), inArray(crmActivities.kind, ['email', 'sms', 'note']), gte(crmActivities.createdAt, new Date(d.now.getTime() - 14 * DAY))))
     .orderBy(crmActivities.createdAt)
     .limit(100);
   let handled = 0;
-  for (const a of rows) {
+  for (const r of rows) {
+    const a = toActivity(r);
     const contact = a.contactId ? (await db.select().from(crmContacts).where(eq(crmContacts.id, a.contactId)))[0] : undefined;
-    const who = contact?.name ?? 'a contact';
-    const intent = await readIntent(d, a.kind === 'email' ? a.summary : null, `${a.summary}\n${a.detail ?? ''}`);
-    // Claim it first, so a second run at the same moment does not make a second task.
-    const [claimed] = await db.update(crmActivities).set({ triagedAt: d.now, updatedAt: new Date() }).where(and(eq(crmActivities.id, a.id), isNull(crmActivities.triagedAt))).returning({ id: crmActivities.id });
-    if (!claimed) continue;
+    const c = contact ? toContact(contact) : null;
+    // The same reading and the same actions as when a message is handled the moment it arrives (see inbound.ts).
+    const t = await triageMessage({ subject: a.kind === 'sms' ? null : a.summary, body: `${a.summary}\n${a.detail ?? ''}`, contactName: c?.name }, { llm: d.llm, timeoutMs: 8000 });
+    const applied = await applyTriage(a, c, t, { actor: AGENT_ACTOR['crm-inbox'], now: d.now });
+    if (!applied.claimed) continue;
     handled++;
-    if (intent === 'unsubscribe' && contact && !contact.doNotContact) {
-      await db.update(crmContacts).set({ doNotContact: true, followUpDays: null, updatedAt: new Date() }).where(eq(crmContacts.id, contact.id));
-      await record(db, { contactId: contact.id, dealId: a.dealId, kind: 'note', summary: `${who} asked to stop contact. No more follow-up messages will be drafted.`, actor: AGENT_ACTOR['crm-inbox'] });
-    } else if (intent === 'meeting_request') {
-      await addTask(d, 'crm-inbox', { contactId: a.contactId, dealId: a.dealId, summary: `Reply to ${who}: they want to meet`, detail: a.summary, dueInHours: 4 });
-    } else if (intent === 'pricing') {
-      await addTask(d, 'crm-inbox', { contactId: a.contactId, dealId: a.dealId, summary: `Send ${who} the pricing they asked about`, detail: a.summary, dueInHours: 24 });
-    } else if (intent === 'complaint') {
-      await addTask(d, 'crm-inbox', { contactId: a.contactId, dealId: a.dealId, summary: `Call ${who} back: they sound unhappy`, detail: a.summary, dueInHours: 2 });
-    } else if (intent === 'question') {
-      await addTask(d, 'crm-inbox', { contactId: a.contactId, dealId: a.dealId, summary: `Answer ${who}'s question`, detail: a.summary, dueInHours: 24 });
-    }
+    await raiseInboundAlert(a, c, t, applied);
   }
   return handled;
 }
@@ -202,6 +182,49 @@ async function runPipeline(d: Deps): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// Alert agent
+// ---------------------------------------------------------------------------
+
+/** A key that changes every week, so an alert that is still true is raised again weekly rather than once forever. */
+const weekKey = (now: Date) => `${now.getUTCFullYear()}w${Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / (7 * DAY))}`;
+
+async function runAlerts(d: Deps): Promise<number> {
+  const db = getDb();
+  let n = 0;
+  const wk = weekKey(d.now);
+  // Big open deals that have gone quiet.
+  const deals = await db.select().from(crmDeals).where(inArray(crmDeals.stage, [...OPEN_STAGES])).limit(1000);
+  for (const r of deals) {
+    const deal = toDeal(r);
+    const quiet = Math.floor((d.now.getTime() - Date.parse(deal.updatedAt)) / DAY);
+    if (deal.value >= BIG_DEAL && quiet >= 7) {
+      const res = await enqueueAlert({
+        dedupeKey: `stalled:${deal.id}:${wk}`, kind: 'stalled_deal', severity: 'important', business: deal.business, dealId: deal.id, contactId: deal.contactId,
+        title: `Big deal gone quiet: ${deal.title}`, body: `${deal.currency} ${deal.value.toLocaleString('en-US')} in ${stageInfo(deal.stage).label}, no activity for ${quiet} days.`,
+      });
+      if (res.created) n++;
+    }
+  }
+  // Won deals whose invoice is overdue.
+  const owed = (await collections()).filter((c) => c.overdue);
+  if (owed.length) {
+    const byDeal = new Map(deals.map((x) => [x.id, x]));
+    const wonRows = await db.select().from(crmDeals).where(inArray(crmDeals.id, owed.map((o) => o.dealId)));
+    for (const o of owed) {
+      const deal = wonRows.find((x) => x.id === o.dealId) ?? byDeal.get(o.dealId);
+      const res = await enqueueAlert({
+        dedupeKey: `overdue:${o.invoiceId}:${wk}`, kind: 'overdue_invoice', severity: 'important', business: deal?.business ?? null, dealId: o.dealId, contactId: deal?.contactId ?? null,
+        title: `Invoice overdue${o.docNumber ? ` ${o.docNumber}` : ''}: ${deal?.title ?? 'won deal'}`, body: `${o.currency} ${o.balance.toLocaleString('en-US')} still owed, due ${o.dueDate ?? 'earlier'}.`,
+      });
+      if (res.created) n++;
+    }
+  }
+  // Send everything waiting, including anything that failed earlier.
+  const sent = await deliverPending({ limit: 50 });
+  return n + sent.sent;
+}
+
+// ---------------------------------------------------------------------------
 // Reporting agent
 // ---------------------------------------------------------------------------
 
@@ -281,6 +304,7 @@ export async function runCrmAgents(opts: { now?: Date; llm?: LlmClient } = {}): 
     ['crm-inbox', runInbox],
     ['crm-follow-up', runFollowUp],
     ['crm-pipeline', runPipeline],
+    ['crm-alerts', runAlerts],
     ['crm-digest', runDigest],
   ];
   const out: CrmAgentSummary[] = [];
@@ -303,6 +327,6 @@ export async function runCrmAgents(opts: { now?: Date; llm?: LlmClient } = {}): 
 export async function lastCrmRuns(): Promise<Record<string, { at: string | null; handled: number; error: string | null }>> {
   const rows = await getDb().execute<{ agent: string; finished_at: string | null; findings_count: number; error: string | null }>(sql`
     select distinct on (agent) agent, finished_at, findings_count, error from agent_runs
-    where agent in ('crm-inbox','crm-follow-up','crm-pipeline','crm-digest') order by agent, started_at desc`);
+    where agent in ('crm-inbox','crm-follow-up','crm-pipeline','crm-alerts','crm-digest') order by agent, started_at desc`);
   return Object.fromEntries(rows.map((r) => [r.agent, { at: r.finished_at ? new Date(r.finished_at).toISOString() : null, handled: Number(r.findings_count), error: r.error }]));
 }

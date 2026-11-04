@@ -46,6 +46,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/api/auth/sso/') ||
     // Called by this gate itself; it checks the signed cookie it is handed.
     pathname === '/api/auth/session' ||
+    // What the sign-in page asks for after it has loaded (which form to show); reveals nothing secret.
+    pathname === '/api/auth/mode' ||
     pathname.startsWith('/api/login') ||
     // Called by an external scheduler, not a browser — it authenticates
     // itself with CRON_SECRET instead of the app session cookie.

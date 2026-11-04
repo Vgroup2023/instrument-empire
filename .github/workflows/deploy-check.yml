@@ -34,3 +34,15 @@ jobs:
           done
           echo "::error title=Production did not update::The live site is still running '${live:-unknown}', not $GITHUB_SHA. Open the latest production deploy in Netlify. If it says Skipped or credit usage exceeded, the account needs credits or a plan change, or a support ticket if credits remain. Environment changes only apply after a successful production deploy."
           exit 1
+
+      # The sign-in page is built ahead of time and kept at the network edge. Opening it once here means the first real
+      # visitor after a deploy gets the kept copy instead of being the one who triggers it. It never fails the run.
+      - name: Warm the sign-in page
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+        run: |
+          BASE="${APP_BASE_URL:-https://globlexus.globlexai.com}"
+          BASE="${BASE%/}"
+          for i in 1 2; do
+            curl -sS -m 30 -o /dev/null -w "login %{http_code} in %{time_total}s\n" "$BASE/login" || true
+          done

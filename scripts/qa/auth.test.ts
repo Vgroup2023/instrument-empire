@@ -5,6 +5,7 @@ import { canAccess, canManageUser, needFor, effectiveDepartments, type Principal
 import { hashPassword, hashToken, newToken, passwordProblem, verifyPassword } from '../../src/lib/auth/password';
 import { authorizeUrl, checkClaims, decodeIdToken, newFlow, redirectUriFor, ssoConfig } from '../../src/lib/auth/sso';
 import { createHash } from 'node:crypto';
+import { DEFAULT_LOGIN_MODE, loginModeFrom } from '../../src/lib/auth/loginMode';
 import { groupsFor, navGroups } from '../../src/components/layout/navGroups';
 
 const P = (role: Principal['role'], departments: Principal['departments'] = []): Principal => ({ role, departments });
@@ -105,6 +106,13 @@ async function main() {
   assert.ok('error' in checkClaims(null, cfg, 'n1'));
   assert.equal(decodeIdToken('a.b'), null);
   assert.equal(decodeIdToken(`h.${Buffer.from(JSON.stringify({ email: 'a@b.co' })).toString('base64url')}.s`)?.email, 'a@b.co');
+
+  // What the sign-in page shows once it has heard from the server
+  assert.deepEqual(DEFAULT_LOGIN_MODE, { accounts: true, passphraseWorks: false, sso: null }, 'the page starts as the normal email-and-password form');
+  assert.deepEqual(loginModeFrom({ anyUsers: true, passphraseOn: false, sso: null }), { accounts: true, passphraseWorks: false, sso: null });
+  assert.deepEqual(loginModeFrom({ anyUsers: true, passphraseOn: true, sso: { name: 'Microsoft' } }), { accounts: true, passphraseWorks: true, sso: { name: 'Microsoft' } }, 'the passphrase can be left on beside accounts');
+  assert.deepEqual(loginModeFrom({ anyUsers: false, passphraseOn: false, sso: null }), { accounts: false, passphraseWorks: true, sso: null }, 'before anyone has an account only the passphrase works');
+  assert.deepEqual(loginModeFrom({ anyUsers: null, passphraseOn: false, sso: null }), { accounts: false, passphraseWorks: true, sso: null }, 'with the database down the passphrase form is offered, so the owner is never locked out');
 
   if (!process.env.DATABASE_URL) {
     console.log('auth: ok (rules and passwords only; set DATABASE_URL to run the database checks too)');

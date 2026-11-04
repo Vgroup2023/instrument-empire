@@ -12,12 +12,19 @@ interface Info {
   status: { baseUrl: string; receivingKeySet: boolean; emailOut: boolean; smsOut: boolean; ai: boolean; reportRecipients: string[] };
   received: Record<string, { lastAt: string | null; count: number }>;
   agents: Record<string, { at: string | null; handled: number; error: string | null }>;
+  alerts: {
+    ready: { email: boolean; sms: boolean; teams: boolean };
+    counts: { email: number; sms: number };
+    trouble: { failed: number; noChannel: number };
+    recent: { id: string; kind: string; severity: string; title: string; status: string; delivered: Record<string, string>; lastError: string | null; createdAt: string }[];
+  };
 }
 
 const AGENTS = [
   { id: 'crm-inbox', name: 'Inbox agent', text: 'Reads every email and text that comes in, spots questions, meeting requests, complaints and "stop" replies, and makes the follow-up task.' },
   { id: 'crm-follow-up', name: 'Follow-up agent', text: 'Writes a draft email for anyone you have not been in touch with for their follow-up period (weekly by default). You approve before it is sent.' },
   { id: 'crm-pipeline', name: 'Pipeline agent', text: 'Adds a check-in task for deals gone quiet or past their expected close date.' },
+  { id: 'crm-alerts', name: 'Alert agent', text: 'Watches for big deals gone quiet and won deals whose invoice is overdue, and sends every waiting alert by email, text and Teams, retrying any that failed.' },
   { id: 'crm-digest', name: 'Reporting agent', text: 'Writes the daily report each morning and the weekly report each Monday, and emails them to the report recipients.' },
 ];
 
@@ -35,6 +42,7 @@ export function ConnectionsPanel({ onRan }: { onRan: () => void }) {
   const [info, setInfo] = useState<Info | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   async function load() {
     try {
@@ -59,6 +67,19 @@ export function ConnectionsPanel({ onRan }: { onRan: () => void }) {
       notify(err instanceof Error ? err.message : 'The agents could not run.', 'error');
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function testAlert() {
+    setTesting(true);
+    try {
+      const res = await crmCall<{ summary: { sent: number; retrying: number; failed: number } }>('/api/crm/alerts/test', 'POST');
+      notify(res.summary.sent ? 'Test alert sent. Check Teams, your email and your phone.' : 'The test alert was queued but not delivered yet. See the list below for the reason.', res.summary.sent ? 'success' : 'error');
+      await load();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'The test alert could not be sent.', 'error');
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -116,8 +137,40 @@ export function ConnectionsPanel({ onRan }: { onRan: () => void }) {
           <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Email</b> from the CRM and for approved follow-ups<br /><span className="text-xs text-slate-500">Uses the same email settings as invoices (SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM).</span></span>{s.emailOut ? <Badge tone="success">Connected</Badge> : <Badge tone="warning">Not set up</Badge>}</li>
           <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Text messages</b><br /><span className="text-xs text-slate-500">Needs a Twilio number: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM.</span></span>{s.smsOut ? <Badge tone="success">Connected</Badge> : <Badge tone="warning">Not set up</Badge>}</li>
           <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Report emails</b><br /><span className="text-xs text-slate-500">Set CRM_REPORT_EMAIL to one or more addresses (comma separated).</span></span>{s.reportRecipients.length ? <Badge tone="success">{s.reportRecipients.length} recipient{s.reportRecipients.length === 1 ? '' : 's'}</Badge> : <Badge tone="warning">No recipient</Badge>}</li>
-          <li className="flex items-center justify-between gap-3 py-2.5"><span><b>AI writing</b><br /><span className="text-xs text-slate-500">Claude writes follow-ups and report summaries (ANTHROPIC_API_KEY). Without it the agents use plain templates.</span></span>{s.ai ? <Badge tone="success">On</Badge> : <Badge tone="neutral">Off, using templates</Badge>}</li>
+          <li className="flex items-center justify-between gap-3 py-2.5"><span><b>AI writing</b><br /><span className="text-xs text-slate-500">Claude reads every incoming message (what it is, how urgent, which business) and writes follow-ups and report summaries (ANTHROPIC_API_KEY). Without it the agents use plain rules and templates.</span></span>{s.ai ? <Badge tone="success">On</Badge> : <Badge tone="neutral">Off, using templates</Badge>}</li>
         </ul>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-semibold text-[#0f2059]">Instant alerts</h3>
+          <Button variant="secondary" loading={testing} onClick={testAlert}>Send a test alert</Button>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">An unhappy customer, a high-priority message, a big deal gone quiet or an overdue invoice on a won deal is sent to you straight away instead of waiting for the daily report. Unhappy customers go to every channel; the rest go to email and Teams.</p>
+        <ul className="mt-2 divide-y divide-slate-100 text-sm">
+          <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Microsoft Teams</b><br /><span className="text-xs text-slate-500">In Teams, add a Workflows &ldquo;Post to a channel when a webhook request is received&rdquo; and paste its web address as TEAMS_WEBHOOK_URL.</span></span>{info.alerts.ready.teams ? <Badge tone="success">Connected</Badge> : <Badge tone="warning">Not set up</Badge>}</li>
+          <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Email</b><br /><span className="text-xs text-slate-500">CRM_ALERT_EMAIL (comma separated). Without it, the report recipients are used. Needs the SMTP settings.</span></span>{info.alerts.ready.email ? <Badge tone="success">{info.alerts.counts.email} recipient{info.alerts.counts.email === 1 ? '' : 's'}</Badge> : <Badge tone="warning">Not set up</Badge>}</li>
+          <li className="flex items-center justify-between gap-3 py-2.5"><span><b>Text message</b><br /><span className="text-xs text-slate-500">CRM_ALERT_SMS: phone numbers with country code (comma separated). Needs the Twilio settings.</span></span>{info.alerts.ready.sms ? <Badge tone="success">{info.alerts.counts.sms} number{info.alerts.counts.sms === 1 ? '' : 's'}</Badge> : <Badge tone="warning">Not set up</Badge>}</li>
+        </ul>
+        {info.alerts.trouble.failed || info.alerts.trouble.noChannel ? (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {info.alerts.trouble.failed ? `${info.alerts.trouble.failed} alert${info.alerts.trouble.failed === 1 ? '' : 's'} could not be delivered after several tries. ` : ''}
+            {info.alerts.trouble.noChannel ? `${info.alerts.trouble.noChannel} alert${info.alerts.trouble.noChannel === 1 ? ' was' : 's were'} raised this week with no channel set up to send ${info.alerts.trouble.noChannel === 1 ? 'it' : 'them'}.` : ''}
+          </p>
+        ) : null}
+        {info.alerts.recent.length ? (
+          <ul className="mt-3 divide-y divide-slate-100">
+            {info.alerts.recent.map((a) => (
+              <li key={a.id} className="py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-slate-900">{a.title}</p>
+                  <span className="flex items-center gap-2 text-xs text-slate-500">{ago(a.createdAt)}<Badge tone={a.status === 'sent' ? 'success' : a.status === 'failed' ? 'danger' : a.status === 'no_channel' ? 'neutral' : 'warning'}>{a.status === 'no_channel' ? 'no channel' : a.status}</Badge></span>
+                </div>
+                {a.lastError ? <p className="text-xs text-red-600">{a.lastError}</p> : null}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="mt-3 text-xs text-slate-500">No alerts yet.</p>}
       </Card>
 
       <Card className="p-5">
@@ -125,7 +178,7 @@ export function ConnectionsPanel({ onRan }: { onRan: () => void }) {
           <h3 className="text-[15px] font-semibold text-[#0f2059]">AI agents</h3>
           <Button loading={running} onClick={run}>Run the agents now</Button>
         </div>
-        <p className="mt-1 text-sm text-slate-600">They run on their own every hour (the same schedule as your other agents). They never send anything to a customer by themselves; they leave drafts and tasks for you.</p>
+        <p className="mt-1 text-sm text-slate-600">They run on their own every hour (the same schedule as your other agents), and incoming messages are read and alerted on the moment they arrive. They never send anything to a customer by themselves; they leave drafts and tasks for you.</p>
         <ul className="mt-3 divide-y divide-slate-100">
           {AGENTS.map((a) => {
             const r = info.agents[a.id];

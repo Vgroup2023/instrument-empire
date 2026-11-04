@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { connectionStatus } from '@/lib/crm/comms';
 import { lastCrmRuns } from '@/lib/crm/agents';
+import { alertRoutes, alertTrouble, channelsReady, recentAlerts } from '@/lib/crm/alerts';
 import { apiErrorResponse } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
@@ -19,6 +20,12 @@ export async function GET(request: NextRequest) {
       status: connectionStatus(base.replace(/\/$/, '')),
       received: Object.fromEntries(rows.map((r) => [r.channel, { lastAt: r.last_at ? new Date(r.last_at).toISOString() : null, count: Number(r.n) }])),
       agents: await lastCrmRuns(),
+      alerts: {
+        ready: channelsReady(),
+        counts: { email: alertRoutes().email.length, sms: alertRoutes().sms.length },
+        trouble: await alertTrouble(),
+        recent: await recentAlerts(8),
+      },
     });
   } catch (err) {
     return apiErrorResponse(err);

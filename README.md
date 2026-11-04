@@ -541,6 +541,22 @@ domain says so (for example `@bluestarimex.com`; see `DOMAIN_BUSINESS`). The Bus
 and the Overview shows all of them side by side: leads, customers, follow-ups due, pipeline, won, and billed, collected and overdue. An invoice
 belongs to the business of the CRM contact who is that customer, so tag the contact and their invoices follow. Needs migration 0024.
 
+**Reading messages and instant alerts.** Every incoming email, text and web-form message is read the moment it arrives (and again by the hourly
+inbox agent if that failed): what it is, how urgent, which business it is for, and what to do next. With `ANTHROPIC_API_KEY` Claude reads it and
+the answer is checked field by field; without it, or if Claude is slow or wrong, the plain rules are used. The result is stored on the message with a
+priority from 0 to 100 (what it is, how urgent, deal size, an overdue invoice, how long they have waited). Something worth interrupting for is put in
+the `crm_alerts` queue and sent at once: an unhappy customer goes to email, text and Teams; a high-priority message (priority 70 or more, or a pricing
+or meeting message on a $10,000+ deal), a $10,000+ deal quiet for a week, and an overdue invoice on a won deal go to email and Teams. The same event is
+never alerted twice, a channel that fails is retried on the next agent run (five tries), and **CRM > Integrations > Instant alerts** shows what is set up,
+the latest alerts and a **Send a test alert** button. Settings (all optional, set in Netlify): `TEAMS_WEBHOOK_URL` (in Teams, a Workflows "post to a
+channel when a webhook request is received"; paste its address), `CRM_ALERT_EMAIL` (comma separated; falls back to `CRM_REPORT_EMAIL`, needs the SMTP
+settings) and `CRM_ALERT_SMS` (phone numbers with country code, needs the Twilio settings). Needs migration 0025.
+
+**Row-level security.** On Supabase, a table in the public schema can be reached through the project's public REST address unless row-level security is on.
+Migration 0025 turns it on for the CRM, team, sign-in and payroll tables that earlier migrations left open, and `scripts/migrate.ts` now turns it on for any
+public table that lacks it after every migration run, so a table added later is covered too. No policy is added, so the public roles get nothing; the
+app's own database role skips row-level security and is unaffected.
+
 ## Teams, users and departments
 
 Everyone signs in with their own email and password. One company, with departments inside it.

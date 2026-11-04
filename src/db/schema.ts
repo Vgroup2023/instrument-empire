@@ -1187,6 +1187,10 @@ export const crmActivities = pgTable(
     externalId: text('external_id'),
     /** When an agent last read this received message and decided what to do about it. */
     triagedAt: timestamp('triaged_at', { withTimezone: true }),
+    /** What reading the message found (intent, urgency, sentiment, summary and whether Claude or the plain rules read it). */
+    triage: jsonb('triage'),
+    /** 0 to 100: how soon this needs a person's attention. Set when the message is triaged. */
+    priority: integer('priority'),
     ...timestamps,
   },
   (t) => [
@@ -1254,6 +1258,36 @@ export const crmTargets = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex('ux_crm_targets_period_owner').on(t.period, t.owner)],
+);
+
+/**
+ * Alerts waiting to go out (and the record of those that did): one row per thing worth interrupting someone for. The
+ * dedupe key means the same event is never alerted twice, and each channel's result is kept so a failed one is retried.
+ */
+export const crmAlerts = pgTable(
+  'crm_alerts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dedupeKey: text('dedupe_key').notNull(),
+    /** complaint, hot_lead, meeting_request, stalled_deal, overdue_invoice or test. */
+    kind: text('kind').notNull(),
+    /** critical (email, text and Teams), important (email and Teams) or info. */
+    severity: text('severity').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    business: text('business'),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+    dealId: uuid('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+    /** pending, sending, sent, failed (gave up after several tries) or no_channel (nothing is set up to deliver it). */
+    status: text('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    /** Per channel: "ok" or the reason it failed. */
+    delivered: jsonb('delivered').notNull().default({}),
+    lastError: text('last_error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('ux_crm_alerts_dedupe').on(t.dedupeKey), index('ix_crm_alerts_status').on(t.status, t.createdAt)],
 );
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 // Tests for the CRM: the pure calculations, then the real database flow (deals, history, won deals becoming customers).
 // Run: npx tsx scripts/qa/crm.test.ts   (needs DATABASE_URL pointing at a migrated database)
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import {
   ago, bucketUpcoming, classifyInbound, crmMetrics, followUpDue, formatDuration, leadScore, nextFollowUp, normalizePhone, parseAddress,
   guessBusiness, monthOf, monthProgress, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
@@ -128,6 +129,45 @@ assert.equal(monthProgress('2026-11', Date.parse('2026-10-15T00:00:00Z')), 0);
 assert.equal(monthProgress('2026-11', Date.parse('2026-12-15T00:00:00Z')), 1);
 assert.equal(monthProgress('2026-11', Date.parse('2026-11-16T00:00:00Z')), 0.5);
 
+// ---- triage and alerts (pure) ----
+async function pureTriage() {
+  const { rulesTriage, parseTriage, priorityScore } = await import('../../src/lib/crm/triage');
+  const { renderTeamsCard } = await import('../../src/lib/crm/alerts');
+  const rc = rulesTriage('Where is my order?', 'This is urgent, I cannot wait');
+  assert.equal(rc.intent, 'question');
+  assert.equal(rc.urgency, 3, 'a question reads as 2, and "urgent" adds one');
+  assert.equal(rc.source, 'rules');
+  assert.equal(rulesTriage('Stop', 'stop').doNotContact, true);
+  assert.equal(rulesTriage('x', 'I am not happy with this').intent, 'complaint');
+
+  const fb = rulesTriage('Hello', 'Hello there');
+  const ok = parseTriage({ intent: 'pricing', urgency: 9, sentiment: 5, business: 'pivit-fishing', summary: 'Wants a wholesale price', tasks: [{ summary: 'Send the price list', dueInHours: 9999 }, { nope: 1 }, 'bad'], confidence: 0.9 }, fb);
+  assert.equal(ok.intent, 'pricing');
+  assert.equal(ok.urgency, 5, 'urgency is limited to 1 to 5');
+  assert.equal(ok.sentiment, 1, 'sentiment is limited to -1 to 1');
+  assert.equal(ok.business, 'pivit-fishing');
+  assert.deepEqual(ok.tasks, [{ summary: 'Send the price list', dueInHours: 168 }], 'bad tasks are dropped and hours limited');
+  assert.equal(ok.source, 'ai');
+  assert.equal(parseTriage({ intent: 'bogus', business: 'nope', urgency: 'high' }, fb).intent, 'other', 'an unknown intent falls back to the rules');
+  assert.equal(parseTriage({ intent: 'bogus', business: 'nope' }, fb).business, null, 'an unknown business is dropped');
+  assert.equal(parseTriage('not json', fb), fb);
+  assert.equal(parseTriage(null, fb), fb);
+  assert.equal(parseTriage({ intent: 'unsubscribe', confidence: 0.4 }, fb).intent, 'other', 'a weak "stop" from Claude is not trusted when the rules did not see one');
+  assert.equal(parseTriage({ intent: 'unsubscribe', confidence: 0.95, doNotContact: true }, fb).doNotContact, true);
+
+  assert.equal(priorityScore({ intent: 'complaint', urgency: 5, dealValue: 20000, overdueInvoice: true, daysWaiting: 30, newContact: true }), 100, 'capped at 100');
+  assert.equal(priorityScore({ intent: 'other', urgency: 1, dealValue: 0, overdueInvoice: false, daysWaiting: 0 }), 11);
+  assert.equal(priorityScore({ intent: 'pricing', urgency: 3, dealValue: 12000, overdueInvoice: false, daysWaiting: 2 }), 66);
+  assert.ok(priorityScore({ intent: 'question', urgency: 2, dealValue: 0, overdueInvoice: true, daysWaiting: 0 }) > priorityScore({ intent: 'question', urgency: 2, dealValue: 0, overdueInvoice: false, daysWaiting: 0 }));
+
+  const card = renderTeamsCard({ title: 'Unhappy customer: Ann', body: 'Wants a refund', severity: 'critical', business: 'bluestarimex' }, 'https://app.example.com/') as { attachments: { contentType: string; content: { body: { text: string; color?: string }[]; actions?: { url: string }[] } }[] };
+  assert.equal(card.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+  assert.equal(card.attachments[0].content.body[0].text, 'Unhappy customer: Ann');
+  assert.equal(card.attachments[0].content.body[0].color, 'Attention');
+  assert.equal(card.attachments[0].content.actions?.[0].url, 'https://app.example.com/dashboard/crm');
+  assert.equal((renderTeamsCard({ title: 't', body: '', severity: 'info', business: null }, null) as { attachments: { content: { actions?: unknown } }[] }).attachments[0].content.actions, undefined, 'no link when the app address is unknown');
+}
+
 // ---- database ----
 async function db() {
   const svc = await import('../../src/lib/crm/service');
@@ -229,6 +269,83 @@ async function db() {
     const fin = await svc.businessFinance();
     assert.ok(Array.isArray(fin));
 
+    // triage and alerts: a complaint is read, tasked, tagged, alerted and delivered to Teams, once
+    {
+      const alerts = await import('../../src/lib/crm/alerts');
+      const { afterInbound } = await import('../../src/lib/crm/inbound');
+      const { crmAlerts, crmActivities: acts } = await import('../../src/db/schema');
+      const dbx = getDb();
+      const keep = { TEAMS_WEBHOOK_URL: process.env.TEAMS_WEBHOOK_URL, CRM_ALERT_EMAIL: process.env.CRM_ALERT_EMAIL, CRM_ALERT_SMS: process.env.CRM_ALERT_SMS, APP_BASE_URL: process.env.APP_BASE_URL };
+      delete process.env.TEAMS_WEBHOOK_URL; delete process.env.CRM_ALERT_EMAIL; delete process.env.CRM_ALERT_SMS;
+      const alertIds: string[] = [];
+      const hits: { body: string }[] = [];
+      let failNext = 1;
+      const hook = createServer((req, res) => {
+        let b = '';
+        req.on('data', (d) => { b += d; });
+        req.on('end', () => { hits.push({ body: b }); if (failNext > 0) { failNext--; res.statusCode = 500; } res.end('ok'); });
+      });
+      await new Promise<void>((r) => hook.listen(0, '127.0.0.1', () => r()));
+      try {
+        // nothing set up: the alert is kept, marked so, and nothing is sent
+        const key = `qa-alert-${Date.now()}`;
+        const first = await alerts.enqueueAlert({ dedupeKey: key, kind: 'stalled_deal', severity: 'important', title: 'QA stalled deal', body: 'quiet for 9 days' });
+        assert.equal(first.created, true);
+        assert.ok(first.id);
+        alertIds.push(first.id!);
+        assert.equal((await alerts.enqueueAlert({ dedupeKey: key, kind: 'stalled_deal', severity: 'important', title: 'again' })).created, false, 'the same key is never queued twice');
+        const none = await alerts.deliverPending({ limit: 50 });
+        assert.ok(none.noChannel >= 1);
+        assert.equal((await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0].status, 'no_channel');
+
+        // a Teams webhook that fails once: retried, then delivered with the card
+        const port = (hook.address() as { port: number }).port;
+        process.env.TEAMS_WEBHOOK_URL = `http://127.0.0.1:${port}/hook`;
+        process.env.APP_BASE_URL = 'https://app.example.com';
+        assert.deepEqual(alerts.channelsReady(), { email: false, sms: false, teams: true });
+        await alerts.deliverPending({ limit: 50 });
+        let row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
+        assert.equal(row.status, 'pending', 'a failed delivery goes back to waiting');
+        assert.equal(row.attempts, 1);
+        assert.match(row.lastError ?? '', /teams/);
+        await alerts.deliverPending({ limit: 50 });
+        row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
+        assert.equal(row.status, 'sent');
+        assert.equal(row.attempts, 2);
+        assert.ok(hits.at(-1)!.body.includes('QA stalled deal'), 'the card reached the webhook');
+
+        // a complaint arriving by email, read by a fake Claude, handled the moment it arrives
+        const fake = { messages: { create: async () => ({ content: [{ type: 'text', text: JSON.stringify({ intent: 'complaint', urgency: 5, sentiment: -0.9, business: 'bluestarimex', summary: 'Shipment held and nobody has replied', tasks: [{ summary: 'Check the customs hold', dueInHours: 2 }], confidence: 0.9 }) }] }) } } as never;
+        const inbound = await svc.ingestCommunication({ channel: 'email', from: 'Pat Angry <pat.qa@example.org>', subject: 'Third time asking', body: 'My shipment is held and nobody has replied. Very upset.', externalId: `qa-msg-${Date.now()}` });
+        made.contacts.push(inbound.contact.id);
+        await afterInbound(inbound, { llm: fake });
+        const [stored] = await dbx.select().from(acts).where(eq(acts.id, inbound.activity.id));
+        assert.ok(stored.triagedAt, 'the message is marked read');
+        assert.equal((stored.triage as { source: string }).source, 'ai');
+        assert.ok((stored.priority ?? 0) >= 70, 'a very urgent complaint is high priority');
+        const tasks = (await svc.activitiesFor({ contactId: inbound.contact.id })).filter((x) => x.kind === 'task').map((x) => x.summary);
+        assert.ok(tasks.some((x) => x.startsWith('Call Pat Angry back')), 'the complaint task is made');
+        assert.ok(tasks.includes('Check the customs hold'), "Claude's own task is added");
+        const [tagged] = await getDb().select().from(crmContacts).where(eq(crmContacts.id, inbound.contact.id));
+        assert.equal(tagged.business, 'bluestarimex', 'an untagged contact takes the business the message is about');
+        const [alert] = await dbx.select().from(crmAlerts).where(eq(crmAlerts.dedupeKey, `complaint:${inbound.activity.id}`));
+        assert.ok(alert, 'an alert was raised');
+        alertIds.push(alert.id);
+        assert.equal(alert.severity, 'critical');
+        assert.equal(alert.status, 'sent', 'and delivered straight away');
+        assert.ok(hits.some((h) => h.body.includes('Unhappy customer: Pat Angry')));
+        // handling it again (the agent run) does nothing more
+        const hitsBefore = hits.length;
+        await afterInbound(inbound, { llm: fake });
+        assert.equal((await dbx.select().from(crmAlerts).where(eq(crmAlerts.dedupeKey, `complaint:${inbound.activity.id}`))).length, 1);
+        assert.equal(hits.length, hitsBefore, 'no second alert is sent');
+      } finally {
+        hook.close();
+        for (const [k, v] of Object.entries(keep)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+        if (alertIds.length) await dbx.delete(crmAlerts).where(inArray(crmAlerts.id, alertIds));
+      }
+    }
+
     // targets: set, change, read back and clear, for the team and for a person
     const month = '2099-01';
     await svc.setTarget({ period: month, amount: 50000 }, 'Tester');
@@ -315,7 +432,7 @@ async function db() {
     const { crmDrafts, crmActivities, crmReports } = await import('../../src/db/schema');
     const { and: andOp } = await import('drizzle-orm');
     const inbox = await agents.runCrmAgents({ now: new Date() });
-    assert.deepEqual(inbox.map((r) => r.agent), ['crm-inbox', 'crm-follow-up', 'crm-pipeline', 'crm-digest']);
+    assert.deepEqual(inbox.map((r) => r.agent), ['crm-inbox', 'crm-follow-up', 'crm-pipeline', 'crm-alerts', 'crm-digest']);
     assert.ok(inbox.every((r) => !r.error), `agents ran clean: ${JSON.stringify(inbox.filter((r) => r.error))}`);
     const tasksFor = async (contactId: string) => (await svc.activitiesFor({ contactId })).filter((x) => x.kind === 'task');
     assert.ok((await tasksFor(got.contact.id)).some((x) => /pricing|question/i.test(x.summary)), 'the inbox agent made a task for the pricing question');
@@ -380,11 +497,13 @@ async function db() {
 }
 
 // CI has no database, so the database half runs only where DATABASE_URL is set.
-if (!process.env.DATABASE_URL) {
-  console.log('crm: ok (calculations only; set DATABASE_URL to run the database checks too)');
-} else {
-  db().then(
-    () => { console.log('crm: ok'); process.exit(0); },
-    (err) => { console.error(err); process.exit(1); },
-  );
-}
+pureTriage().then(
+  () => {
+    // CI has no database, so the database half runs only where DATABASE_URL is set.
+    if (!process.env.DATABASE_URL) {
+      console.log('crm: ok (calculations only; set DATABASE_URL to run the database checks too)');
+      return;
+    }
+    return db().then(() => { console.log('crm: ok'); process.exit(0); });
+  },
+).catch((err) => { console.error(err); process.exit(1); });

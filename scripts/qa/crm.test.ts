@@ -346,8 +346,8 @@ async function db() {
         assert.ok(first.id);
         alertIds.push(first.id!);
         assert.equal((await alerts.enqueueAlert({ dedupeKey: key, kind: 'stalled_deal', severity: 'important', title: 'again' })).created, false, 'the same key is never queued twice');
-        const none = await alerts.deliverPending({ limit: 50 });
-        assert.ok(none.noChannel >= 1);
+        const none = await alerts.deliverPending({ ids: [first.id!] });
+        assert.equal(none.noChannel, 1);
         assert.equal((await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0].status, 'no_channel');
 
         // a Teams webhook that fails once: retried, then delivered with the card
@@ -355,12 +355,12 @@ async function db() {
         process.env.TEAMS_WEBHOOK_URL = `http://127.0.0.1:${port}/hook`;
         process.env.APP_BASE_URL = 'https://app.example.com';
         assert.deepEqual(alerts.channelsReady(), { email: false, sms: false, teams: true });
-        await alerts.deliverPending({ limit: 50 });
+        await alerts.deliverPending({ ids: [first.id!] });
         let row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
         assert.equal(row.status, 'pending', 'a failed delivery goes back to waiting');
         assert.equal(row.attempts, 1);
         assert.match(row.lastError ?? '', /teams/);
-        await alerts.deliverPending({ limit: 50 });
+        await alerts.deliverPending({ ids: [first.id!] });
         row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
         assert.equal(row.status, 'sent');
         assert.equal(row.attempts, 2);

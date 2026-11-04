@@ -9,28 +9,28 @@ export const HOT_PRIORITY = 70;
 /** An open deal this big makes a pricing or meeting message worth an alert on its own. */
 export const BIG_DEAL = 10_000;
 
-/** Raises an alert for a message that deserves one. Returns whether a new alert was queued. */
+/** Raises an alert for a message that deserves one. Returns the new alert's id, or null if none was queued. */
 export async function raiseInboundAlert(
   a: Pick<Activity, 'id' | 'contactId' | 'dealId'>,
   contact: Pick<Contact, 'name' | 'business'> | null,
   t: Triage,
   applied: AppliedTriage,
-): Promise<boolean> {
-  if (!applied.claimed || t.intent === 'unsubscribe') return false;
+): Promise<string | null> {
+  if (!applied.claimed || t.intent === 'unsubscribe') return null;
   const who = contact?.name ?? 'A contact';
   const business = businessInfo(contact?.business)?.name ?? null;
   const base = { business: contact?.business ?? null, contactId: a.contactId, dealId: a.dealId, body: t.summary };
   const tag = business ? ` (${business})` : '';
   if (t.intent === 'complaint') {
-    return (await enqueueAlert({ ...base, dedupeKey: `complaint:${a.id}`, kind: 'complaint', severity: 'critical', title: `Unhappy customer: ${who}${tag}` })).created;
+    return (await enqueueAlert({ ...base, dedupeKey: `complaint:${a.id}`, kind: 'complaint', severity: 'critical', title: `Unhappy customer: ${who}${tag}` })).id;
   }
   if (t.intent === 'meeting_request' && applied.dealValue >= BIG_DEAL) {
-    return (await enqueueAlert({ ...base, dedupeKey: `meeting:${a.id}`, kind: 'meeting_request', severity: 'important', title: `${who} wants to meet about a big deal${tag}` })).created;
+    return (await enqueueAlert({ ...base, dedupeKey: `meeting:${a.id}`, kind: 'meeting_request', severity: 'important', title: `${who} wants to meet about a big deal${tag}` })).id;
   }
   if (applied.priority >= HOT_PRIORITY || (t.intent === 'pricing' && applied.dealValue >= BIG_DEAL)) {
-    return (await enqueueAlert({ ...base, dedupeKey: `hot:${a.id}`, kind: 'hot_lead', severity: 'important', title: `High-priority message from ${who}${tag}` })).created;
+    return (await enqueueAlert({ ...base, dedupeKey: `hot:${a.id}`, kind: 'hot_lead', severity: 'important', title: `High-priority message from ${who}${tag}` })).id;
   }
-  return false;
+  return null;
 }
 
 /**
@@ -47,7 +47,9 @@ export async function afterInbound(r: InboundResult, opts: { llm?: LlmClient } =
       { llm: opts.llm, timeoutMs: 4000 },
     );
     const applied = await applyTriage(a, r.contact, t, { actor: 'Inbox', newContact: r.createdContact });
-    if (await raiseInboundAlert(a, r.contact, t, applied)) await deliverPending({ budgetMs: 2500, limit: 5 });
+    const alertId = await raiseInboundAlert(a, r.contact, t, applied);
+    // Send only this message's alert now; anything older that is still waiting is picked up by the agent run.
+    if (alertId) await deliverPending({ ids: [alertId], budgetMs: 2500 });
   } catch (err) {
     console.error('crm: inbound triage failed; the next agent run will retry', err instanceof Error ? err.message : err);
   }

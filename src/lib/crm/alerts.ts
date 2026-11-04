@@ -115,10 +115,10 @@ async function sendEach(items: string[], fn: (x: string) => Promise<{ ok: boolea
 export interface DeliverySummary { sent: number; retrying: number; failed: number; noChannel: number }
 
 /**
- * Sends what is waiting. Safe to call from several places at once: each alert is claimed before it is sent. Stops
- * starting new ones after `budgetMs`, so a webhook that calls this can still answer quickly.
+ * Sends what is waiting, or just the alerts in `ids`. Safe to call from several places at once: each alert is claimed
+ * before it is sent. Stops starting new ones after `budgetMs`, so a webhook that calls this can still answer quickly.
  */
-export async function deliverPending(opts: { limit?: number; budgetMs?: number } = {}): Promise<DeliverySummary> {
+export async function deliverPending(opts: { limit?: number; budgetMs?: number; ids?: string[] } = {}): Promise<DeliverySummary> {
   const db = getDb();
   const started = Date.now();
   const ready = channelsReady();
@@ -129,10 +129,13 @@ export async function deliverPending(opts: { limit?: number; budgetMs?: number }
   const candidates = await db
     .select()
     .from(crmAlerts)
-    .where(or(
-      eq(crmAlerts.status, 'pending'),
-      and(eq(crmAlerts.status, 'sending'), lt(crmAlerts.updatedAt, new Date(Date.now() - 120_000))),
-      and(eq(crmAlerts.status, 'no_channel'), gt(crmAlerts.createdAt, day)),
+    .where(and(
+      opts.ids ? inArray(crmAlerts.id, opts.ids.length ? opts.ids : ['00000000-0000-0000-0000-000000000000']) : undefined,
+      or(
+        eq(crmAlerts.status, 'pending'),
+        and(eq(crmAlerts.status, 'sending'), lt(crmAlerts.updatedAt, new Date(Date.now() - 120_000))),
+        and(eq(crmAlerts.status, 'no_channel'), gt(crmAlerts.createdAt, day)),
+      ),
     ))
     .orderBy(crmAlerts.createdAt)
     .limit(opts.limit ?? 20);

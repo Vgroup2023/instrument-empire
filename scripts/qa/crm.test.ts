@@ -29,7 +29,7 @@ const d = (o: Partial<Deal>): Deal => ({
 });
 const t = (o: Partial<Activity>): Activity => ({
   id: Math.random().toString(), dealId: null, contactId: null, kind: 'note', summary: 's', detail: null, durationSeconds: null, dueAt: null, doneAt: null,
-  actor: 'Ana', channel: null, direction: null, createdAt: '2026-10-29T12:00:00Z', updatedAt: '', ...o,
+  actor: 'Ana', channel: null, direction: null, priority: null, triage: null, createdAt: '2026-10-29T12:00:00Z', updatedAt: '', ...o,
 });
 const m = crmMetrics(
   [
@@ -138,6 +138,9 @@ async function pureTriage() {
   assert.equal(rc.urgency, 3, 'a question reads as 2, and "urgent" adds one');
   assert.equal(rc.source, 'rules');
   assert.equal(rulesTriage('Stop', 'stop').doNotContact, true);
+  assert.equal(rulesTriage('Thanks', 'Thanks\nGot it, much appreciated').summary, 'Thanks: Got it, much appreciated', 'a body that starts with the subject does not repeat it');
+  assert.equal(rulesTriage(null, 'Where is my   order?').summary, 'Where is my order?', 'a text message has only its body');
+  assert.equal(rulesTriage('Hello', null).summary, 'Hello');
   assert.equal(rulesTriage('x', 'I am not happy with this').intent, 'complaint');
 
   const fb = rulesTriage('Hello', 'Hello there');
@@ -166,6 +169,55 @@ async function pureTriage() {
   assert.equal(card.attachments[0].content.body[0].color, 'Attention');
   assert.equal(card.attachments[0].content.actions?.[0].url, 'https://app.example.com/dashboard/crm');
   assert.equal((renderTeamsCard({ title: 't', body: '', severity: 'info', business: null }, null) as { attachments: { content: { actions?: unknown } }[] }).attachments[0].content.actions, undefined, 'no link when the app address is unknown');
+
+  // ---- the do-this-next list ----
+  const { nextActions, actionLevel } = await import('../../src/lib/crm/model');
+  const NOW = Date.parse('2026-11-04T12:00:00Z');
+  const ann = person({ id: 'ann', name: 'Ann', business: 'bluestarimex' });
+  const bob = person({ id: 'bob', name: 'Bob' });
+  const msg = (o: Partial<Activity>) => t({ kind: 'email', direction: 'in', channel: 'email', contactId: 'ann', summary: 'Where is my order?', createdAt: '2026-11-04T10:00:00Z', priority: 80, triage: { intent: 'complaint', urgency: 5, sentiment: -0.8, summary: 'Shipment held, no reply yet', business: null, confidence: 0.9, source: 'ai' }, ...o });
+  const run = (activities: Activity[], drafts: never[] = []) => nextActions({ activities, contacts: [ann, bob], deals: [], drafts, now: NOW });
+  assert.equal(actionLevel(70), 'now'); assert.equal(actionLevel(69), 'today'); assert.equal(actionLevel(40), 'today'); assert.equal(actionLevel(39), 'soon');
+
+  let list = run([msg({})]);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].type, 'message');
+  assert.equal(list[0].level, 'now');
+  assert.equal(list[0].why, 'Shipment held, no reply yet', "the AI's summary is shown");
+  assert.equal(list[0].business, 'bluestarimex', "the contact's business is carried over");
+  assert.equal(run([msg({}), t({ kind: 'email', direction: 'out', channel: 'email', contactId: 'ann', createdAt: '2026-11-04T11:00:00Z' })]).length, 0, 'once we have replied it is not listed');
+  assert.equal(run([msg({}), t({ kind: 'email', direction: 'out', channel: 'email', contactId: 'ann', createdAt: '2026-11-04T09:00:00Z' })]).length, 1, 'a reply from before the message does not count');
+  assert.equal(run([msg({ doneAt: '2026-11-04T11:00:00Z' })]).length, 0, 'a message marked handled is not listed');
+  assert.equal(run([msg({ createdAt: '2026-09-01T10:00:00Z' })]).length, 0, 'messages older than 30 days are not listed');
+  list = run([msg({ id: 'm1', createdAt: '2026-11-03T10:00:00Z', priority: 50 }), msg({ id: 'm2', createdAt: '2026-11-04T10:00:00Z', priority: 60 })]);
+  assert.equal(list.length, 1, 'one item per contact: the latest message');
+  assert.equal(list[0].id, 'm2');
+  const waiting = run([msg({ priority: 60, createdAt: '2026-10-30T12:00:00Z' })])[0];
+  assert.equal(waiting.score, 65, 'a message that has waited five days scores five more');
+
+  const overdueTask = t({ kind: 'task', contactId: 'bob', summary: 'Call Bob', dueAt: '2026-11-02T12:00:00Z', createdAt: '2026-11-01T12:00:00Z' });
+  list = run([overdueTask]);
+  assert.equal(list[0].score, 62, 'a task two days overdue: 30 + 30 + 2');
+  assert.equal(list[0].overdue, true);
+  assert.equal(list[0].level, 'today');
+  assert.equal(run([t({ kind: 'task', contactId: 'bob', summary: 'Someday', dueAt: null })])[0].score, 30);
+  assert.equal(run([t({ kind: 'task', contactId: 'bob', summary: 'Tomorrow', dueAt: '2026-11-05T06:00:00Z' })])[0].score, 40, 'due within a day adds 10');
+  assert.equal(run([t({ kind: 'task', contactId: 'bob', summary: 'Done', doneAt: '2026-11-04T08:00:00Z' })]).length, 0, 'finished tasks are not listed');
+
+  const fromMessage = run([msg({ id: 'mm', priority: 85 }), t({ kind: 'task', contactId: 'ann', summary: 'Call Ann back: they sound unhappy', dueAt: '2026-11-04T14:00:00Z', createdAt: '2026-11-04T10:01:00Z' })]);
+  assert.equal(fromMessage.length, 1, 'a task made from a message replaces it');
+  assert.equal(fromMessage[0].type, 'task');
+  assert.ok(fromMessage[0].score >= 85, "and takes the message's priority");
+  assert.equal(fromMessage[0].why, 'Shipment held, no reply yet', "and its summary");
+
+  const draft = (status: 'pending' | 'failed' | 'sent' | 'dismissed') => ({ id: 'd-' + status, contactId: 'bob', dealId: null, channel: 'email', subject: 'Checking in', body: 'Hi', reason: 'Quiet for 14 days', status, createdBy: 'Follow-up agent', sentAt: null, error: status === 'failed' ? 'SMTP refused it' : null, createdAt: '2026-11-04T08:00:00Z', updatedAt: '' }) as never;
+  list = nextActions({ activities: [], contacts: [ann, bob], deals: [], drafts: [draft('pending'), draft('failed'), draft('sent'), draft('dismissed')], now: NOW });
+  assert.deepEqual(list.map((x) => [x.type, x.score]), [['draft', 45], ['draft', 25]], 'only pending and failed drafts, the failed one first');
+  assert.equal(list[0].why, 'SMTP refused it');
+
+  list = run([overdueTask, msg({ priority: 90 }), t({ kind: 'task', contactId: 'bob', summary: 'Someday', dueAt: null })]);
+  assert.deepEqual(list.map((x) => x.score), [...list.map((x) => x.score)].sort((a, b) => b - a), 'highest score first');
+  assert.equal(nextActions({ activities: [msg({}), overdueTask], contacts: [ann, bob], deals: [], drafts: [], now: NOW, limit: 1 }).length, 1, 'the list can be cut short');
 }
 
 // ---- database ----
@@ -294,8 +346,8 @@ async function db() {
         assert.ok(first.id);
         alertIds.push(first.id!);
         assert.equal((await alerts.enqueueAlert({ dedupeKey: key, kind: 'stalled_deal', severity: 'important', title: 'again' })).created, false, 'the same key is never queued twice');
-        const none = await alerts.deliverPending({ limit: 50 });
-        assert.ok(none.noChannel >= 1);
+        const none = await alerts.deliverPending({ ids: [first.id!] });
+        assert.equal(none.noChannel, 1);
         assert.equal((await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0].status, 'no_channel');
 
         // a Teams webhook that fails once: retried, then delivered with the card
@@ -303,12 +355,12 @@ async function db() {
         process.env.TEAMS_WEBHOOK_URL = `http://127.0.0.1:${port}/hook`;
         process.env.APP_BASE_URL = 'https://app.example.com';
         assert.deepEqual(alerts.channelsReady(), { email: false, sms: false, teams: true });
-        await alerts.deliverPending({ limit: 50 });
+        await alerts.deliverPending({ ids: [first.id!] });
         let row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
         assert.equal(row.status, 'pending', 'a failed delivery goes back to waiting');
         assert.equal(row.attempts, 1);
         assert.match(row.lastError ?? '', /teams/);
-        await alerts.deliverPending({ limit: 50 });
+        await alerts.deliverPending({ ids: [first.id!] });
         row = (await dbx.select().from(crmAlerts).where(eq(crmAlerts.id, first.id!)))[0];
         assert.equal(row.status, 'sent');
         assert.equal(row.attempts, 2);
@@ -323,6 +375,16 @@ async function db() {
         assert.ok(stored.triagedAt, 'the message is marked read');
         assert.equal((stored.triage as { source: string }).source, 'ai');
         assert.ok((stored.priority ?? 0) >= 70, 'a very urgent complaint is high priority');
+        const asSeen = (await svc.activitiesFor({ contactId: inbound.contact.id })).find((x) => x.id === inbound.activity.id)!;
+        assert.equal(asSeen.triage?.intent, 'complaint', 'the reading is part of the activity the screens get');
+        assert.equal(asSeen.triage?.summary, 'Shipment held and nobody has replied');
+        assert.equal(asSeen.priority, stored.priority);
+        const handled = await svc.setTaskDone(inbound.activity.id, true);
+        assert.ok(handled.doneAt, 'a received message can be marked handled');
+        assert.equal((await svc.setTaskDone(inbound.activity.id, false)).doneAt, null, 'and reopened');
+        await assert.rejects(() => svc.setTaskDone(handled.id.replace(/.$/, (c) => (c === '0' ? '1' : '0')), true), 'an unknown id is refused');
+        const out = await svc.logActivity({ kind: 'note', contactId: inbound.contact.id, summary: 'A plain note', actor: 'Tester' });
+        await assert.rejects(() => svc.setTaskDone(out.id, true), 'a plain note cannot be marked done');
         const tasks = (await svc.activitiesFor({ contactId: inbound.contact.id })).filter((x) => x.kind === 'task').map((x) => x.summary);
         assert.ok(tasks.some((x) => x.startsWith('Call Pat Angry back')), 'the complaint task is made');
         assert.ok(tasks.includes('Check the customs hold'), "Claude's own task is added");

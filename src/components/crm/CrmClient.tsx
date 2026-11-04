@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { BUSINESSES, OPEN_STAGES, crmMetrics, followUpDue, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type Draft, type Report, type StageKey } from '@/lib/crm/model';
+import { BUSINESSES, OPEN_STAGES, crmMetrics, nextActions, followUpDue, stageInfo, KIND_INFO, type Activity, type Contact, type Deal, type Draft, type NextAction, type Report, type StageKey } from '@/lib/crm/model';
 import { crmCall, loadActor, saveActor } from './api';
 import { CrmDashboard } from './CrmDashboard';
 import { PipelineBoard } from './PipelineBoard';
@@ -18,12 +18,13 @@ import { DraftsPanel } from './DraftsPanel';
 import { ConnectionsPanel } from './ConnectionsPanel';
 import { LeadsPanel } from './LeadsPanel';
 import { BusinessBoard } from './BusinessBoard';
+import { ActionCard, NextActionsPanel } from './NextActionsPanel';
 import { AccountsPanel } from './AccountsPanel';
 import { PostSalesPanel } from './PostSalesPanel';
 import { SalesOpsPanel } from './SalesOpsPanel';
 
 type Snap = { deals: Deal[]; contacts: Contact[]; activities: Activity[]; drafts: Draft[]; reports: Report[]; now: string };
-type Tab = 'dashboard' | 'leads' | 'contacts' | 'pipeline' | 'postsales' | 'salesops' | 'connections' | 'upcoming' | 'activity' | 'review';
+type Tab = 'dashboard' | 'next' | 'leads' | 'contacts' | 'pipeline' | 'postsales' | 'salesops' | 'connections' | 'upcoming' | 'activity' | 'review';
 /** The workflow, in the order a customer moves through it. */
 const FLOW: { id: Tab; label: string; icon: string; step?: number; about: string }[] = [
   { id: 'dashboard', label: 'Overview', icon: '📊', about: 'Where the pipeline stands today and what needs attention.' },
@@ -36,6 +37,7 @@ const FLOW: { id: Tab; label: string; icon: string; step?: number; about: string
 ];
 /** Day-to-day work that cuts across every step. */
 const DAILY: { id: Tab; label: string; icon: string; about: string }[] = [
+  { id: 'next', label: 'Next up', icon: '🎯', about: 'Everything waiting on a person, in the order to do it: messages nobody has answered, open tasks and follow-ups to approve.' },
   { id: 'upcoming', label: 'Upcoming', icon: '📅', about: 'Tasks and meetings coming up, soonest first.' },
   { id: 'activity', label: 'Activity', icon: '⚡', about: 'Every call, email, meeting and change, as it happens.' },
   { id: 'review', label: 'Review', icon: '✍️', about: 'Drafts the follow-up agent wrote. Approve before anything is sent.' },
@@ -165,6 +167,8 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
   }, [contacts]);
 
   const metrics = useMemo(() => crmMetrics(view.deals, view.activities), [view.deals, view.activities]);
+  const nextItems = useMemo(() => nextActions({ activities: view.activities, contacts: view.contacts, deals: view.deals, drafts: view.drafts, now }), [view, now]);
+  const nowCount = nextItems.filter((x) => x.level === 'now').length;
   const openDeal = deals.find((d) => d.id === dealId) ?? null;
   const attention = useMemo(() => {
     const withOpenDeal = new Set(view.deals.filter((d) => OPEN_STAGES.includes(d.stage) && d.contactId).map((d) => d.contactId));
@@ -192,6 +196,8 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
 
   // New records start in the business being looked at.
   const dflt = biz === 'all' || biz === 'none' ? undefined : biz;
+  // Ticks off a task or marks a received message handled.
+  function doneAction(a: NextAction) { if (a.activity) void toggleTask(a.activity); }
   function goTab(t: Tab) { setOpenContactId(null); setTab(t); }
   function openContact(id: string) { setOpenContactId(id); setPeopleView('people'); setTab('contacts'); }
 
@@ -226,7 +232,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
         title="CRM"
         description="Leads, deals and every call, email and meeting, recorded as it happens."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 [&_button]:whitespace-nowrap">
             {signedInAs ? (
               <span className="px-2.5 py-1.5 text-xs text-slate-600">Recording as <b>{signedInAs}</b></span>
             ) : (
@@ -239,7 +245,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           </div>
         }
       />
-      <div role="group" aria-label="Business" className="mb-3 flex flex-wrap items-center gap-1.5 text-sm">
+      <div role="group" aria-label="Business" className="mb-3 items-center text-sm flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Business</span>
         {[{ key: 'all', name: 'All businesses', color: '#0f2059' }, ...BUSINESSES.map((b) => ({ key: b.key as string, name: b.name, color: b.color as string })), ...((bizCounts.get('none') ?? 0) > 0 || biz === 'none' ? [{ key: 'none', name: 'Not tagged', color: '#64748b' }] : [])].map((b) => (
           <button key={b.key} type="button" aria-pressed={biz === b.key} onClick={() => setBiz(b.key)}
@@ -249,7 +255,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           </button>
         ))}
       </div>
-      <nav aria-label="CRM workflow" role="tablist" className="mb-2 flex flex-wrap gap-2">
+      <nav aria-label="CRM workflow" role="tablist" className="mb-2 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         {FLOW.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
             className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${tab === t.id ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
@@ -258,12 +264,13 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           </button>
         ))}
       </nav>
-      <div role="tablist" aria-label="Daily work" className="mb-3 flex flex-wrap items-center gap-1.5 text-sm">
+      <div role="tablist" aria-label="Daily work" className="mb-3 items-center text-sm flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Daily work</span>
         {DAILY.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
             className={`rounded-lg px-2.5 py-1 font-medium ${tab === t.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
             <span aria-hidden className="mr-1">{t.icon}</span>{t.label}
+            {t.id === 'next' && nowCount ? <span className="ml-1.5 rounded-full bg-red-500 px-1.5 text-xs text-white" title="Needing a person right now">{nowCount}</span> : null}
             {t.id === 'upcoming' && metrics.tasksOpen ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${metrics.tasksOverdue ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700'}`}>{metrics.tasksOpen}</span> : null}
             {t.id === 'review' && attention.drafts ? <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 text-xs text-white">{attention.drafts}</span> : null}
           </button>
@@ -271,8 +278,20 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
       </div>
       <p className="mb-5 text-sm text-slate-600">{[...FLOW, ...DAILY].find((t) => t.id === tab)?.about}</p>
 
+      {tab === 'dashboard' ? (
+        <section aria-label="Do this next" className="mb-5">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <h3 className="text-[15px] font-semibold text-slate-900">Do this next</h3>
+            <button type="button" onClick={() => goTab('next')} className="text-xs font-medium text-brand-700 underline">{nextItems.length > 5 ? `See all ${nextItems.length}` : 'Open the list'}</button>
+          </div>
+          {nextItems.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">You are all caught up.</p> : (
+            <ul className="space-y-2">{nextItems.slice(0, 5).map((a) => <ActionCard key={`${a.type}-${a.id}`} a={a} compact onOpenContact={openContact} onDone={doneAction} onReview={() => goTab('review')} />)}</ul>
+          )}
+        </section>
+      ) : null}
       {tab === 'dashboard' && biz === 'all' ? <div className="mb-5"><BusinessBoard contacts={contacts} deals={deals} now={now} onPick={setBiz} /></div> : null}
       {tab === 'dashboard' ? <CrmDashboard m={metrics} deals={view.deals} activities={view.activities} onOpenDeal={setDealId} onToggleTask={toggleTask} live={live} attention={attention} onGo={setTab} /> : null}
+      {tab === 'next' ? <NextActionsPanel items={nextItems} onOpenContact={openContact} onDone={doneAction} onReview={() => goTab('review')} /> : null}
       {tab === 'leads' ? (
         <LeadsPanel contacts={view.contacts} deals={view.deals} activities={view.activities} actor={actor} onSaved={upsertContact} defaultBusiness={dflt}
           onNewDeal={(contactId) => setNewDeal({ stage: 'lead', contactId })} onOpenContact={openContact} />

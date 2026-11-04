@@ -12,6 +12,7 @@ import { BUSINESSES, CONTACT_STATUSES, OPEN_STAGES, SOURCES, ago, leadScore, nex
 import { crmCall } from './api';
 import { ActivityRow, Composer } from './ActivityParts';
 import { BusinessBadge } from './BusinessBadge';
+import { Thread } from './Thread';
 
 const tone = (s: Contact['status']) => (s === 'customer' ? 'success' : s === 'qualified' ? 'brand' : s === 'archived' ? 'neutral' : 'warning');
 
@@ -220,10 +221,10 @@ function ContactDialogInner({
         </form>
         {contact ? (
           <div className="lg:col-span-3">
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">Record activity <span className="font-normal text-slate-500">· as {actor}</span></h3>
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">Conversation</h3>
+            <Thread activities={history} onToggleTask={onToggleTask} />
+            <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-900">Reply or record <span className="font-normal text-slate-500">· as {actor}</span></h3>
             <Composer contactId={contact.id} contact={contact} actor={actor} onLogged={onActivity} />
-            <h3 className="mb-1 mt-5 text-sm font-semibold text-slate-900">History</h3>
-            {history.length === 0 ? <p className="text-sm text-slate-500">Nothing recorded yet.</p> : <ul className="divide-y divide-slate-100">{history.map((a) => <ActivityRow key={a.id} a={a} onToggleTask={onToggleTask} />)}</ul>}
           </div>
         ) : null}
       </div>

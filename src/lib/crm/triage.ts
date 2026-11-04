@@ -35,10 +35,14 @@ export function rulesTriage(subject: string | null | undefined, body: string | n
   const text = `${subject ?? ''} ${body ?? ''}`;
   let urgency: Triage['urgency'] = ({ unsubscribe: 1, other: 1, question: 2, pricing: 3, meeting_request: 3, complaint: 4 } as const)[intent];
   if (URGENT.test(text) && intent !== 'unsubscribe') urgency = Math.min(5, urgency + 1) as Triage['urgency'];
-  const first = (body ?? subject ?? '').replace(/\s+/g, ' ').trim();
+  // The subject, then the start of the message (the body often begins with the subject, so that part is dropped).
+  const subj = (subject ?? '').replace(/\s+/g, ' ').trim();
+  let rest = (body ?? '').replace(/\s+/g, ' ').trim();
+  if (subj && rest.startsWith(subj)) rest = rest.slice(subj.length).trim();
+  const summary = [subj, rest].filter(Boolean).join(': ').slice(0, 160);
   return {
     intent, urgency, sentiment: intent === 'complaint' ? -0.7 : 0, business: null,
-    summary: first.slice(0, 160), tasks: [], doNotContact: intent === 'unsubscribe', confidence: 0.5, source: 'rules',
+    summary, tasks: [], doNotContact: intent === 'unsubscribe', confidence: 0.5, source: 'rules',
   };
 }
 

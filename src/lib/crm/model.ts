@@ -119,8 +119,23 @@ export interface Activity {
   channel: Channel | null;
   /** 'in' for something received, 'out' for something we sent or did. */
   direction: 'in' | 'out' | null;
+  /** For a received message: 0 to 100, how soon it needs a person. Null until it has been read. */
+  priority: number | null;
+  /** For a received message: what reading it found. */
+  triage: ActivityTriage | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** What reading a received message found (see triage.ts). */
+export interface ActivityTriage {
+  intent: InboundIntent;
+  urgency: number;
+  sentiment: number;
+  summary: string;
+  business: string | null;
+  confidence: number;
+  source: 'ai' | 'rules';
 }
 
 export const CHANNELS = ['email', 'sms', 'call', 'whatsapp', 'web'] as const;
@@ -507,3 +522,114 @@ export function monthProgress(period: string, now = Date.now()): number {
 
 /** One business's billed, paid and overdue invoice amounts in one currency. */
 export interface BusinessFinance { business: string | null; currency: string; billed: number; paid: number; overdue: number }
+
+// ---------------------------------------------------------------------------
+// The "do this next" list
+// ---------------------------------------------------------------------------
+
+export type ActionLevel = 'now' | 'today' | 'soon';
+export const actionLevel = (score: number): ActionLevel => (score >= 70 ? 'now' : score >= 40 ? 'today' : 'soon');
+
+export interface NextAction {
+  /** The activity or draft this comes from. */
+  id: string;
+  type: 'message' | 'task' | 'draft';
+  score: number;
+  level: ActionLevel;
+  title: string;
+  /** The plain-words reason (the AI's one-line summary of the message when there is one). */
+  why: string;
+  /** Small facts shown under it, such as "Wants to meet · waiting 2d". */
+  meta: string;
+  contactId: string | null;
+  dealId: string | null;
+  business: string | null;
+  overdue: boolean;
+  /** For a message, what it is; null otherwise. */
+  intent: InboundIntent | null;
+  /** The message or task (to mark it done) or the draft. */
+  activity: Activity | null;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Everything waiting on a person, ranked: customer messages nobody has answered, open tasks, and follow-up drafts
+ * waiting to be approved. A message's score is the priority it was given when it was read, growing as it waits; a task's
+ * grows when it is overdue or due today and for a bigger deal. A task made from a message takes that message's priority
+ * and summary, and the message is not listed a second time. The same inputs always give the same list.
+ */
+export function nextActions(i: { activities: Activity[]; contacts: Contact[]; deals: Deal[]; drafts: Draft[]; now?: number; limit?: number }): NextAction[] {
+  const now = i.now ?? Date.now();
+  const contactById = new Map(i.contacts.map((c) => [c.id, c]));
+  const dealById = new Map(i.deals.map((d) => [d.id, d]));
+
+  const lastOut = new Map<string, string>();
+  for (const a of i.activities) {
+    if (a.contactId && a.direction === 'out' && a.channel && (!lastOut.get(a.contactId) || a.createdAt > lastOut.get(a.contactId)!)) lastOut.set(a.contactId, a.createdAt);
+  }
+  const unanswered = new Map<string, Activity>();
+  for (const a of i.activities) {
+    if (a.direction !== 'in' || !a.contactId || a.doneAt || !['email', 'sms', 'note'].includes(a.kind)) continue;
+    if (now - Date.parse(a.createdAt) > 30 * DAY_MS) continue;
+    const out = lastOut.get(a.contactId);
+    if (out && out > a.createdAt) continue;
+    const cur = unanswered.get(a.contactId);
+    if (!cur || a.createdAt > cur.createdAt) unanswered.set(a.contactId, a);
+  }
+
+  const out: NextAction[] = [];
+  const absorbed = new Set<string>();
+  const valueTier = (d: Deal | undefined) => (!d || !OPEN_STAGES.includes(d.stage) ? 0 : d.value >= 10_000 ? 15 : d.value >= 1_000 ? 10 : d.value > 0 ? 5 : 0);
+
+  for (const a of i.activities) {
+    if (a.kind !== 'task' || a.doneAt) continue;
+    const contact = a.contactId ? contactById.get(a.contactId) : undefined;
+    const deal = a.dealId ? dealById.get(a.dealId) : undefined;
+    let score = 30 + valueTier(deal);
+    let overdue = false;
+    if (a.dueAt) {
+      const hours = (now - Date.parse(a.dueAt)) / 3_600_000;
+      if (hours > 0) { overdue = true; score += 30 + Math.min(15, Math.floor(hours / 24)); }
+      else if (hours > -24) score += 10;
+    }
+    const msg = a.contactId ? unanswered.get(a.contactId) : undefined;
+    if (msg) { absorbed.add(msg.id); score = Math.max(score, msg.priority ?? 0); }
+    score = Math.min(100, score);
+    const due = a.dueAt ? `${overdue ? 'was due' : 'due'} ${new Date(a.dueAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })} UTC` : 'no due time';
+    out.push({
+      id: a.id, type: 'task', score, level: actionLevel(score), title: a.summary,
+      why: msg?.triage?.summary || a.detail || (contact ? `For ${contact.name}` : ''),
+      meta: [contact?.name, due].filter(Boolean).join(' · '),
+      contactId: a.contactId, dealId: a.dealId, business: deal?.business ?? contact?.business ?? null, overdue, intent: msg?.triage?.intent ?? null, activity: a,
+    });
+  }
+
+  for (const m of unanswered.values()) {
+    if (absorbed.has(m.id)) continue;
+    const contact = m.contactId ? contactById.get(m.contactId) : undefined;
+    const waitingDays = Math.floor((now - Date.parse(m.createdAt)) / DAY_MS);
+    const score = Math.min(100, (m.priority ?? 20) + Math.min(10, waitingDays));
+    const intent = m.triage?.intent ?? null;
+    out.push({
+      id: m.id, type: 'message', score, level: actionLevel(score), title: `Reply to ${contact?.name ?? 'a contact'}`,
+      why: m.triage?.summary || m.summary,
+      meta: [intent ? INTENT_LABEL[intent] : 'Message', `waiting ${ago(m.createdAt, now).replace(' ago', '')}`].join(' · '),
+      contactId: m.contactId, dealId: m.dealId, business: contact?.business ?? null, overdue: false, intent, activity: m,
+    });
+  }
+
+  for (const d of i.drafts) {
+    if (d.status !== 'pending' && d.status !== 'failed') continue;
+    const contact = contactById.get(d.contactId);
+    const score = d.status === 'failed' ? 45 : 25;
+    out.push({
+      id: d.id, type: 'draft', score, level: actionLevel(score), title: d.status === 'failed' ? `Resend the follow-up to ${contact?.name ?? 'a contact'}` : `Approve the follow-up to ${contact?.name ?? 'a contact'}`,
+      why: d.status === 'failed' ? (d.error ?? 'It could not be sent.') : (d.reason ?? d.subject ?? ''),
+      meta: `Draft ${d.channel} · written ${ago(d.createdAt, now)}`,
+      contactId: d.contactId, dealId: d.dealId, business: contact?.business ?? null, overdue: false, intent: null, activity: null,
+    });
+  }
+
+  return out.sort((a, b) => b.score - a.score || (a.activity?.createdAt ?? '') .localeCompare(b.activity?.createdAt ?? '')).slice(0, i.limit ?? 50);
+}

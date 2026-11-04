@@ -557,6 +557,15 @@ Migration 0025 turns it on for the CRM, team, sign-in and payroll tables that ea
 public table that lacks it after every migration run, so a table added later is covered too. No policy is added, so the public roles get nothing; the
 app's own database role skips row-level security and is unaffected.
 
+**Next up and conversations.** **CRM > Next up** is one list of everything waiting on a person, ranked: customer messages nobody has answered (scored from the
+priority they got when they were read, growing as they wait), open tasks (higher when overdue, due today, or on a bigger deal) and follow-up drafts waiting
+for approval. A task made from a message takes that message's priority and one-line summary, so it is listed once. Items fall into Now (70+), Today (40+)
+and Soon, each with who it is for, the business, why, and buttons to open the conversation or tick it off ("Handled" for a message, which hides it
+without replying). The top five also sit at the top of the Overview, the Business chips narrow it to one business, and a red badge on the tab counts what
+needs someone now. Opening a contact shows the whole **conversation** like a chat: what they sent on the left, what was sent to them on the right, each
+received message with what it is and how urgent, tasks and notes between, and the reply box underneath. On a phone, the Business and step rows scroll sideways
+instead of stacking, so the page itself starts on the first screen.
+
 ## Teams, users and departments
 
 Everyone signs in with their own email and password. One company, with departments inside it.

@@ -1,6 +1,6 @@
 import { createDraftInvoiceTx } from '@/lib/accounting/invoices';
 import { createSystemTask } from '@/lib/team/tasks';
-import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { normalizePhone, parseAddress, classifyInbound, type Channel, type Draft, type Report } from './model';
 import { sendEmail, sendSms } from './comms';
 import { getDb } from '@/db/client';
@@ -8,7 +8,7 @@ import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets
 import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
   BUSINESS_KEYS, CHANNELS, CONTACT_STATUSES, guessBusiness, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
-  type Activity, type ActivityKind, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target,
+  type Activity, type ActivityKind, type ActivityTriage, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target,
 } from './model';
 
 type Db = ReturnType<typeof getDb>;
@@ -31,11 +31,28 @@ export function toDeal(r: typeof crmDeals.$inferSelect): Deal {
     lostReason: r.lostReason, closedAt: iso(r.closedAt), notes: r.notes, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
+/** The stored reading of a message, if it looks right; anything else is treated as not read. */
+function readTriage(v: unknown): ActivityTriage | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const intents = ['unsubscribe', 'meeting_request', 'pricing', 'complaint', 'question', 'other'];
+  if (typeof o.intent !== 'string' || !intents.includes(o.intent)) return null;
+  return {
+    intent: o.intent as ActivityTriage['intent'],
+    urgency: typeof o.urgency === 'number' ? o.urgency : 1,
+    sentiment: typeof o.sentiment === 'number' ? o.sentiment : 0,
+    summary: typeof o.summary === 'string' ? o.summary : '',
+    business: typeof o.business === 'string' ? o.business : null,
+    confidence: typeof o.confidence === 'number' ? o.confidence : 0.5,
+    source: o.source === 'ai' ? 'ai' : 'rules',
+  };
+}
 export function toActivity(r: typeof crmActivities.$inferSelect): Activity {
   return {
     id: r.id, dealId: r.dealId, contactId: r.contactId, kind: r.kind as ActivityKind, summary: r.summary, detail: r.detail,
     durationSeconds: r.durationSeconds, dueAt: iso(r.dueAt), doneAt: iso(r.doneAt), actor: r.actor,
     channel: (r.channel as Activity['channel']) ?? null, direction: (r.direction as Activity['direction']) ?? null,
+    priority: r.priority ?? null, triage: readTriage(r.triage),
     createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
@@ -400,9 +417,10 @@ export async function setTaskDone(id: string, done: boolean): Promise<Activity> 
   const [row] = await db
     .update(crmActivities)
     .set({ doneAt: done ? new Date() : null, updatedAt: new Date() })
-    .where(and(eq(crmActivities.id, id), inArray(crmActivities.kind, ['task', 'meeting'])))
+    // A task, a meeting, or a received message (marking that done means "handled").
+    .where(and(eq(crmActivities.id, id), or(inArray(crmActivities.kind, ['task', 'meeting']), eq(crmActivities.direction, 'in'))))
     .returning();
-  if (!row) throw new NotFoundError('Task or meeting not found.');
+  if (!row) throw new NotFoundError('Task, meeting or message not found.');
   return toActivity(row);
 }
 

@@ -6,6 +6,8 @@ import { hashPassword, hashToken, newToken, passwordProblem, verifyPassword } fr
 import { authorizeUrl, checkClaims, decodeIdToken, newFlow, redirectUriFor, ssoConfig } from '../../src/lib/auth/sso';
 import { createHash } from 'node:crypto';
 import { DEFAULT_LOGIN_MODE, loginModeFrom } from '../../src/lib/auth/loginMode';
+import { isPublicPath } from '../../src/lib/auth/publicPaths';
+import { config as gateConfig } from '../../src/proxy';
 import { groupsFor, navGroups } from '../../src/components/layout/navGroups';
 
 const P = (role: Principal['role'], departments: Principal['departments'] = []): Principal => ({ role, departments });
@@ -113,6 +115,27 @@ async function main() {
   assert.deepEqual(loginModeFrom({ anyUsers: true, passphraseOn: true, sso: { name: 'Microsoft' } }), { accounts: true, passphraseWorks: true, sso: { name: 'Microsoft' } }, 'the passphrase can be left on beside accounts');
   assert.deepEqual(loginModeFrom({ anyUsers: false, passphraseOn: false, sso: null }), { accounts: false, passphraseWorks: true, sso: null }, 'before anyone has an account only the passphrase works');
   assert.deepEqual(loginModeFrom({ anyUsers: null, passphraseOn: false, sso: null }), { accounts: false, passphraseWorks: true, sso: null }, 'with the database down the passphrase form is offered, so the owner is never locked out');
+
+  // The access gate's matcher: it may skip a path only if that path is public, and it must still run on everything private.
+  {
+    const matcher = new RegExp(`^${gateConfig.matcher[0]}$`);
+    const gateRuns = (path: string) => matcher.test(path);
+    const publicPaths = ['/login', '/invite/abc123', '/api/auth/accept', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/auth/sso/callback', '/api/login', '/api/recurring/run-due',
+      '/api/agents/run', '/api/integrations/crm/email', '/api/integrations/crm/sms', '/api/health', '/clock', '/api/clock', '/install', '/offline', '/_next/static/a.js', '/brand/logo.webp', '/favicon.ico'];
+    for (const p of publicPaths) assert.ok(isPublicPath(p), `${p} is public`);
+    const skipped = publicPaths.filter((p) => !gateRuns(p));
+    for (const p of ['/login', '/invite/abc123', '/api/auth/accept', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/login', '/api/integrations/crm/email', '/api/health', '/clock', '/install', '/offline', '/favicon.ico', '/_next/static/a.js']) {
+      assert.ok(skipped.includes(p), `the gate is not run for ${p}`);
+    }
+    // Safety: whatever the gate skips is public.
+    for (const p of publicPaths) if (!gateRuns(p)) assert.ok(isPublicPath(p), `${p} is skipped, so it must be public`);
+    const privatePaths = ['/', '/dashboard', '/dashboard/crm', '/dashboard/team', '/dashboard/invoices', '/api/crm', '/api/crm/contacts', '/api/team', '/api/auth/me', '/api/auth/password', '/api/auth/setup-owner', '/api/auth/connect',
+      '/api/auth/disconnect', '/api/auth/callback', '/api/tasks', '/api/payroll/runs', '/logout', '/login/extra', '/api/healthz', '/api/clockwork', '/clocks', '/installer', '/offlines', '/invite', '/api/auth/accepted', '/api/auth/session/x', '/api/auth/modes'];
+    for (const p of privatePaths) {
+      assert.ok(!isPublicPath(p), `${p} is not public`);
+      assert.ok(gateRuns(p), `the gate still runs for ${p}`);
+    }
+  }
 
   if (!process.env.DATABASE_URL) {
     console.log('auth: ok (rules and passwords only; set DATABASE_URL to run the database checks too)');

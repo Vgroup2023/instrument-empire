@@ -1,0 +1,1 @@
+ALTER TABLE "crm_contacts" ADD COLUMN "reorder_days" integer;

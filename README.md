@@ -529,7 +529,11 @@ follow-up period (weekly by default), flag quiet deals, and write a daily report
 send anything to a customer: drafts wait under **Review** for a person to approve. Set `CRM_REPORT_EMAIL` (comma separated) to have the
 reports emailed. With `ANTHROPIC_API_KEY` set, Claude writes the follow-ups and report summaries; without it they use plain templates.
 
-**Collections and targets.** The CRM tab follows the sales workflow (Leads, Contacts & accounts, Deals, Post-sales, Sales ops, Integrations).
+**Tab order.** The CRM follows the sales sequence: **1 Pipeline** (the board, with a Reorder due column, the owner filter and an open-pipeline-value chart), **2 Leads**, **3 Accounts** (contacts, accounts and post-sales), **4 Reorders**, **5 Follow-ups** (next up, upcoming, drafts, activity), **6 Reports** (team, businesses, collections and targets) and **7 Rules** (what runs automatically, plus connections and alerts).
+**Quotes.** Moving a deal to *Quote sent* adds a follow-up task due in 3 days; the card shows *Follow up* once the quote has been quiet that long.
+**Reorders.** Set a reorder cycle (30 to 365 days) on a customer. The next reorder is due that many days after their last won deal; it shows in Reorders and the pipeline, and *Start reorder* opens a deal for it. The cycle is stored in `crm_contacts.reorder_days` (migration 0026: run migrations once after this change).
+
+**Collections and targets.** Collections are in Accounts and targets in Reports (older names: Leads, Contacts & accounts, Deals, Post-sales, Sales ops, Integrations).
 **Post-sales** shows what each won deal's invoice has billed, collected, still owes and has overdue, read live from Invoices and payments.
 **Sales ops** holds monthly sales targets for the whole team and for each person (the name must match the deal owner), shown against the
 value of deals won that month and the pace for today. Targets live in the `crm_targets` table (migration 0023: run migrations once after

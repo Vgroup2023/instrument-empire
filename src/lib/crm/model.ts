@@ -4,7 +4,7 @@
 export const STAGES = [
   { key: 'lead', label: 'New lead', probability: 10, color: '#64748b' },
   { key: 'qualified', label: 'Qualified', probability: 25, color: '#3f5fe0' },
-  { key: 'proposal', label: 'Proposal', probability: 50, color: '#7c3aed' },
+  { key: 'proposal', label: 'Quote sent', probability: 50, color: '#7c3aed' },
   { key: 'negotiation', label: 'Negotiation', probability: 75, color: '#f59e0b' },
   { key: 'won', label: 'Won', probability: 100, color: '#16a34a' },
   { key: 'lost', label: 'Lost', probability: 0, color: '#dc2626' },
@@ -77,6 +77,8 @@ export interface Contact {
   notes: string | null;
   /** Follow up every this many days (7 = weekly); null for none. */
   followUpDays: number | null;
+  /** Reorders every this many days (90 = quarterly); null for no schedule. */
+  reorderDays: number | null;
   doNotContact: boolean;
   lastContactAt: string | null;
   createdAt: string;
@@ -632,4 +634,90 @@ export function nextActions(i: { activities: Activity[]; contacts: Contact[]; de
   }
 
   return out.sort((a, b) => b.score - a.score || (a.activity?.createdAt ?? '') .localeCompare(b.activity?.createdAt ?? '')).slice(0, i.limit ?? 50);
+}
+
+// ---------------------------------------------------------------------------
+// Quotes, reorders and the pipeline's value over time
+// ---------------------------------------------------------------------------
+
+/** How long a sent quote may go quiet before it is time to follow up, and the same for other open deals. */
+export const QUOTE_FOLLOW_UP_DAYS = 3;
+export const DEAL_QUIET_DAYS = 7;
+
+/** An open deal that has gone quiet for long enough that someone should get back in touch. */
+export function needsFollowUp(d: Pick<Deal, 'stage' | 'updatedAt'>, now = Date.now()): boolean {
+  if (!OPEN_STAGES.includes(d.stage) || d.stage === 'lead') return false;
+  const quiet = (now - Date.parse(d.updatedAt)) / DAY_MS;
+  return quiet >= (d.stage === 'proposal' ? QUOTE_FOLLOW_UP_DAYS : DEAL_QUIET_DAYS);
+}
+
+export interface ReorderItem {
+  contactId: string;
+  name: string;
+  company: string | null;
+  business: string | null;
+  owner: string | null;
+  /** The cycle: reorders every this many days. */
+  everyDays: number;
+  lastOrderAt: string;
+  lastValue: number;
+  currency: string;
+  dueAt: string;
+  /** Days since the last order. */
+  daysSince: number;
+  /** Days until it is due; negative once overdue. */
+  daysUntil: number;
+  /** due: today or overdue. soon: within 14 days. later: further off. */
+  status: 'due' | 'soon' | 'later';
+  /** A deal opened since the last order is already being worked, so it is not nagged about again. */
+  inPipeline: boolean;
+}
+
+/**
+ * Each customer on a reorder schedule, and when they are next due: the date of their last won deal plus their cycle.
+ * Customers with no won deal yet, no schedule, or that were archived are left out. Soonest first.
+ */
+export function reorderSchedule(contacts: Contact[], deals: Deal[], now = Date.now()): ReorderItem[] {
+  const out: ReorderItem[] = [];
+  for (const c of contacts) {
+    if (!c.reorderDays || c.status === 'archived') continue;
+    const mine = deals.filter((d) => d.contactId === c.id);
+    const won = mine.filter((d) => d.stage === 'won').sort((a, b) => ((b.closedAt ?? b.updatedAt) < (a.closedAt ?? a.updatedAt) ? -1 : 1));
+    const last = won[0];
+    if (!last) continue;
+    const lastOrderAt = last.closedAt ?? last.updatedAt;
+    const dueMs = Date.parse(lastOrderAt) + c.reorderDays * DAY_MS;
+    const daysUntil = Math.ceil((dueMs - now) / DAY_MS);
+    out.push({
+      contactId: c.id, name: c.name, company: c.company, business: last.business ?? c.business, owner: c.owner ?? last.owner, everyDays: c.reorderDays,
+      lastOrderAt, lastValue: last.value, currency: last.currency, dueAt: new Date(dueMs).toISOString(),
+      daysSince: Math.max(0, Math.floor((now - Date.parse(lastOrderAt)) / DAY_MS)), daysUntil,
+      status: dueMs <= now ? 'due' : dueMs <= now + 14 * DAY_MS ? 'soon' : 'later',
+      inPipeline: mine.some((d) => OPEN_STAGES.includes(d.stage) && Date.parse(d.createdAt) > Date.parse(lastOrderAt)),
+    });
+  }
+  return out.sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+}
+
+/** Reorders due now or within two weeks that nobody has started: what the Reorders tab and the pipeline column show. */
+export const reordersToAct = (items: ReorderItem[]): ReorderItem[] => items.filter((r) => r.status !== 'later' && !r.inPipeline);
+
+/**
+ * The value of open deals at the end of each of the last `months` months (and now, for the current one). A deal counts
+ * from the day it was created until the day it was won or lost, at the value it has now.
+ */
+export function openValueSeries(deals: Deal[], now = Date.now(), months = 6): { label: string; value: number }[] {
+  const nowDate = new Date(now);
+  const out: { label: string; value: number }[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const end = i === 0 ? now : Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - i + 1, 1) - 1;
+    let value = 0;
+    for (const d of deals) {
+      if (Date.parse(d.createdAt) > end) continue;
+      const closed = OPEN_STAGES.includes(d.stage) ? null : Date.parse(d.closedAt ?? d.updatedAt);
+      if (closed === null || closed > end) value += d.value;
+    }
+    out.push({ label: new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - i, 1)).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }), value });
+  }
+  return out;
 }

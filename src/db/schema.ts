@@ -1127,6 +1127,8 @@ export const crmContacts = pgTable(
     notes: text('notes'),
     /** How often to follow up, in days (7 = weekly). Null means no regular follow-up. */
     followUpDays: integer('follow_up_days'),
+    /** How often this customer reorders, in days (90 = every three months). The next reorder is due that long after their last won deal. Null means no schedule. */
+    reorderDays: integer('reorder_days'),
     /** Set when the person asked to stop (for example replied "unsubscribe"): no email drafts are made for them. */
     doNotContact: boolean('do_not_contact').notNull().default(false),
     /** The last call, email, text, meeting or note with them, in either direction. */

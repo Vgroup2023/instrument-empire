@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import {
   ago, bucketUpcoming, classifyInbound, crmMetrics, followUpDue, formatDuration, leadScore, nextFollowUp, normalizePhone, parseAddress,
-  guessBusiness, monthOf, monthProgress, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
+  guessBusiness, monthOf, monthProgress, needsFollowUp, openValueSeries, reorderSchedule, reordersToAct, stageInfo, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
 } from '../../src/lib/crm/model';
 
 // ---- pure ----
@@ -79,7 +79,7 @@ assert.equal(classifyInbound('Hi', 'Where is my package?'), 'question');
 assert.equal(classifyInbound('Thanks', 'Got it'), 'other');
 const person = (o: Partial<Contact>): Contact => ({
   id: 'c', name: 'P', company: null, jobTitle: null, email: 'p@x.co', phone: null, source: 'other', status: 'lead', owner: null, business: null, customerId: null, notes: null,
-  followUpDays: 7, doNotContact: false, lastContactAt: '2026-10-20T12:00:00Z', createdAt: '2026-09-01T00:00:00Z', updatedAt: '', ...o,
+  followUpDays: 7, reorderDays: null, doNotContact: false, lastContactAt: '2026-10-20T12:00:00Z', createdAt: '2026-09-01T00:00:00Z', updatedAt: '', ...o,
 });
 assert.equal(nextFollowUp(person({})), '2026-10-27T12:00:00.000Z');
 assert.equal(nextFollowUp(person({ followUpDays: null })), null);
@@ -169,6 +169,53 @@ async function pureTriage() {
   assert.equal(card.attachments[0].content.body[0].color, 'Attention');
   assert.equal(card.attachments[0].content.actions?.[0].url, 'https://app.example.com/dashboard/crm');
   assert.equal((renderTeamsCard({ title: 't', body: '', severity: 'info', business: null }, null) as { attachments: { content: { actions?: unknown } }[] }).attachments[0].content.actions, undefined, 'no link when the app address is unknown');
+
+  // ---- quotes, reorders and the pipeline value chart ----
+  assert.equal(stageInfo('proposal').label, 'Quote sent');
+  const T = Date.parse('2026-11-08T12:00:00Z');
+  const dl = (o: Partial<Deal>) => d({ id: Math.random().toString(), ...o });
+  assert.equal(needsFollowUp({ stage: 'proposal', updatedAt: '2026-11-05T11:00:00Z' }, T), true, 'a quote quiet for 3 days needs following up');
+  assert.equal(needsFollowUp({ stage: 'proposal', updatedAt: '2026-11-06T11:00:00Z' }, T), false, 'a quote quiet for under 3 days does not');
+  assert.equal(needsFollowUp({ stage: 'negotiation', updatedAt: '2026-11-05T11:00:00Z' }, T), false, 'other stages wait 7 days');
+  assert.equal(needsFollowUp({ stage: 'negotiation', updatedAt: '2026-11-01T11:00:00Z' }, T), true);
+  assert.equal(needsFollowUp({ stage: 'lead', updatedAt: '2020-01-01T00:00:00Z' }, T), false, 'a brand-new lead is not "followed up"');
+  assert.equal(needsFollowUp({ stage: 'won', updatedAt: '2020-01-01T00:00:00Z' }, T), false, 'closed deals never are');
+
+  const cust = (o: Partial<Contact>) => person({ status: 'customer', ...o });
+  const won = (contactId: string, closedAt: string, value = 1000, o: Partial<Deal> = {}) => dl({ contactId, stage: 'won', value, closedAt, createdAt: '2026-01-01T00:00:00Z', updatedAt: closedAt, ...o });
+  const sched = (contacts: Contact[], deals: Deal[]) => reorderSchedule(contacts, deals, T);
+  assert.equal(sched([cust({ id: 'a' })], [won('a', '2026-08-01T00:00:00Z')]).length, 0, 'no schedule, not listed');
+  assert.equal(sched([cust({ id: 'a', reorderDays: 90 })], []).length, 0, 'no won deal yet, not listed');
+  assert.equal(sched([cust({ id: 'a', reorderDays: 90, status: 'archived' })], [won('a', '2026-08-01T00:00:00Z')]).length, 0, 'archived, not listed');
+  let r = sched([cust({ id: 'a', name: 'Summit', reorderDays: 90 })], [won('a', '2026-08-01T00:00:00Z', 5000)]);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].dueAt, '2026-10-30T00:00:00.000Z', 'last order plus the cycle');
+  assert.equal(r[0].status, 'due');
+  assert.equal(r[0].daysSince, 99);
+  assert.equal(r[0].daysUntil, -9, 'nine days overdue');
+  assert.equal(r[0].lastValue, 5000);
+  assert.equal(sched([cust({ id: 'a', reorderDays: 90 })], [won('a', '2026-08-15T00:00:00Z')])[0].status, 'soon', 'due in 6 days is "soon"');
+  assert.equal(sched([cust({ id: 'a', reorderDays: 90 })], [won('a', '2026-09-20T00:00:00Z')])[0].status, 'later');
+  r = sched([cust({ id: 'a', reorderDays: 60 })], [won('a', '2026-05-01T00:00:00Z'), won('a', '2026-10-01T00:00:00Z', 2000)]);
+  assert.equal(r[0].lastValue, 2000, 'the cycle runs from the most recent won deal');
+  assert.equal(r[0].status, 'later');
+  const started = sched([cust({ id: 'a', reorderDays: 90 })], [won('a', '2026-08-01T00:00:00Z'), dl({ contactId: 'a', stage: 'lead', createdAt: '2026-11-02T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z' })]);
+  assert.equal(started[0].inPipeline, true, 'a deal opened since the last order means the reorder is being worked');
+  assert.equal(reordersToAct(started).length, 0, 'and it is not listed to act on');
+  const olderOpen = sched([cust({ id: 'a', reorderDays: 90 })], [dl({ contactId: 'a', stage: 'lead', createdAt: '2026-03-01T00:00:00Z' }), won('a', '2026-08-01T00:00:00Z')]);
+  assert.equal(olderOpen[0].inPipeline, false, 'an open deal older than the last order does not count');
+  const many = sched([cust({ id: 'late', reorderDays: 90 }), cust({ id: 'early', reorderDays: 30 })], [won('late', '2026-09-01T00:00:00Z'), won('early', '2026-10-01T00:00:00Z')]);
+  assert.deepEqual(many.map((x) => x.contactId), ['early', 'late'], 'soonest due first');
+  assert.deepEqual(reordersToAct(many).map((x) => x.contactId), ['early'], 'only due and soon ones need acting on');
+
+  const series = openValueSeries([
+    dl({ value: 1000, stage: 'qualified', createdAt: '2026-06-10T00:00:00Z' }),
+    dl({ value: 500, stage: 'won', createdAt: '2026-08-01T00:00:00Z', closedAt: '2026-09-15T00:00:00Z' }),
+    dl({ value: 300, stage: 'lost', createdAt: '2026-10-05T00:00:00Z', closedAt: '2026-10-20T00:00:00Z' }),
+    dl({ value: 200, stage: 'lead', createdAt: '2026-11-03T00:00:00Z' }),
+  ], T, 6);
+  assert.deepEqual(series.map((x) => x.label), ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
+  assert.deepEqual(series.map((x) => x.value), [1000, 1000, 1500, 1000, 1000, 1200], 'open value at the end of each month, then now');
 
   // ---- the do-this-next list ----
   const { nextActions, actionLevel } = await import('../../src/lib/crm/model');
@@ -320,6 +367,44 @@ async function db() {
     assert.equal(auto.business, 'bluestarimex', 'the email domain tags a new contact');
     const fin = await svc.businessFinance();
     assert.ok(Array.isArray(fin));
+
+    // quotes: reaching Quote sent makes one follow-up task, due in three days
+    {
+      const qd = await svc.createDeal({ title: 'QA quote deal', value: 800, contactId: c.id, owner: 'Tester', actor: 'Tester' });
+      made.deals.push(qd.id);
+      const quoteTasks = async () => (await svc.activitiesFor({ dealId: qd.id })).filter((x) => x.kind === 'task' && x.summary.startsWith('Follow up on the quote'));
+      assert.equal((await quoteTasks()).length, 0, 'no quote task before the quote is sent');
+      await svc.updateDeal(qd.id, { stage: 'proposal', actor: 'Tester' });
+      let qt = await quoteTasks();
+      assert.equal(qt.length, 1, 'moving to Quote sent adds a follow-up task');
+      const days = (Date.parse(qt[0].dueAt!) - Date.now()) / 86_400_000;
+      assert.ok(days > 2.9 && days < 3.1, 'due in about three days');
+      await svc.updateDeal(qd.id, { stage: 'negotiation', actor: 'Tester' });
+      await svc.updateDeal(qd.id, { stage: 'proposal', actor: 'Tester' });
+      assert.equal((await quoteTasks()).length, 1, 'while that task is open, a second one is not added');
+      await svc.setTaskDone(qt[0].id, true);
+      await svc.updateDeal(qd.id, { stage: 'negotiation', actor: 'Tester' });
+      await svc.updateDeal(qd.id, { stage: 'proposal', actor: 'Tester' });
+      assert.equal((await quoteTasks()).length, 2, 'once it is done, sending another quote adds a new one');
+      const direct = await svc.createDeal({ title: 'QA quote direct', value: 1, stage: 'proposal', actor: 'Tester' });
+      made.deals.push(direct.id);
+      assert.equal((await svc.activitiesFor({ dealId: direct.id })).filter((x) => x.kind === 'task').length, 1, 'a deal created straight into Quote sent gets the task too');
+    }
+
+    // reorder schedule on a contact: saved, validated, cleared
+    {
+      const rc = await svc.createContact({ name: 'QA Reorder', email: 'qa-reorder@example.com', actor: 'Tester' });
+      made.contacts.push(rc.id);
+      assert.equal(rc.reorderDays, null);
+      assert.equal((await svc.updateContact(rc.id, { reorderDays: 90 })).reorderDays, 90);
+      assert.equal((await svc.updateContact(rc.id, { reorderDays: 60 })).reorderDays, 60);
+      await assert.rejects(() => svc.updateContact(rc.id, { reorderDays: 0.5 }));
+      await assert.rejects(() => svc.updateContact(rc.id, { reorderDays: 1000 }));
+      await assert.rejects(() => svc.updateContact(rc.id, { reorderDays: 'soon' }));
+      assert.equal((await svc.updateContact(rc.id, { reorderDays: 60 })).reorderDays, 60, 'a refused value changes nothing');
+      assert.equal((await svc.updateContact(rc.id, { reorderDays: null })).reorderDays, null, 'cleared');
+      assert.equal((await svc.updateContact(rc.id, { name: 'QA Reorder 2' })).reorderDays, null, 'saving other fields leaves it alone');
+    }
 
     // triage and alerts: a complaint is read, tasked, tagged, alerted and delivered to Teams, once
     {

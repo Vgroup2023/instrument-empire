@@ -1,31 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { OPEN_STAGES, STAGES, ago, type Contact, type Deal, type StageKey } from '@/lib/crm/model';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { OPEN_STAGES, STAGES, ago, needsFollowUp, type Contact, type Deal, type ReorderItem, type StageKey } from '@/lib/crm/model';
 import { formatCurrency } from '@/lib/format';
+import { Avatar } from './Avatar';
 import { BusinessBadge } from './BusinessBadge';
 
-/** Deals as cards in a column per stage. Drag a card to another column, or use the stage menu on the card. */
+/**
+ * Deals as cards in a column per stage, then a Reorder due column for customers whose next order is near. Drag a deal
+ * to another column, or use the stage menu on the card. Each card shows who has it, and tags it when it needs a nudge.
+ */
 export function PipelineBoard({
-  deals, contacts, onOpen, onMove, onNew,
+  deals, contacts, reorders, now, onOpen, onMove, onNew, onStartReorder, onOpenContact,
 }: {
   deals: Deal[];
   contacts: Contact[];
+  reorders: ReorderItem[];
+  now: number;
   onOpen: (id: string) => void;
   onMove: (id: string, stage: StageKey) => void;
   onNew: (stage: StageKey) => void;
+  onStartReorder: (r: ReorderItem) => void;
+  onOpenContact: (id: string) => void;
 }) {
   const [over, setOver] = useState<StageKey | null>(null);
   const contactName = (id: string | null) => contacts.find((c) => c.id === id);
   // Won and lost columns show only the most recent so the board stays short.
   const cap = (key: StageKey, list: Deal[]) => (OPEN_STAGES.includes(key) ? list : list.slice(0, 8));
+  const reorderTotal = reorders.reduce((s, r) => s + r.lastValue, 0);
 
   return (
-    <div>
-    <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-      <span aria-hidden>⚙️</span>
-      <span>When a deal moves to <b>Won</b>: a draft invoice is created, Finance gets a task, and the contact becomes a customer. Open deals with no activity get a check-in task from the Pipeline agent.</span>
-    </p>
     <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-3">
       {STAGES.map((stage) => {
         const all = deals.filter((d) => d.stage === stage.key).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
@@ -56,6 +62,8 @@ export function PipelineBoard({
             <ul className="flex min-h-[80px] flex-col gap-2 px-2 pb-2">
               {cap(stage.key, all).map((d) => {
                 const c = contactName(d.contactId);
+                const nudge = needsFollowUp(d, now);
+                const open = OPEN_STAGES.includes(d.stage);
                 return (
                   <li
                     key={d.id}
@@ -65,11 +73,16 @@ export function PipelineBoard({
                   >
                     <button type="button" onClick={() => onOpen(d.id)} className="block w-full text-left">
                       <p className="text-sm font-semibold text-slate-900">{d.title}</p>
-                      {d.business ? <p className="mt-0.5"><BusinessBadge business={d.business} /></p> : null}
                       <p className="mt-0.5 text-sm font-bold text-[#0f2059]">{formatCurrency(d.value, d.currency)}</p>
                       {c ? <p className="mt-0.5 truncate text-xs text-slate-600">{c.name}{c.company ? ` · ${c.company}` : ''}</p> : null}
+                      <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <Avatar name={d.owner} />
+                        {open && !d.owner ? <Badge tone="warning">Unassigned</Badge> : <span className="text-[11px] text-slate-500">{d.owner ?? ''}</span>}
+                        {nudge ? <Badge tone="warning">Follow up</Badge> : null}
+                        <BusinessBadge business={d.business} />
+                      </p>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {d.owner ? `${d.owner} · ` : ''}{d.expectedClose ? `closes ${d.expectedClose} · ` : ''}updated {ago(d.updatedAt)}
+                        {d.expectedClose ? `closes ${d.expectedClose} · ` : ''}{d.stage === 'proposal' ? 'quote ' : ''}updated {ago(d.updatedAt, now)}
                       </p>
                     </button>
                     <label className="mt-2 block">
@@ -91,7 +104,31 @@ export function PipelineBoard({
           </section>
         );
       })}
-    </div>
+
+      <section aria-label="Reorder due column" className="flex w-[272px] shrink-0 flex-col rounded-xl2 border border-slate-200 bg-slate-50/70">
+        <header className="px-3 py-2.5" style={{ borderTop: '4px solid #0e7490', borderRadius: '1rem 1rem 0 0' }}>
+          <h3 className="text-sm font-semibold text-slate-900">Reorder due</h3>
+          <p className="text-xs text-slate-500">{reorders.length} customer{reorders.length === 1 ? '' : 's'} · {formatCurrency(reorderTotal)} last order</p>
+        </header>
+        <ul className="flex min-h-[80px] flex-col gap-2 px-2 pb-2">
+          {reorders.slice(0, 8).map((r) => (
+            <li key={r.contactId} className="rounded-lg border border-slate-200 bg-white p-3 shadow-card">
+              <button type="button" onClick={() => onOpenContact(r.contactId)} className="block w-full text-left">
+                <p className="text-sm font-semibold text-slate-900">{r.company ?? r.name}</p>
+                <p className="mt-0.5 text-sm font-bold text-[#0f2059]">{formatCurrency(r.lastValue, r.currency)}</p>
+                <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <Avatar name={r.owner} />
+                  <Badge tone={r.status === 'due' ? 'warning' : 'neutral'}>Day {r.daysSince}</Badge>
+                  <span className="text-[11px] text-slate-500">{r.daysUntil < 0 ? `${-r.daysUntil}d overdue` : r.daysUntil === 0 ? 'due today' : `due in ${r.daysUntil}d`}</span>
+                </p>
+              </button>
+              <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={() => onStartReorder(r)}>Start reorder</Button>
+            </li>
+          ))}
+          {reorders.length === 0 ? <li className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-400">No reorders due soon</li> : null}
+          {reorders.length > 8 ? <li className="px-1 text-center text-[11px] text-slate-500">+{reorders.length - 8} more in Reorders</li> : null}
+        </ul>
+      </section>
     </div>
   );
 }

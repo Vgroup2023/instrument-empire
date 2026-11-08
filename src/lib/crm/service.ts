@@ -7,7 +7,7 @@ import { getDb } from '@/db/client';
 import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets, customers, invoiceLines, invoicePayments, invoices } from '@/db/schema';
 import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
-  BUSINESS_KEYS, CHANNELS, CONTACT_STATUSES, guessBusiness, MANUAL_KINDS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
+  BUSINESS_KEYS, CHANNELS, CONTACT_STATUSES, guessBusiness, MANUAL_KINDS, QUOTE_FOLLOW_UP_DAYS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
   type Activity, type ActivityKind, type ActivityTriage, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target,
 } from './model';
 
@@ -20,7 +20,7 @@ export function toContact(r: typeof crmContacts.$inferSelect): Contact {
   return {
     id: r.id, name: r.name, company: r.company, jobTitle: r.jobTitle, email: r.email, phone: r.phone,
     source: r.source as Contact['source'], status: r.status as Contact['status'], owner: r.owner, business: r.business, customerId: r.customerId,
-    notes: r.notes, followUpDays: r.followUpDays, doNotContact: r.doNotContact, lastContactAt: iso(r.lastContactAt),
+    notes: r.notes, followUpDays: r.followUpDays, reorderDays: r.reorderDays, doNotContact: r.doNotContact, lastContactAt: iso(r.lastContactAt),
     createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
   };
 }
@@ -200,6 +200,12 @@ function contactFields(raw: Record<string, unknown>, partial: boolean) {
     else if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 365) out.followUpDays = v;
     else throw new ValidationError('Follow up every must be a whole number of days between 1 and 365.');
   }
+  if (has('reorderDays')) {
+    const v = raw.reorderDays;
+    if (v === null || v === '' || v === 0) out.reorderDays = null;
+    else if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 730) out.reorderDays = v;
+    else throw new ValidationError('Reorders every must be a whole number of days between 1 and 730.');
+  }
   if (has('doNotContact')) out.doNotContact = raw.doNotContact === true;
   return out;
 }
@@ -266,8 +272,18 @@ export async function createDeal(input: unknown): Promise<Deal> {
     const contact = await requireContact(tx, contactId);
     const [row] = await tx.insert(crmDeals).values({ ...fields, stage, contactId: contactId ?? null, source: fields.source ?? contact?.source ?? 'other', business: fields.business ?? contact?.business ?? null }).returning();
     await record(tx, { dealId: row.id, contactId: contactId ?? null, kind: 'created', summary: `Deal created in ${stageInfo(stage).label}`, actor });
+    if (stage === 'proposal') await quoteFollowUp(tx, row, actor);
     return toDeal(row);
   });
+}
+
+/** When a deal reaches Quote sent, a follow-up task is due after QUOTE_FOLLOW_UP_DAYS, unless the same one is still open. */
+async function quoteFollowUp(tx: Tx, deal: typeof crmDeals.$inferSelect, actor: string): Promise<void> {
+  const summary = `Follow up on the quote for "${deal.title}"`.slice(0, 200);
+  const [open] = await tx.select({ id: crmActivities.id }).from(crmActivities)
+    .where(and(eq(crmActivities.dealId, deal.id), eq(crmActivities.kind, 'task'), isNull(crmActivities.doneAt), eq(crmActivities.summary, summary))).limit(1);
+  if (open) return;
+  await record(tx, { dealId: deal.id, contactId: deal.contactId, kind: 'task', summary, actor, dueAt: new Date(Date.now() + QUOTE_FOLLOW_UP_DAYS * 86_400_000) });
 }
 
 /** Makes sure a won deal has a customer on the books, creating one from the contact (or the deal) when it has none. */
@@ -347,6 +363,7 @@ export async function updateDeal(id: string, input: unknown): Promise<Deal> {
     if (moved) {
       const from = stageInfo(before.stage).label;
       const to = stageInfo(newStage).label;
+      if (newStage === 'proposal') await quoteFollowUp(tx, row, actor);
       if (newStage === 'won') {
         await record(tx, { dealId: id, contactId: row.contactId, kind: 'won', summary: `Deal won (${row.currency} ${Number(row.value).toLocaleString('en-US')})`, detail: `Moved from ${from}`, actor });
         const customerId = await ensureCustomer(tx, row, actor);

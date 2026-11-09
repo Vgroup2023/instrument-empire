@@ -265,7 +265,10 @@ async function database() {
   assert.equal(outR.action, 'out');
   assert.equal(outR.shiftHours, 0);
   await wf.clock(rnS.staffCode, '4821');
-  const lastIn = await wf.listEntries(inR.at.slice(0, 10), inR.at.slice(0, 10));
+  // entries are filed under the facility's local date, which can be the day before the UTC date
+  const utcDay = inR.at.slice(0, 10);
+  const dayBefore = new Date(Date.parse(utcDay) - 86400000).toISOString().slice(0, 10);
+  const lastIn = await wf.listEntries(dayBefore, utcDay);
   assert.ok(lastIn.some((e) => e.source === 'clock'));
   // five wrong PINs lock the person; a right PIN is refused while locked; a manager PIN reset unlocks
   for (let i = 0; i < 5; i++) await assert.rejects(() => wf.clock(cnaS.staffCode, '1111'), /not recognised/);

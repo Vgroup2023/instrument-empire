@@ -29,14 +29,14 @@ type Tab = 'pipeline' | 'leads' | 'contacts' | 'reorders' | 'followups' | 'repor
 type FollowView = 'next' | 'upcoming' | 'review' | 'activity';
 type ReportView = 'team' | 'businesses' | 'collections';
 /** The sections, in the order work moves through them: the deal, the lead behind it, the account, the next order, the chasing, the numbers, the settings. */
-const TABS: { id: Tab; label: string; about: string }[] = [
-  { id: 'pipeline', label: 'Pipeline', about: 'Deals by stage, from new lead to reorder. Drag a deal on; a quote sent that goes quiet gets a follow-up.' },
-  { id: 'leads', label: 'Leads', about: 'New and qualified leads, scored so the best to call come first. Qualify one, then make it a deal.' },
-  { id: 'contacts', label: 'Accounts', about: 'Every company and person: details, the whole conversation, their deals, and the next follow-up.' },
-  { id: 'reorders', label: 'Reorders', about: 'How often each customer reorders, and who is due. Start a reorder and it becomes a deal.' },
-  { id: 'followups', label: 'Follow-ups', about: 'Everything waiting on a person, in the order to do it: messages to answer, tasks, meetings and drafts to approve.' },
-  { id: 'reports', label: 'Reports', about: 'How the team and each business are doing, what has been billed and collected, and the daily and weekly reports.' },
-  { id: 'rules', label: 'Rules', about: 'What the CRM does on its own, where messages come from, and where alerts go.' },
+const TABS: { id: Tab; label: string; about: string; from: string; to: string }[] = [
+  { id: 'pipeline', label: 'Pipeline', about: 'Deals by stage, from new lead to reorder. Drag a deal on; a quote sent that goes quiet gets a follow-up.', from: '#1e3a5f', to: '#2b4f80' },
+  { id: 'leads', label: 'Leads', about: 'New and qualified leads, scored so the best to call come first. Qualify one, then make it a deal.', from: '#3b3a8c', to: '#4f4eb0' },
+  { id: 'contacts', label: 'Accounts', about: 'Every company and person: details, the whole conversation, their deals, and the next follow-up.', from: '#6b2f7a', to: '#8a4a99' },
+  { id: 'reorders', label: 'Reorders', about: 'How often each customer reorders, and who is due. Start a reorder and it becomes a deal.', from: '#8b2a45', to: '#a8405c' },
+  { id: 'followups', label: 'Follow-ups', about: 'Everything waiting on a person, in the order to do it: messages to answer, tasks, meetings and drafts to approve.', from: '#2f5d3a', to: '#437a52' },
+  { id: 'reports', label: 'Reports', about: 'How the team and each business are doing, what has been billed and collected, and the daily and weekly reports.', from: '#334155', to: '#475569' },
+  { id: 'rules', label: 'Rules', about: 'What the CRM does on its own, where messages come from, and where alerts go.', from: '#6b4a2b', to: '#8a6238' },
 ];
 
 const POLL_MS = 4000;
@@ -265,21 +265,28 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
       />
       <div role="group" aria-label="Business" className="mb-3 items-center text-sm flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Business</span>
-        {[{ key: 'all', name: 'All businesses', color: '#0f2059' }, ...BUSINESSES.map((b) => ({ key: b.key as string, name: b.name, color: b.color as string })), ...((bizCounts.get('none') ?? 0) > 0 || biz === 'none' ? [{ key: 'none', name: 'Not tagged', color: '#64748b' }] : [])].map((b) => (
-          <button key={b.key} type="button" aria-pressed={biz === b.key} onClick={() => setBiz(b.key)}
-            className={`rounded-full border px-3 py-1 font-medium ${biz === b.key ? 'text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
-            style={biz === b.key ? { background: b.color, borderColor: b.color } : undefined}>
-            {b.name}{b.key !== 'all' && bizCounts.get(b.key) ? <span className={`ml-1.5 text-xs ${biz === b.key ? 'text-white/80' : 'text-slate-400'}`}>{bizCounts.get(b.key)}</span> : null}
-          </button>
-        ))}
+        {[{ key: 'all', name: 'All businesses', color: '#0f2059', from: '#1e3a8a', via: '#13286b', to: '#0f2059', ink: '#ffffff' }, ...BUSINESSES.map((b) => ({ key: b.key as string, name: b.name, color: b.color as string, from: b.from as string, via: b.via as string, to: b.to as string, ink: b.ink as string })), ...((bizCounts.get('none') ?? 0) > 0 || biz === 'none' ? [{ key: 'none', name: 'Not tagged', color: '#64748b', from: '#94a3b8', via: '#64748b', to: '#475569', ink: '#ffffff' }] : [])].map((b) => {
+          const on = biz === b.key;
+          const brand = b.key !== 'all' && b.key !== 'none';
+          return (
+            <button key={b.key} type="button" aria-pressed={on} onClick={() => setBiz(b.key)}
+              className={`rounded-full border px-3 py-1 font-semibold transition-shadow ${on ? 'shadow-md ring-2 ring-offset-1' : 'hover:shadow-sm'}`}
+              style={on || brand
+                ? { background: `linear-gradient(135deg, ${b.from}, ${b.via} 55%, ${b.to})`, borderColor: b.to, color: b.ink, opacity: on || biz === 'all' ? 1 : 0.8, ['--tw-ring-color' as string]: `${b.color}80` }
+                : { background: '#fff', borderColor: '#cbd5e1', color: '#334155' }}>
+              {b.name}{b.key !== 'all' && bizCounts.get(b.key) ? <span className="ml-1.5 text-xs font-medium opacity-75">{bizCounts.get(b.key)}</span> : null}
+            </button>
+          );
+        })}
       </div>
       <nav aria-label="CRM sections" role="tablist" className="mb-2 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         {TABS.map((t, i) => {
           const badge = tabBadge[t.id];
           return (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${tab === t.id ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
-              <span aria-hidden className={`mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${tab === t.id ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>{i + 1}</span>
+              className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-shadow ${tab === t.id ? 'text-white shadow-md' : 'bg-white text-slate-700 hover:shadow-sm'}`}
+              style={tab === t.id ? { background: `linear-gradient(135deg, ${t.from}, ${t.to})`, borderColor: t.from } : { borderColor: `${t.from}55` }}>
+              <span aria-hidden className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold" style={tab === t.id ? { background: 'rgba(255,255,255,.25)', color: '#fff' } : { background: `${t.from}1a`, color: t.from }}>{i + 1}</span>
               {t.label}
               {badge && badge.n ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/25 text-white' : badge.tone}`}>{badge.n}</span> : null}
             </button>

@@ -15,11 +15,13 @@ export const OPEN_STAGES: readonly StageKey[] = ['lead', 'qualified', 'proposal'
 export const stageInfo = (key: string) => STAGES.find((s) => s.key === key) ?? STAGES[0];
 
 /** The group's businesses. A contact or deal belongs to at most one; untagged ones show as "Not tagged". */
+// `color` is the accent used for dots, tags and text; `from`/`via`/`to` are the gradient stops of the business button;
+// `ink` is the text colour that reads best on that gradient.
 export const BUSINESSES = [
-  { key: 'dr-simplicios', name: 'Dr. Simplicios', tagline: 'Concierge care for seniors', color: '#0e7490' },
-  { key: 'bluestarimex', name: 'BlueStarImex', tagline: 'Global trade solutions', color: '#6d28d9' },
-  { key: 'pivit-fishing', name: 'PIVIT Fishing', tagline: 'Premium jigs and lures', color: '#0369a1' },
-  { key: 'globlex-ai', name: 'Globlex AI', tagline: 'The AI architect co.', color: '#b45309' },
+  { key: 'dr-simplicios', name: 'Dr. Simplicios', tagline: 'Concierge care for seniors', color: '#a16207', from: '#f7dd8a', via: '#d9a520', to: '#b07d0b', ink: '#3b2a00' },
+  { key: 'bluestarimex', name: 'BlueStarImex', tagline: 'Global trade solutions', color: '#1d4ed8', from: '#2563eb', via: '#1d4ed8', to: '#1e3a8a', ink: '#ffffff' },
+  { key: 'pivit-fishing', name: 'PIVIT Fishing', tagline: 'Premium jigs and lures', color: '#0f766e', from: '#0b857a', via: '#0f766e', to: '#115e59', ink: '#ffffff' },
+  { key: 'globlex-ai', name: 'Globlex AI', tagline: 'The AI architect co.', color: '#64748b', from: '#f1f5f9', via: '#cbd5e1', to: '#94a3b8', ink: '#1e293b' },
 ] as const;
 export type BusinessKey = (typeof BUSINESSES)[number]['key'];
 export const BUSINESS_KEYS = BUSINESSES.map((b) => b.key) as unknown as readonly BusinessKey[];

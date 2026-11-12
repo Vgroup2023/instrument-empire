@@ -1,14 +1,14 @@
 import { createDraftInvoiceTx } from '@/lib/accounting/invoices';
 import { createSystemTask } from '@/lib/team/tasks';
-import { and, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { normalizePhone, parseAddress, classifyInbound, type Channel, type Draft, type Report } from './model';
 import { sendEmail, sendSms } from './comms';
 import { getDb } from '@/db/client';
-import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets, customers, invoiceLines, invoicePayments, invoices } from '@/db/schema';
+import { crmActivities, crmContacts, crmDeals, crmDrafts, crmReports, crmTargets, customers, invoiceLines, invoicePayments, invoices, products } from '@/db/schema';
 import { ConflictError, NotFoundError, ValidationError, asRecord, money, oneOf, optEmail, optIsoDate, optText, optUuid, text, uuid } from '@/lib/validation';
 import {
   BUSINESS_KEYS, CHANNELS, CONTACT_STATUSES, guessBusiness, MANUAL_KINDS, QUOTE_FOLLOW_UP_DAYS, OPEN_STAGES, SOURCES, STAGE_KEYS, stageInfo,
-  type Activity, type ActivityKind, type ActivityTriage, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target,
+  type Activity, type ActivityKind, type ActivityTriage, type BusinessFinance, type Collection, type Contact, type Deal, type StageKey, type Target, type WonDealLine,
 } from './model';
 
 type Db = ReturnType<typeof getDb>;
@@ -679,6 +679,53 @@ export async function collections(): Promise<Collection[]> {
       dueDate: r.dueDate, overdue: balance > 0 && !!r.dueDate && r.dueDate < r.today,
     };
   });
+}
+
+const WON_LINE_CAP = 5000;
+
+/**
+ * Every completed (won) deal, one row per line item: the deal's number, the customer, what was sold, the amounts, and who
+ * brought the deal in. A deal's lines come from its invoice; a won deal with no invoice shows as one line at the deal's value.
+ * Deals are numbered from the oldest across all businesses, so the number does not change when you filter by business.
+ */
+export async function completedDeals(business?: string | null): Promise<{ lines: WonDealLine[]; truncated: boolean }> {
+  if (business && business !== 'all' && business !== 'none' && !(BUSINESS_KEYS as readonly string[]).includes(business)) throw new ValidationError('That business is not recognised.');
+  const db = getDb();
+  const rows = await db
+    .select({
+      dealId: crmDeals.id, title: crmDeals.title, value: crmDeals.value, currency: crmDeals.currency, owner: crmDeals.owner, business: crmDeals.business,
+      source: crmDeals.source, closedAt: crmDeals.closedAt, updatedAt: crmDeals.updatedAt, company: crmContacts.company, contactName: crmContacts.name,
+      customerName: customers.displayName, invoiceNo: invoices.docNumber, invoiceCurrency: invoices.currencyCode, lineNo: invoiceLines.lineNumber,
+      description: invoiceLines.description, productName: products.name, qty: invoiceLines.qty, unitPrice: invoiceLines.unitPrice, amount: invoiceLines.amount,
+    })
+    .from(crmDeals)
+    .leftJoin(crmContacts, eq(crmContacts.id, crmDeals.contactId))
+    .leftJoin(customers, eq(customers.id, crmDeals.customerId))
+    .leftJoin(invoices, eq(invoices.id, crmDeals.invoiceId))
+    .leftJoin(invoiceLines, eq(invoiceLines.invoiceId, invoices.id))
+    .leftJoin(products, eq(products.id, invoiceLines.productId))
+    .where(eq(crmDeals.stage, 'won'))
+    .orderBy(asc(sql`coalesce(${crmDeals.closedAt}, ${crmDeals.updatedAt})`), asc(crmDeals.id), asc(invoiceLines.lineNumber))
+    .limit(WON_LINE_CAP + 1);
+  const truncated = rows.length > WON_LINE_CAP;
+  const all: WonDealLine[] = [];
+  let dealNo = 0;
+  let lastDeal = '';
+  let item = 0;
+  for (const r of rows.slice(0, WON_LINE_CAP)) {
+    if (r.dealId !== lastDeal) { dealNo += 1; item = 0; lastDeal = r.dealId; }
+    item += 1;
+    const hasLine = r.lineNo !== null;
+    const product = !hasLine ? r.title : r.productName ? (r.description && r.description !== r.productName ? `${r.productName}: ${r.description}` : r.productName) : (r.description || r.title);
+    const value = Number(r.value);
+    all.push({
+      dealId: r.dealId, dealNo, item, invoiceNo: r.invoiceNo ?? null, closedAt: iso(r.closedAt ?? r.updatedAt), customer: r.company || r.contactName || r.customerName || 'Not recorded',
+      business: r.business, product, qty: hasLine ? Number(r.qty) : 1, unitPrice: hasLine ? Number(r.unitPrice) : value, amount: hasLine ? Number(r.amount) : value,
+      currency: (hasLine ? r.invoiceCurrency : null) ?? r.currency, broughtInBy: r.owner, source: r.source,
+    });
+  }
+  const lines = !business || business === 'all' ? all : all.filter((l) => (business === 'none' ? !l.business : l.business === business));
+  return { lines, truncated };
 }
 
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;

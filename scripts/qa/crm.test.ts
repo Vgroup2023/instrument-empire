@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import {
   ago, bucketUpcoming, classifyInbound, crmMetrics, followUpDue, formatDuration, leadScore, nextFollowUp, normalizePhone, parseAddress,
-  guessBusiness, monthOf, monthProgress, needsFollowUp, openValueSeries, reorderSchedule, reordersToAct, stageInfo, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
+  csvCell, wonDealsCsv, wonDealTotals, WON_LINE_COLUMNS, type WonDealLine, guessBusiness, monthOf, monthProgress, needsFollowUp, openValueSeries, reorderSchedule, reordersToAct, stageInfo, renderReport, summarizePeriod, type Activity, type Contact, type Deal,
 } from '../../src/lib/crm/model';
 
 // ---- pure ----
@@ -130,6 +130,31 @@ assert.equal(monthProgress('2026-11', Date.parse('2026-12-15T00:00:00Z')), 1);
 assert.equal(monthProgress('2026-11', Date.parse('2026-11-16T00:00:00Z')), 0.5);
 
 // ---- triage and alerts (pure) ----
+
+// ---- completed deals: file and totals ----
+assert.equal(csvCell('plain'), 'plain');
+assert.equal(csvCell('a,b'), '"a,b"');
+assert.equal(csvCell('say "hi"'), '"say ""hi"""');
+assert.equal(csvCell('two\nlines'), '"two\nlines"');
+assert.equal(csvCell(null), '');
+assert.equal(csvCell(12.5), '12.5');
+for (const evil of ['=HYPERLINK("http://x")', '+1+1', '-2+3', '@SUM(A1)']) assert.ok(csvCell(evil).replace(/^"/, '').startsWith("'"), `${evil} is kept as text`);
+const wl = (o: Partial<WonDealLine> = {}): WonDealLine => ({
+  dealId: 'd1', dealNo: 1, item: 1, invoiceNo: 'INV-1001', closedAt: '2026-10-20T10:00:00Z', customer: 'Acme, Inc.', business: 'bluestarimex', product: 'Lures "Pro"',
+  qty: 2, unitPrice: 50, amount: 100, currency: 'USD', broughtInBy: 'Dana R', source: 'referral', ...o,
+});
+const csv = wonDealsCsv([wl(), wl({ item: 2, product: '=cmd', qty: 1, unitPrice: 25.5, amount: 25.5 }), wl({ dealId: 'd2', dealNo: 2, business: null, broughtInBy: null, currency: 'CAD', amount: 10 })]);
+const csvLines = csv.trimEnd().split('\r\n');
+assert.equal(csvLines[0], WON_LINE_COLUMNS.join(','));
+assert.equal(csvLines.length, 4);
+assert.equal(csvLines[1], '1,1,INV-1001,2026-10-20,"Acme, Inc.",BlueStarImex,"Lures ""Pro""",2,50.00,100.00,USD,Dana R,referral');
+assert.ok(csvLines[2].includes(",'=cmd,"), 'a formula typed as a product is neutralised');
+assert.ok(csvLines[3].startsWith('2,1,INV-1001,') && csvLines[3].includes(',CAD,,referral'), 'no business and nobody brought it in leave empty cells');
+assert.equal(wonDealsCsv([]), WON_LINE_COLUMNS.join(',') + '\r\n');
+const wt = wonDealTotals([wl(), wl({ item: 2, amount: 25.5 }), wl({ dealId: 'd2', dealNo: 2, currency: 'CAD', amount: 10 })]);
+assert.deepEqual(wt, { deals: 2, items: 3, byCurrency: [{ currency: 'USD', amount: 125.5 }, { currency: 'CAD', amount: 10 }] });
+assert.deepEqual(wonDealTotals([]), { deals: 0, items: 0, byCurrency: [] });
+
 async function pureTriage() {
   const { rulesTriage, parseTriage, priorityScore } = await import('../../src/lib/crm/triage');
   const { renderTeamsCard } = await import('../../src/lib/crm/alerts');
@@ -626,6 +651,52 @@ async function db() {
     await getDb().delete(crmReports).where(and0(eq(crmReports.id, first.report.id)));
     await getDb().delete(crmReports).where(eq(crmReports.id, weekly.report.id));
     void crmActivities; void andOp;
+
+    // completed deals: one row per invoice line, numbered, with who brought it in, and narrowed by business
+    {
+      const { invoiceLines: lineT, products: prodT } = await import('../../src/db/schema');
+      const tag = `QA-${Date.now().toString(36)}`;
+      const cw = await svc.createContact({ name: 'Wendy Won', company: `${tag} Co`, email: `won-${tag}@example.com`, actor: 'Tester' });
+      made.contacts.push(cw.id);
+      const w1 = await svc.createDeal({ title: `${tag} trade order`, value: 4000, contactId: cw.id, owner: 'Dana R', business: 'bluestarimex', source: 'referral', actor: 'Tester' });
+      const w2 = await svc.createDeal({ title: `${tag} free sample`, value: 0, contactId: cw.id, owner: 'Sam K', business: 'pivit-fishing', actor: 'Tester' });
+      made.deals.push(w1.id, w2.id);
+      const open = await svc.createDeal({ title: `${tag} still open`, value: 999, contactId: cw.id, actor: 'Tester' });
+      made.deals.push(open.id);
+      const won1 = await svc.updateDeal(w1.id, { stage: 'won', actor: 'Tester' });
+      await svc.updateDeal(w2.id, { stage: 'won', actor: 'Tester' });
+      assert.ok(won1.invoiceId, 'winning a deal with a value drafts its invoice');
+      made.invoices.push(won1.invoiceId!);
+      const [prod] = await getDb().insert(prodT).values({ name: `${tag} Jig 3oz`, type: 'Inventory' }).returning();
+      await getDb().insert(lineT).values({ invoiceId: won1.invoiceId!, productId: prod.id, description: 'Box of 12', qty: '3', unitPrice: '100', amount: '300', lineNumber: 2 });
+
+      const all = (await svc.completedDeals()).lines.filter((l) => l.customer === `${tag} Co`);
+      assert.equal(all.length, 3, 'two invoice lines for the first deal plus one line for the deal with no invoice');
+      assert.ok(!all.some((l) => /still open/.test(l.product)), 'open deals are not completed deals');
+      const first = all.filter((l) => l.dealId === w1.id);
+      assert.deepEqual(first.map((l) => l.item), [1, 2]);
+      assert.equal(first[0].product, `${tag} trade order`);
+      assert.equal(first[0].amount, 4000);
+      assert.equal(first[1].product, `${tag} Jig 3oz: Box of 12`, 'a linked product shows its name and the line note');
+      assert.equal(first[1].qty, 3);
+      assert.equal(first[1].unitPrice, 100);
+      assert.ok(first.every((l) => l.invoiceNo && l.broughtInBy === 'Dana R' && l.business === 'bluestarimex' && l.source === 'referral'));
+      assert.equal(first[0].dealNo, first[1].dealNo, 'lines of one deal share its number');
+      const bare = all.find((l) => l.dealId === w2.id)!;
+      assert.equal(bare.invoiceNo, null);
+      assert.equal(bare.product, `${tag} free sample`);
+      assert.equal(bare.amount, 0);
+      assert.equal(bare.broughtInBy, 'Sam K');
+      assert.ok(bare.dealNo > first[0].dealNo || bare.dealNo < first[0].dealNo, 'each deal has its own number');
+
+      const blue = (await svc.completedDeals('bluestarimex')).lines.filter((l) => l.customer === `${tag} Co`);
+      assert.deepEqual(blue.map((l) => l.dealId), [w1.id, w1.id], 'the business filter keeps only that business');
+      assert.equal(blue[0].dealNo, first[0].dealNo, 'filtering does not renumber deals');
+      assert.ok(!(await svc.completedDeals('globlex-ai')).lines.some((l) => l.customer === `${tag} Co`));
+      await assert.rejects(() => svc.completedDeals('acme'), /not recognised/);
+      await getDb().delete(lineT).where(eq(lineT.productId, prod.id));
+      await getDb().delete(prodT).where(eq(prodT.id, prod.id));
+    }
 
     const snap = await svc.snapshot();
     assert.ok(Array.isArray(snap.drafts) && Array.isArray(snap.reports));

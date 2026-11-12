@@ -17,6 +17,7 @@ import { LeadsPanel } from './LeadsPanel';
 import { BusinessBoard } from './BusinessBoard';
 import { NextActionsPanel } from './NextActionsPanel';
 import { PipelineView } from './PipelineView';
+import { DealsPanel } from './DealsPanel';
 import { ReordersPanel } from './ReordersPanel';
 import { RulesPanel } from './RulesPanel';
 import { Segmented } from './Segmented';
@@ -25,14 +26,15 @@ import { PostSalesPanel } from './PostSalesPanel';
 import { SalesOpsPanel } from './SalesOpsPanel';
 
 type Snap = { deals: Deal[]; contacts: Contact[]; activities: Activity[]; drafts: Draft[]; reports: Report[]; now: string };
-type Tab = 'pipeline' | 'leads' | 'contacts' | 'reorders' | 'followups' | 'reports' | 'rules';
+type Tab = 'pipeline' | 'leads' | 'contacts' | 'deals' | 'reorders' | 'followups' | 'reports' | 'rules';
 type FollowView = 'next' | 'upcoming' | 'review' | 'activity';
 type ReportView = 'team' | 'businesses' | 'collections';
 /** The sections, in the order work moves through them: the deal, the lead behind it, the account, the next order, the chasing, the numbers, the settings. */
-const TABS: { id: Tab; label: string; about: string; from: string; to: string }[] = [
+const TABS: { id: Tab; label: string; about: string; from: string; to: string; gold?: boolean }[] = [
   { id: 'pipeline', label: 'Pipeline', about: 'Deals by stage, from new lead to reorder. Drag a deal on; a quote sent that goes quiet gets a follow-up.', from: '#1e3a5f', to: '#2b4f80' },
   { id: 'leads', label: 'Leads', about: 'New and qualified leads, scored so the best to call come first. Qualify one, then make it a deal.', from: '#3b3a8c', to: '#4f4eb0' },
   { id: 'contacts', label: 'Accounts', about: 'Every company and person: details, the whole conversation, their deals, and the next follow-up.', from: '#6b2f7a', to: '#8a4a99' },
+  { id: 'deals', label: 'Deals', about: 'Every completed deal across all businesses, line by line: customer, what was sold, the amount, and who brought it in. Download it as a file.', from: '#f7dd8a', to: '#b07d0b', gold: true },
   { id: 'reorders', label: 'Reorders', about: 'How often each customer reorders, and who is due. Start a reorder and it becomes a deal.', from: '#8b2a45', to: '#a8405c' },
   { id: 'followups', label: 'Follow-ups', about: 'Everything waiting on a person, in the order to do it: messages to answer, tasks, meetings and drafts to approve.', from: '#2f5d3a', to: '#437a52' },
   { id: 'reports', label: 'Reports', about: 'How the team and each business are doing, what has been billed and collected, and the daily and weekly reports.', from: '#334155', to: '#475569' },
@@ -284,9 +286,11 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           const badge = tabBadge[t.id];
           return (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-shadow ${tab === t.id ? 'text-white shadow-md' : 'bg-white text-slate-700 hover:shadow-sm'}`}
-              style={tab === t.id ? { background: `linear-gradient(135deg, ${t.from}, ${t.to})`, borderColor: t.from } : { borderColor: `${t.from}55` }}>
-              <span aria-hidden className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold" style={tab === t.id ? { background: 'rgba(255,255,255,.25)', color: '#fff' } : { background: `${t.from}1a`, color: t.from }}>{i + 1}</span>
+              className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-shadow ${t.gold ? `font-semibold ${tab === t.id ? 'shadow-md ring-2 ring-offset-1' : 'hover:shadow-sm'}` : tab === t.id ? 'text-white shadow-md' : 'bg-white text-slate-700 hover:shadow-sm'}`}
+              style={t.gold
+                ? { background: 'linear-gradient(135deg, #f7dd8a, #d9a520 55%, #b07d0b)', borderColor: '#b07d0b', color: '#3b2a00', ['--tw-ring-color' as string]: '#b07d0b80' }
+                : tab === t.id ? { background: `linear-gradient(135deg, ${t.from}, ${t.to})`, borderColor: t.from } : { borderColor: `${t.from}55` }}>
+              <span aria-hidden className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold" style={t.gold ? { background: 'rgba(59,42,0,.15)', color: '#3b2a00' } : tab === t.id ? { background: 'rgba(255,255,255,.25)', color: '#fff' } : { background: `${t.from}1a`, color: t.from }}>{i + 1}</span>
               {t.label}
               {badge && badge.n ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/25 text-white' : badge.tone}`}>{badge.n}</span> : null}
             </button>
@@ -313,6 +317,7 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           )}
         </>
       ) : null}
+      {tab === 'deals' ? <DealsPanel business={biz} /> : null}
       {tab === 'reorders' ? <ReordersPanel items={reorderAll} contacts={view.contacts} deals={view.deals} now={now} onStart={startReorder} onOpenContact={openContact} onSetDays={setReorderDays} /> : null}
       {tab === 'followups' ? (
         <>

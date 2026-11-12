@@ -723,3 +723,57 @@ export function openValueSeries(deals: Deal[], now = Date.now(), months = 6): { 
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Completed (won) deals, one row per line item
+// ---------------------------------------------------------------------------
+
+/** One line of a won deal: the deal's number, the item on it, who bought, what, for how much, and who brought it in. */
+export interface WonDealLine {
+  dealId: string;
+  /** Won deals counted from the oldest (1) so a number keeps meaning the same deal as new ones are added. */
+  dealNo: number;
+  /** The line's place within the deal (1, 2, 3...). */
+  item: number;
+  invoiceNo: string | null;
+  closedAt: string | null;
+  customer: string;
+  business: string | null;
+  product: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  currency: string;
+  broughtInBy: string | null;
+  source: string;
+}
+
+export const WON_LINE_COLUMNS = ['Deal #', 'Item', 'Invoice no.', 'Closed', 'Customer', 'Business', 'Product details', 'Qty', 'Unit price', 'Line amount', 'Currency', 'Brought in by', 'Lead source'] as const;
+
+/**
+ * One cell of a CSV file. Text that starts with = + - @ (or a tab or return) is read as a formula by spreadsheets,
+ * and customers and notes are typed by other people, so those get a leading apostrophe to keep them as plain text.
+ */
+export function csvCell(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return '';
+  let s = typeof v === 'number' ? String(v) : v;
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** The completed deals as a CSV file's text. It opens in Excel, Numbers and Google Sheets. */
+export function wonDealsCsv(lines: WonDealLine[]): string {
+  const rows = lines.map((l) => [
+    l.dealNo, l.item, l.invoiceNo, l.closedAt ? l.closedAt.slice(0, 10) : '', l.customer, businessInfo(l.business)?.name ?? '', l.product,
+    l.qty, l.unitPrice.toFixed(2), l.amount.toFixed(2), l.currency, l.broughtInBy ?? '', l.source,
+  ]);
+  return [WON_LINE_COLUMNS as readonly string[], ...rows].map((r) => r.map((c) => csvCell(c as string | number | null)).join(',')).join('\r\n') + '\r\n';
+}
+
+/** How many deals the lines cover, and their value by currency (a deal's lines add up to its value). */
+export function wonDealTotals(lines: WonDealLine[]): { deals: number; items: number; byCurrency: { currency: string; amount: number }[] } {
+  const deals = new Set(lines.map((l) => l.dealId));
+  const by = new Map<string, number>();
+  for (const l of lines) by.set(l.currency, Math.round(((by.get(l.currency) ?? 0) + l.amount) * 100) / 100);
+  return { deals: deals.size, items: lines.length, byCurrency: [...by].map(([currency, amount]) => ({ currency, amount })).sort((a, b) => b.amount - a.amount) };
+}

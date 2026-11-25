@@ -11,6 +11,7 @@ import { computeReturn, type TaxInputs, type TaxResult } from '@/lib/tax';
 import { COUNTRY_LABEL, STEPS, type Field } from '@/lib/tax/interview';
 import type { TaxReturnRow } from '@/lib/tax/service';
 import { printReturn } from './printReturn';
+import { AiReview, type SavedReview } from './AiReview';
 import { SlipUpload } from './SlipUpload';
 import { num } from '@/lib/tax';
 
@@ -29,6 +30,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
   const [step, setStep] = useState(0);
   const [save, setSave] = useState<SaveState>('saved');
   const [status, setStatus] = useState(initial.status);
+  const [aiReview, setAiReview] = useState<SavedReview | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const first = useRef(true);
 
@@ -100,7 +102,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
 
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_18rem]">
         {/* Where you are */}
-        <nav aria-label="Interview steps" className="order-2 lg:order-1">
+        <nav aria-label="Interview steps" className="order-2 min-w-0 lg:order-1">
           <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
             {[...steps.map((s) => s.title), 'Review', 'Your return'].map((title, i) => (
               <li key={title} className="shrink-0">
@@ -145,7 +147,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
               </CardBody>
             </Card>
           ) : step === reviewIndex ? (
-            <ReviewStep result={result} country={country} onBack={() => setStep(reviewIndex - 1)} onNext={() => setStep(reviewIndex + 1)} />
+            <ReviewStep returnId={initial.id} inputs={inputs} result={result} review={aiReview} onReview={setAiReview} country={country} onBack={() => setStep(reviewIndex - 1)} onNext={() => setStep(reviewIndex + 1)} />
           ) : (
             <ReturnStep
               result={result}
@@ -241,7 +243,7 @@ const LEVEL: Record<string, { tone: 'warning' | 'brand' | 'neutral'; label: stri
   info: { tone: 'neutral', label: 'Note' },
 };
 
-function ReviewStep({ result, country, onBack, onNext }: { result: TaxResult; country: 'US' | 'CA'; onBack: () => void; onNext: () => void }) {
+function ReviewStep({ returnId, inputs, result, review, onReview, country, onBack, onNext }: { returnId: string; inputs: TaxInputs; result: TaxResult; review: SavedReview | null; onReview: (r: SavedReview) => void; country: 'US' | 'CA'; onBack: () => void; onNext: () => void }) {
   const order = { warn: 0, tip: 1, info: 2 } as const;
   const findings = [...result.findings].sort((a, b) => order[a.level] - order[b.level]);
   return (
@@ -265,6 +267,7 @@ function ReviewStep({ result, country, onBack, onNext }: { result: TaxResult; co
             </li>
           ))}
         </ul>
+        <AiReview returnId={returnId} country={country} inputs={inputs} result={result} review={review} onReview={onReview} />
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-900">Not included in this version</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600">

@@ -20,6 +20,7 @@
     "qa:counsel": "tsx scripts/qa/counsel.test.ts",
     "qa:bookkeeping": "tsx scripts/qa/bookkeeping.test.ts",
     "qa:tax": "tsx scripts/qa/tax.test.ts",
+    "qa:taxreview": "tsx scripts/qa/taxreview.test.ts",
     "qa:files": "tsx scripts/qa/files.test.ts",
     "qa:workforce": "tsx scripts/qa/workforce.test.ts",
     "qa:payroll": "tsx scripts/qa/payroll.test.ts",

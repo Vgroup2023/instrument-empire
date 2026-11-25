@@ -60,6 +60,30 @@ export function TaxReturnsClient({ initial, years }: { initial: TaxReturnRow[]; 
         </CardBody>
       </Card>
 
+      <Card>
+        <CardBody className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900">TaxGPT AI Tax Preparation Agent</h2>
+              <Badge tone="neutral">Separate service</Badge>
+            </div>
+            <p className="mt-1 text-sm text-slate-600">
+              TaxGPT is an AI service for tax professionals that prepares and reviews returns. This opens its AI tax preparation page in a new tab. It is run by TaxGPT, not by this app: its own sign-in, terms and pricing apply, and nothing from this app is sent to it.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">Inside any return below, the Review step also has a built-in second reviewer that checks your answers.</p>
+          </div>
+          <a
+            href="https://www.taxgpt.com/ai-tax-preparation"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-surface px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Open TaxGPT <span aria-hidden>↗</span>
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        </CardBody>
+      </Card>
+
       {rows.length === 0 ? (
         <EmptyState title="No returns yet" description="Start a return to see how it works. Your answers save as you go." />
       ) : (

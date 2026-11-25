@@ -613,6 +613,15 @@ The database lives in a Supabase project; a project's region cannot be changed, 
 4. Switch over: in Netlify set `DATABASE_URL` (Production) to the new project's **Transaction pooler** string and redeploy; update the `DATABASE_URL` repository secret to the same new value so the migrate workflow follows. Anything written to the old database after the copy is not carried over, so do steps 3 and 4 back to back.
 5. Check `/api/health` shows `"database":"ok","schema":"ok"`. Keep the old project for at least a week as a backup before pausing it, and do not delete a project that other apps still use.
 
+## Tax filing: the second reviewer and TaxGPT
+
+The **Tax filing** tab walks through a U.S. 1040 or Canadian T1 one question at a time. Two additions sit on top of that:
+
+- **Second reviewer** (Review step of every return). *Built-in checks* run instantly on every change: tax withheld bigger than the pay, more people aged 65+ or blind than the filing status allows, head of household with no dependents, earned-income-credit children without matching dependents, very large gifts or donations, expenses that eat most of the business income, an unusually large refund, and the Canadian equivalents. *Ask the AI reviewer* sends the answers to Claude, which lists what looks wrong, risky or possibly missed (up to six notes, worst first). It needs `ANTHROPIC_API_KEY`; without it the built-in checks still run and the card says the AI part is off. The reviewer is shown answers only as numbers, yes/no and fixed choices (no names, identity numbers or free text), its reply is validated field by field, and it can only suggest: it never edits an answer, recalculates tax or files anything. Nothing is stored (`POST /api/tax/returns/:id/review`, no migration). Each run is one Claude call, so it runs only when asked.
+- **TaxGPT card** at the top of the tab. A link that opens TaxGPT's AI tax preparation page in a new tab. TaxGPT is a separate service for tax professionals with its own sign-in and pricing, and nothing from this app is sent to it. It has no public source code or API, so it is linked, not built in.
+
+Uploaded W-2 and T4 files are never stored, so the reviewer cannot re-read them; it reviews the answers they filled in.
+
 ## Counsel: the AI lawyer
 
 `/dashboard/counsel` is an AI legal assistant for the owner's ventures. It runs on the same

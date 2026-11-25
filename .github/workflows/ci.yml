@@ -46,6 +46,9 @@ jobs:
       - name: Accounts and access tests
         run: npm run qa:auth
 
+      - name: Tax review agent tests
+        run: npm run qa:taxreview
+
       - name: Team hand-off tests
         run: npm run qa:handoffs
 

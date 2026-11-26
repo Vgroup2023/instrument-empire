@@ -88,15 +88,7 @@ export function LoginView({ error, next, mode }: { error: string | null; next: s
         >
           Sign in
         </button>
-        <p className="text-xs text-slate-500">Forgot your password? Ask your administrator for a new link.</p>
-        <details className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          <summary className="cursor-pointer font-medium text-slate-700">iPhone or iPad filling in the wrong email or password?</summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-4">
-            <li>Tap <b>Clear</b> above, then type your email and password by hand (tap <b>Show</b> to check it).</li>
-            <li>To remove the old saved login: open <b>Settings</b>, then <b>Passwords</b>, search for <b>globlexus</b>, and delete the old entries.</li>
-            <li>After you sign in, choose <b>Save Password</b> when Safari offers, so the right one is filled in next time.</li>
-          </ol>
-        </details>
+        <p className="text-center text-sm"><a href="/forgot-password" className="font-medium text-brand-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">Forgot your password?</a></p>
       </form>
     ) : null}
 

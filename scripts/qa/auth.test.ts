@@ -120,17 +120,17 @@ async function main() {
   {
     const matcher = new RegExp(`^${gateConfig.matcher[0]}$`);
     const gateRuns = (path: string) => matcher.test(path);
-    const publicPaths = ['/login', '/invite/abc123', '/api/auth/accept', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/auth/sso/callback', '/api/login', '/api/recurring/run-due',
+    const publicPaths = ['/login', '/forgot-password', '/invite/abc123', '/api/auth/accept', '/api/auth/forgot', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/auth/sso/callback', '/api/login', '/api/recurring/run-due',
       '/api/agents/run', '/api/integrations/crm/email', '/api/integrations/crm/sms', '/api/health', '/clock', '/api/clock', '/install', '/offline', '/_next/static/a.js', '/brand/logo.webp', '/favicon.ico'];
     for (const p of publicPaths) assert.ok(isPublicPath(p), `${p} is public`);
     const skipped = publicPaths.filter((p) => !gateRuns(p));
-    for (const p of ['/login', '/invite/abc123', '/api/auth/accept', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/login', '/api/integrations/crm/email', '/api/health', '/clock', '/install', '/offline', '/favicon.ico', '/_next/static/a.js']) {
+    for (const p of ['/login', '/forgot-password', '/invite/abc123', '/api/auth/accept', '/api/auth/forgot', '/api/auth/session', '/api/auth/mode', '/api/auth/sso/start', '/api/login', '/api/integrations/crm/email', '/api/health', '/clock', '/install', '/offline', '/favicon.ico', '/_next/static/a.js']) {
       assert.ok(skipped.includes(p), `the gate is not run for ${p}`);
     }
     // Safety: whatever the gate skips is public.
     for (const p of publicPaths) if (!gateRuns(p)) assert.ok(isPublicPath(p), `${p} is skipped, so it must be public`);
     const privatePaths = ['/', '/dashboard', '/dashboard/crm', '/dashboard/team', '/dashboard/invoices', '/api/crm', '/api/crm/contacts', '/api/team', '/api/auth/me', '/api/auth/password', '/api/auth/setup-owner', '/api/auth/connect',
-      '/api/auth/disconnect', '/api/auth/callback', '/api/tasks', '/api/payroll/runs', '/logout', '/login/extra', '/api/healthz', '/api/clockwork', '/clocks', '/installer', '/offlines', '/invite', '/api/auth/accepted', '/api/auth/session/x', '/api/auth/modes'];
+      '/api/auth/disconnect', '/api/auth/callback', '/api/tasks', '/api/payroll/runs', '/logout', '/login/extra', '/api/healthz', '/api/clockwork', '/clocks', '/installer', '/offlines', '/invite', '/forgot-passwords', '/forgot-password/x', '/api/auth/forgotten', '/api/auth/forgot/x', '/api/auth/accepted', '/api/auth/session/x', '/api/auth/modes'];
     for (const p of privatePaths) {
       assert.ok(!isPublicPath(p), `${p} is not public`);
       assert.ok(gateRuns(p), `the gate still runs for ${p}`);
@@ -212,6 +212,44 @@ async function main() {
   const changed = await svc.changeOwnPassword(fiona.id, 'silver canyon mist 55 oak', 'quiet harbor moon 66 fern');
   assert.ok(changed.sessionVersion > (await svc.getUser(fiona.id).then((u) => u!.sessionVersion - 1)));
   await assert.rejects(() => svc.changeOwnPassword(fiona.id, 'wrong current password', 'brave meadow frost 77 pine'), /current password/);
+
+  // "Forgot my password", asked for by the person themselves.
+  const { sql: rawSql } = await import('drizzle-orm');
+  const backdate = (userId: string) => db.execute(rawSql`update app_user_tokens set created_at = now() - interval '3 minutes' where user_id = ${userId}`);
+  await assert.rejects(() => svc.startPasswordReset('not an email'), /valid email/i);
+  await assert.rejects(() => svc.startPasswordReset(''), /./);
+  assert.equal(await svc.startPasswordReset('nobody-here@example.com'), null, 'an email with no account makes nothing');
+  const self1 = await svc.startPasswordReset('FIONA@example.com');
+  assert.ok(self1 && self1.kind === 'reset' && self1.user.id === fiona.id && self1.token.length >= 20, 'an active account gets a reset link');
+  assert.deepEqual(await svc.peekToken(self1!.token).then((r) => r && r.kind), 'reset');
+  assert.equal(await svc.startPasswordReset('fiona@example.com'), null, 'asking again straight away makes nothing, so inboxes are not flooded');
+  assert.ok(await svc.peekToken(self1!.token), 'and the first link still works (it was not replaced)');
+  await backdate(fiona.id);
+  const self2 = await svc.startPasswordReset('fiona@example.com');
+  assert.ok(self2 && self2.token !== self1!.token, 'after two minutes a new link can be made');
+  assert.equal(await svc.peekToken(self1!.token), null, 'and it replaces the old one');
+  // a disabled account gets nothing
+  await svc.updateUser(ownerActor, fiona.id, { status: 'disabled' });
+  await backdate(fiona.id);
+  assert.equal(await svc.startPasswordReset('fiona@example.com'), null, 'a disabled account can not be reset into');
+  await svc.updateUser(ownerActor, fiona.id, { status: 'active' });
+  // someone who never finished setting up gets a fresh invitation instead
+  const newbie = await svc.inviteUser(ownerActor, { name: 'Nina Newbie', email: 'nina@example.com', role: 'viewer', departments: ['finance'] });
+  await backdate(newbie.user.id);
+  const selfInvite = await svc.startPasswordReset('nina@example.com');
+  assert.ok(selfInvite && selfInvite.kind === 'invite', 'a person still waiting on an invitation gets a new invitation link');
+  assert.equal(await svc.peekToken(newbie.token), null, 'which replaces the one that was lost');
+  // using the link: new password works, the old one and every old session stop working, the link is spent
+  const beforeReset = await svc.getUser(fiona.id);
+  const doneReset = await svc.acceptToken(self2!.token, 'copper lantern field 88 sage');
+  assert.ok(doneReset.sessionVersion > beforeReset!.sessionVersion, 'resetting signs the account out everywhere else');
+  assert.equal(await svc.authenticate('fiona@example.com', 'quiet harbor moon 66 fern'), null, 'the old password no longer works');
+  assert.equal((await svc.authenticate('fiona@example.com', 'copper lantern field 88 sage'))?.id, fiona.id, 'the new one does');
+  await assert.rejects(() => svc.acceptToken(self2!.token, 'copper lantern field 99 sage'), /expired|already/i);
+  // the link only ever lets someone set a password that passes the rules
+  const self3 = await (async () => { await backdate(fiona.id); return svc.startPasswordReset('fiona@example.com'); })();
+  await assert.rejects(() => svc.acceptToken(self3!.token, 'short'), /at least|characters/i);
+  assert.ok(await svc.peekToken(self3!.token), 'a rejected password does not use the link up');
 
   // Cancelling an invitation removes the person; an active account cannot be removed this way.
   const gone = await svc.inviteUser(ownerActor, { name: 'Gina Gone', email: 'gina@example.com', role: 'viewer', departments: ['sales'] });

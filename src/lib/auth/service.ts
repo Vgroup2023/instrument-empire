@@ -31,6 +31,8 @@ const toUser = (r: Row): AppUser => ({
 
 export const INVITE_DAYS = 7;
 const RESET_HOURS = 24;
+/** After a link is made for someone, another one for them is not made for this long (stops inbox flooding and link churn). */
+export const RESET_THROTTLE_MS = 2 * 60_000;
 
 export async function countUsers(): Promise<number> {
   const [r] = await getDb().select({ n: sql<number>`count(*)::int` }).from(appUsers);
@@ -173,6 +175,28 @@ export async function issueLink(actor: Principal & { id?: string | null }, id: s
   const kind = cur.status === 'invited' ? 'invite' : 'reset';
   const { token, expiresAt } = await issueToken(id, kind);
   return { user: cur, token, kind, expiresAt: expiresAt.toISOString() };
+}
+
+/**
+ * "Forgot my password", started by the person themselves from the sign-in page. Finds the account by email and makes a
+ * one-time link for it: a reset link for a normal account, or a fresh invitation link for someone who never finished
+ * setting up. Returns null when there is nothing to send: no such account, a disabled one, or a link that was already
+ * made in the last two minutes. The caller must answer the same way in every case, so the page never reveals which
+ * emails have an account. A badly formed email is the one thing that is reported (a 400), since it can not be an account.
+ */
+export async function startPasswordReset(emailRaw: unknown): Promise<{ user: AppUser; token: string; kind: 'invite' | 'reset'; expiresAt: string } | null> {
+  const email = emailOf(emailRaw);
+  const db = getDb();
+  const [row] = await db.select().from(appUsers).where(sql`lower(${appUsers.email}) = ${email}`);
+  if (!row || row.status === 'disabled') return null;
+  const [recent] = await db
+    .select({ id: appUserTokens.id })
+    .from(appUserTokens)
+    .where(and(eq(appUserTokens.userId, row.id), isNull(appUserTokens.usedAt), gt(appUserTokens.createdAt, new Date(Date.now() - RESET_THROTTLE_MS))));
+  if (recent) return null;
+  const kind = row.status === 'invited' ? 'invite' : 'reset';
+  const { token, expiresAt } = await issueToken(row.id, kind);
+  return { user: toUser(row), token, kind, expiresAt: expiresAt.toISOString() };
 }
 
 /** What a link is for, without using it up. Null if it is wrong, used or expired. */

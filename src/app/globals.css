@@ -99,3 +99,66 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .nav-bar > span { animation: none; width: 100%; }
 }
+
+/* Raised "push" buttons. The button sits 2px higher with a solid, darker edge underneath it and a soft shadow, and a light
+   shade runs from the top to the bottom of its face. Pressing it sinks it back down onto its edge.
+   - The shade is a pseudo-element behind the label (isolation + z-index -1), so it works on any face colour and never tints text.
+   - --edge is the darker colour of the underside. The push-* modifiers set it for each kind of face; a pill that has its own
+     colour sets --edge inline.
+   - Disabled buttons lie flat, and nothing is raised in print or for people who ask for less motion. */
+@layer components {
+  .push {
+    --edge: #aab6c8;
+    --shade-top: rgb(255 255 255 / 0.3);
+    --shade-bottom: rgb(255 255 255 / 0);
+    position: relative;
+    isolation: isolate;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 0 var(--edge), 0 6px 10px -3px rgb(15 23 42 / 0.28);
+    transition: transform 90ms ease, box-shadow 90ms ease, filter 150ms ease, background-color 150ms ease;
+  }
+  .push::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--shade-top), var(--shade-bottom) 70%);
+  }
+  .push:active:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(0);
+    box-shadow: 0 0 0 var(--edge), 0 1px 2px rgb(15 23 42 / 0.25);
+  }
+  .push:disabled,
+  .push[aria-disabled='true'] {
+    transform: none;
+    box-shadow: none;
+  }
+  /* Faces that are white or light grey: the shade goes from white down to a touch of grey. */
+  .push-light {
+    --edge: #aab6c8;
+    --shade-top: rgb(255 255 255 / 0.85);
+    --shade-bottom: rgb(148 163 184 / 0.2);
+  }
+  /* The royal blue gradient face. */
+  .push-navy { --edge: #040c2c; }
+  /* Red (delete) faces. */
+  .push-red { --edge: #6f1414; }
+  /* Items on the dark blue sidebar and header. */
+  .push-dark {
+    --edge: rgb(0 0 0 / 0.5);
+    --shade-top: rgb(255 255 255 / 0.14);
+    box-shadow: 0 2px 0 var(--edge), 0 5px 8px -3px rgb(0 0 0 / 0.5);
+  }
+  .push-dark:active:not(:disabled):not([aria-disabled='true']) {
+    box-shadow: 0 0 0 var(--edge), 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .push { transition: none; }
+}
+@media print {
+  .push { transform: none; box-shadow: none; }
+  .push::before { display: none; }
+}

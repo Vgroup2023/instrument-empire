@@ -32,7 +32,7 @@ function Copy({ text }: { text: string }) {
   const { notify } = useToast();
   return (
     <button type="button" onClick={() => { void navigator.clipboard?.writeText(text).then(() => notify('Copied.')).catch(() => notify('Copy failed. Select the text and copy it.', 'error')); }}
-      className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Copy</button>
+      className="push push-light rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Copy</button>
   );
 }
 

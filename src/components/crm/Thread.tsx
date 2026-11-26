@@ -38,7 +38,7 @@ export function Thread({ activities, onToggleTask, now }: { activities: Activity
             <div key={a.id} className="flex items-center justify-center gap-2 text-center text-xs text-slate-500">
               <span aria-hidden>{info.icon}</span>
               <span className={a.doneAt ? 'line-through' : ''}><b className="font-medium text-slate-700">{a.summary}</b> · {info.label} · {a.actor} · {ago(a.createdAt, now)}</span>
-              {scheduled && onToggleTask ? <button type="button" onClick={() => onToggleTask(a)} className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-medium text-slate-700 hover:bg-slate-50">{a.doneAt ? 'Reopen' : 'Done'}</button> : null}
+              {scheduled && onToggleTask ? <button type="button" onClick={() => onToggleTask(a)} className="push push-light rounded border border-slate-300 bg-white px-1.5 py-0.5 font-medium text-slate-700 hover:bg-slate-50">{a.doneAt ? 'Reopen' : 'Done'}</button> : null}
             </div>
           );
         }
@@ -61,7 +61,7 @@ export function Thread({ activities, onToggleTask, now }: { activities: Activity
                     <Badge tone={t.intent === 'complaint' ? 'danger' : t.intent === 'unsubscribe' ? 'neutral' : 'brand'}>{INTENT_LABEL[t.intent]}</Badge>
                     {a.priority !== null ? <PriorityPill p={a.priority} /> : null}
                     {a.doneAt ? <Badge tone="success">handled</Badge> : null}
-                    {onToggleTask ? <button type="button" onClick={() => onToggleTask(a)} className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-medium text-slate-700 hover:bg-slate-50">{a.doneAt ? 'Reopen' : 'Mark handled'}</button> : null}
+                    {onToggleTask ? <button type="button" onClick={() => onToggleTask(a)} className="push push-light rounded border border-slate-300 bg-white px-1.5 py-0.5 font-medium text-slate-700 hover:bg-slate-50">{a.doneAt ? 'Reopen' : 'Mark handled'}</button> : null}
                   </p>
                 </div>
               ) : null}

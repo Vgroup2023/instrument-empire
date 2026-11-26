@@ -103,7 +103,7 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_18rem]">
         {/* Where you are */}
         <nav aria-label="Interview steps" className="order-2 min-w-0 lg:order-1">
-          <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+          <ol className="flex gap-2 overflow-x-auto pb-4 pt-1 lg:flex-col lg:overflow-visible lg:pb-1 lg:pt-0">
             {[...steps.map((s) => s.title), 'Review', 'Your return'].map((title, i) => (
               <li key={title} className="shrink-0">
                 <button
@@ -111,8 +111,8 @@ export function TaxWizard({ initial }: { initial: TaxReturnRow }) {
                   onClick={() => setStep(i === steps.length + 1 ? reviewIndex + 1 : i)}
                   aria-current={i === step ? 'step' : undefined}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
-                    i === step ? 'bg-brand-50 font-semibold text-brand-800' : 'text-slate-600 hover:bg-slate-100',
+                    'push push-light flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
+                    i === step ? 'bg-brand-50 font-semibold text-brand-800' : 'bg-white text-slate-600 hover:bg-slate-100',
                   )}
                 >
                   <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]', i < step ? 'bg-emerald-500 text-white' : 'border border-slate-300')}>{i < step ? '✓' : i + 1}</span>

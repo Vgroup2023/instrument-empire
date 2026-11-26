@@ -32,7 +32,7 @@ function Step({ done, label, onMark }: { done: boolean; label: string; onMark: (
   return done ? (
     <Badge tone="success">{label} ✓</Badge>
   ) : (
-    <button type="button" onClick={onMark} className="rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50">
+    <button type="button" onClick={onMark} className="push push-light rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50">
       Mark {label}
     </button>
   );
@@ -165,7 +165,7 @@ export function ShipmentsPageClient({ shipments, total, customers }: { shipments
                             type="button"
                             title={have ? 'Click to mark as not received' : 'Click to mark as received'}
                             onClick={() => patch(s.id, { doc: d.key, received: !have })}
-                            className={`rounded-full px-2 py-0.5 text-xs ${have ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                            className={`push rounded-full px-2 py-0.5 text-xs ${have ? 'bg-emerald-100 text-emerald-700 [--edge:#5ec79b]' : 'push-light bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
                           >
                             {d.label.split(' /')[0]}
                           </button>

@@ -40,7 +40,7 @@ export function InviteForm({ token }: { token: string }) {
         <label htmlFor="pw2" className="mb-1.5 block text-sm font-medium text-slate-700">Type it again</label>
         <input id="pw2" type="password" required autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={again} onChange={(e) => setAgain(e.target.value)} className={field} />
       </div>
-      <button type="submit" disabled={busy} className="w-full rounded-lg bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60">
+      <button type="submit" disabled={busy} className="w-full rounded-lg push push-navy bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60">
         {busy ? 'Saving…' : 'Save password and sign in'}
       </button>
     </form>

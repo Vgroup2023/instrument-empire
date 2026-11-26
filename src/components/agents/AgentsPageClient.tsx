@@ -117,7 +117,7 @@ export function AgentsPageClient({
               key={a.id}
               type="button"
               onClick={() => setFilter(filter === a.id ? 'all' : a.id)}
-              className={`rounded-xl2 border bg-surface p-4 text-left shadow-card transition hover:border-brand-400 ${filter === a.id ? 'border-brand-500' : 'border-slate-200'}`}
+              className={`push push-light rounded-xl2 border bg-surface p-4 text-left transition hover:border-brand-400 ${filter === a.id ? 'border-brand-500' : 'border-slate-200'}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-slate-900">{a.name}</span>
@@ -150,7 +150,7 @@ export function AgentsPageClient({
                 key={d.id}
                 type="button"
                 onClick={() => setDept(d.id)}
-                className={`rounded-full px-3 py-1 text-xs ${dept === d.id ? 'bg-royal-gradient text-white' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                className={`rounded-full px-3 py-1 text-xs ${dept === d.id ? 'push push-navy bg-royal-gradient text-white' : 'push push-light bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
               >
                 {d.name}
               </button>
@@ -178,7 +178,7 @@ export function AgentsPageClient({
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {f.action?.type === 'link' ? (
-                      <Link prefetch={false} href={f.action.href} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <Link prefetch={false} href={f.action.href} className="push push-light rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         Open
                       </Link>
                     ) : null}

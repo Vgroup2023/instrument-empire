@@ -148,7 +148,7 @@ export function InvoiceFormDialog({
                 aria-checked={template === t}
                 onClick={() => setTemplate(t)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                  template === t ? 'border-[#0a3d66] bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  template === t ? 'push push-navy border-[#0a3d66] bg-royal-gradient text-white' : 'push push-light border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {t === 'pro-forma' ? 'Pro forma' : 'Classic'}

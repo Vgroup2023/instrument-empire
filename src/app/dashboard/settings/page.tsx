@@ -70,7 +70,7 @@ export default async function SettingsPage({
               </p>
               <a
                 href="/api/auth/connect"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white hover:brightness-110"
+                className="inline-flex items-center gap-1.5 rounded-lg push push-navy bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white hover:brightness-110"
               >
                 Connect QuickBooks
               </a>

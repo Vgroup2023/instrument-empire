@@ -102,7 +102,7 @@ function Section({ group, pathname, open, onToggle, onWarm }: { group: NavGroup;
           aria-expanded={open}
           aria-controls={id}
           className={cn(
-            'flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+            'push push-dark flex w-full items-center justify-between rounded-lg bg-white/[0.05] px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50',
             hasActive ? 'text-slate-100' : 'text-steel-500 hover:text-slate-100',
           )}
         >
@@ -131,7 +131,7 @@ function Section({ group, pathname, open, onToggle, onWarm }: { group: NavGroup;
         inert={!open}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="space-y-0.5 pb-1 pt-0.5">
+          <div className="space-y-1.5 px-0.5 pb-3 pt-2">
             {group.items.map((item) => {
               const active = isActive(pathname, item.href);
               return (
@@ -146,8 +146,8 @@ function Section({ group, pathname, open, onToggle, onWarm }: { group: NavGroup;
                   onTouchStart={() => onWarm(item.href)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition',
-                    active ? 'bg-white/20 text-white shadow-sm ring-1 ring-white/25' : 'text-slate-200 hover:bg-white/10 hover:text-white',
+                    'push push-dark flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[14px] font-medium transition',
+                    active ? 'border-white/30 bg-white/20 text-white' : 'border-transparent bg-white/[0.06] text-slate-200 hover:bg-white/10 hover:text-white',
                   )}
                 >
                   <span aria-hidden className="w-6 shrink-0 text-center text-[17px] leading-none">{item.icon}</span>

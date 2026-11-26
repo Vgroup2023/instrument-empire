@@ -33,7 +33,7 @@ export function ActivityPanel({
         <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filter by type">
           {(['all', ...ALL_KINDS] as const).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${kind === k ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${kind === k ? 'push push-navy border-transparent bg-royal-gradient text-white' : 'push push-light border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               {k === 'all' ? 'All' : `${KIND_INFO[k].icon} ${KIND_INFO[k].label}`}
             </button>
           ))}

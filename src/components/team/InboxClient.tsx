@@ -68,7 +68,7 @@ export function InboxClient({ initial, readOnly }: { initial: Task[]; readOnly: 
         <div role="tablist" aria-label="Inbox" className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
           {TABS.map((t) => (
             <button key={t.key} role="tab" aria-selected={box === t.key} onClick={() => load(t.key)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${box === t.key ? 'bg-royal-gradient text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{t.label}</button>
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${box === t.key ? 'push push-navy bg-royal-gradient text-white' : 'push push-light bg-white text-slate-600 hover:bg-slate-100'}`}>{t.label}</button>
           ))}
         </div>
         {!readOnly ? <Button onClick={() => setAdding(true)}>Hand work to a team</Button> : null}

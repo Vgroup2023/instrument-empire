@@ -30,8 +30,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <>
             <h1 className="mt-1 text-xl font-semibold text-slate-900">{failed ? 'Could not check this link' : 'This link no longer works'}</h1>
             <p className="mt-2 text-sm text-slate-600">
-              {failed ? 'Please try again in a moment.' : 'It may have expired or already been used. Ask your administrator for a new link.'}
+              {failed ? 'Please try again in a moment.' : 'It may have expired or already been used. You can ask for a new one.'}
             </p>
+            {failed ? null : <a href="/forgot-password" className="mt-5 mr-4 inline-block text-sm font-medium text-brand-600 hover:underline">Get a new link</a>}
             <a href="/login" className="mt-5 inline-block text-sm font-medium text-brand-600 hover:underline">Go to sign in</a>
           </>
         )}

@@ -20,3 +20,16 @@ export async function sendInviteEmail(to: string, name: string, by: string, link
   const r = await sendCustomerMail(to, kind === 'invite' ? `You're invited to ${BRAND.name}` : `Set a new password for ${BRAND.name}`, body);
   return r.ok;
 }
+
+/** The email for someone who asked for the link themselves ("Forgot your password?"). Returns whether it was sent. */
+export async function sendSelfServiceEmail(to: string, name: string, link: string, kind: 'invite' | 'reset'): Promise<boolean> {
+  if (!smtpConfig.isConfigured) return false;
+  const first = name.trim().split(/\s+/)[0] || 'there';
+  const body =
+    kind === 'invite'
+      ? `Hi ${first},\n\nYou asked for a new link to finish setting up your ${BRAND.name} account. Open it to choose your password and sign in:\n\n${link}\n\nThe link works once and expires in 7 days. If you did not ask for this, ignore this email.\n`
+      : `Hi ${first},\n\nSomeone, hopefully you, asked to reset the password for your ${BRAND.name} account. Open this link to choose a new password:\n\n${link}\n\nThe link works once and expires in 24 hours. If you did not ask for this, ignore this email and your password stays the same.\n`;
+  const r = await sendCustomerMail(to, kind === 'invite' ? `Finish setting up your ${BRAND.name} account` : `Reset your ${BRAND.name} password`, body);
+  if (!r.ok) console.error('Password reset email was not sent:', r.reason);
+  return r.ok;
+}

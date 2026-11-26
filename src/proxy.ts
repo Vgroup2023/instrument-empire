@@ -81,5 +81,5 @@ export const config = {
   // page and endpoint (see isPublicPath, which a test checks this against). Those are open to everyone anyway, so
   // running the gate on them only added a step that could fail: sign-in, the sign-in page's own requests, invitation
   // links, the incoming email/text webhooks, the scheduler's calls and the health check no longer depend on it.
-  matcher: ['/((?!_next/static|_next/image|.*\\.[a-zA-Z0-9]+$|login$|invite/|api/login|api/auth/accept$|api/auth/session$|api/auth/mode$|api/auth/sso/|api/recurring/run-due|api/agents/run|api/integrations/|api/health$|api/clock$|clock$|install$|offline$).*)'],
+  matcher: ['/((?!_next/static|_next/image|.*\\.[a-zA-Z0-9]+$|login$|forgot-password$|invite/|api/login|api/auth/accept$|api/auth/forgot$|api/auth/session$|api/auth/mode$|api/auth/sso/|api/recurring/run-due|api/agents/run|api/integrations/|api/health$|api/clock$|clock$|install$|offline$).*)'],
 };

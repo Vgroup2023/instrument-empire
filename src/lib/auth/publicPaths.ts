@@ -8,6 +8,9 @@ export function isPublicPath(pathname: string): boolean {
     // Accepting an invitation or a password-reset link happens before the person has a session.
     pathname.startsWith('/invite/') ||
     pathname === '/api/auth/accept' ||
+    // "Forgot your password?": asking for a reset link happens before the person can sign in.
+    pathname === '/forgot-password' ||
+    pathname === '/api/auth/forgot' ||
     // The single-sign-on round trip with the provider happens before there is a session.
     pathname.startsWith('/api/auth/sso/') ||
     // Called by the gate itself; it checks the signed cookie it is handed.

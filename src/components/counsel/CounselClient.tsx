@@ -253,7 +253,7 @@ function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify
           <CardHeader><div><CardTitle>Ask anything about your businesses or your life</CardTitle><CardDescription>Try one of these, or type your own.</CardDescription></div></CardHeader>
           <CardBody className="grid gap-2 sm:grid-cols-2">
             {STARTERS.map((s) => (
-              <button key={s} disabled={!claudeOn} onClick={() => send(s)} className="rounded-lg border border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:border-brand-400 hover:bg-brand-50 disabled:opacity-50">{s}</button>
+              <button key={s} disabled={!claudeOn} onClick={() => send(s)} className="push push-light rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:border-brand-400 hover:bg-brand-50 disabled:opacity-50">{s}</button>
             ))}
           </CardBody>
         </Card>
@@ -285,7 +285,7 @@ function AskTab({ ctx, claudeOn, notify }: { ctx: Ctx; claudeOn: boolean; notify
           {att.docs.length && !turns.length ? (
             <div className="flex flex-wrap gap-2">
               {['Summarize this document in plain English and list the deadlines and money amounts.', 'What are the biggest risks to me in this document, in order?', 'What am I obligated to do, and what happens if I do not?'].map((q) => (
-                <button key={q} disabled={busy} onClick={() => send(q)} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:border-brand-400 hover:bg-brand-50">{q}</button>
+                <button key={q} disabled={busy} onClick={() => send(q)} className="push push-light rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-brand-400 hover:bg-brand-50">{q}</button>
               ))}
             </div>
           ) : null}

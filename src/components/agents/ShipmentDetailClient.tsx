@@ -119,7 +119,7 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings, r
         title={s.reference}
         description={`${s.direction} · ${s.customerName ?? 'no client'} · loads ${formatDate(s.loadingDate)} · arrives ${formatDate(s.arrivalDate)}`}
         actions={
-          <Link prefetch={false} href="/dashboard/shipments" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <Link prefetch={false} href="/dashboard/shipments" className="push push-light rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
             All shipments
           </Link>
         }
@@ -184,7 +184,7 @@ export function ShipmentDetailClient({ shipment: s, events, receipt, findings, r
                     key={d.key}
                     type="button"
                     onClick={() => send(`/api/shipments/${s.id}`, 'PATCH', { doc: d.key, received: !have }, have ? 'Marked not received.' : 'Marked received.')}
-                    className={`rounded-full px-3 py-1 text-xs ${have ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                    className={`push rounded-full px-3 py-1 text-xs ${have ? 'bg-emerald-100 text-emerald-700 [--edge:#5ec79b]' : 'push-light bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
                   >
                     {have ? '✓ ' : ''}
                     {d.label}

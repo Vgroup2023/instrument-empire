@@ -45,7 +45,7 @@ export function ActivityRow({ a, dealTitle, onToggleTask }: { a: Activity; dealT
         </p>
       </div>
       {scheduled && onToggleTask ? (
-        <button type="button" onClick={(e) => { e.stopPropagation(); onToggleTask(a); }} className="self-start rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <button type="button" onClick={(e) => { e.stopPropagation(); onToggleTask(a); }} className="push push-light self-start rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
           {a.doneAt ? 'Reopen' : 'Done'}
         </button>
       ) : null}
@@ -143,7 +143,7 @@ export function Composer({
       <div className="mb-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Activity type">
         {MANUAL_KINDS.map((k) => (
           <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${kind === k ? 'border-transparent bg-royal-gradient text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${kind === k ? 'push push-navy border-transparent bg-royal-gradient text-white' : 'push push-light border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
             {KIND_INFO[k].icon} {KIND_INFO[k].label}
           </button>
         ))}

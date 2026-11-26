@@ -76,7 +76,7 @@ export function TaxReturnsClient({ initial, years }: { initial: TaxReturnRow[]; 
             href="https://www.taxgpt.com/ai-tax-preparation"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-surface px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="push push-light inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-surface px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Open TaxGPT <span aria-hidden>↗</span>
             <span className="sr-only">(opens in a new tab)</span>
@@ -109,7 +109,7 @@ export function TaxReturnsClient({ initial, years }: { initial: TaxReturnRow[]; 
                       <span className={`ml-2 text-lg font-semibold ${refund ? 'text-emerald-700' : res.balance > 0 ? 'text-red-700' : 'text-slate-900'}`}>{money(Math.abs(res.balance), r.country)}</span>
                     </p>
                     <div className="flex items-center justify-between">
-                      <Link href={`/dashboard/tax/${r.id}`} className="inline-flex items-center rounded-lg bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white hover:brightness-110">
+                      <Link href={`/dashboard/tax/${r.id}`} className="inline-flex items-center rounded-lg push push-navy bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white hover:brightness-110">
                         Open
                       </Link>
                       <Button variant="ghost" size="sm" onClick={() => remove(r)}>

@@ -70,7 +70,7 @@ export function LoginView({ error, next, mode }: { error: string | null; next: s
       <div className={accounts ? 'mb-5' : 'mb-5 border-b border-slate-200 pb-5'}>
         <a
           href={`/api/auth/sso/start?next=${encodeURIComponent(next)}`}
-          className="flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          className="push push-light flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         >
           Sign in with {sso.name}
         </a>
@@ -84,7 +84,7 @@ export function LoginView({ error, next, mode }: { error: string | null; next: s
         <AccountFields invalid={isAccountError} />
         <button
           type="submit"
-          className="w-full rounded-lg bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          className="w-full rounded-lg push push-navy bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         >
           Sign in
         </button>
@@ -108,7 +108,7 @@ export function LoginView({ error, next, mode }: { error: string | null; next: s
           <PasswordField invalid={hasError} />
           <button
             type="submit"
-            className="w-full rounded-lg bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="w-full rounded-lg push push-navy bg-royal-gradient px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             Sign in
           </button>

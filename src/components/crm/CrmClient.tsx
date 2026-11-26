@@ -265,31 +265,31 @@ export function CrmClient({ initial, signedInAs }: { initial: Snap; signedInAs?:
           </div>
         }
       />
-      <div role="group" aria-label="Business" className="mb-3 items-center text-sm flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
+      <div role="group" aria-label="Business" className="mb-3 items-center text-sm flex flex-nowrap gap-2 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 sm:pt-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Business</span>
         {[{ key: 'all', name: 'All businesses', color: '#0f2059', from: '#1e3a8a', via: '#13286b', to: '#0f2059', ink: '#ffffff' }, ...BUSINESSES.map((b) => ({ key: b.key as string, name: b.name, color: b.color as string, from: b.from as string, via: b.via as string, to: b.to as string, ink: b.ink as string })), ...((bizCounts.get('none') ?? 0) > 0 || biz === 'none' ? [{ key: 'none', name: 'Not tagged', color: '#64748b', from: '#94a3b8', via: '#64748b', to: '#475569', ink: '#ffffff' }] : [])].map((b) => {
           const on = biz === b.key;
           const brand = b.key !== 'all' && b.key !== 'none';
           return (
             <button key={b.key} type="button" aria-pressed={on} onClick={() => setBiz(b.key)}
-              className={`rounded-full border px-3 py-1 font-semibold transition-shadow ${on ? 'shadow-md ring-2 ring-offset-1' : 'hover:shadow-sm'}`}
+              className={`push rounded-full border px-3 py-1 font-semibold ${on || brand ? '' : 'push-light'}`}
               style={on || brand
-                ? { background: `linear-gradient(135deg, ${b.from}, ${b.via} 55%, ${b.to})`, borderColor: b.to, color: b.ink, opacity: on || biz === 'all' ? 1 : 0.8, ['--tw-ring-color' as string]: `${b.color}80` }
+                ? { background: `linear-gradient(135deg, ${b.from}, ${b.via} 55%, ${b.to})`, borderColor: b.to, color: b.ink, opacity: on || biz === 'all' ? 1 : 0.8, ['--edge' as string]: `color-mix(in srgb, ${b.to} 70%, black)`, outline: on ? `2px solid ${b.color}80` : undefined, outlineOffset: 2 }
                 : { background: '#fff', borderColor: '#cbd5e1', color: '#334155' }}>
               {b.name}{b.key !== 'all' && bizCounts.get(b.key) ? <span className="ml-1.5 text-xs font-medium opacity-75">{bizCounts.get(b.key)}</span> : null}
             </button>
           );
         })}
       </div>
-      <nav aria-label="CRM sections" role="tablist" className="mb-2 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
+      <nav aria-label="CRM sections" role="tablist" className="mb-2 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] -mx-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 sm:pt-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
         {TABS.map((t, i) => {
           const badge = tabBadge[t.id];
           return (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => goTab(t.id)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-shadow ${t.gold ? `font-semibold ${tab === t.id ? 'shadow-md ring-2 ring-offset-1' : 'hover:shadow-sm'}` : tab === t.id ? 'text-white shadow-md' : 'bg-white text-slate-700 hover:shadow-sm'}`}
+              className={`push rounded-full border px-3.5 py-1.5 text-sm font-medium ${t.gold ? 'font-semibold' : tab === t.id ? 'text-white' : 'push-light bg-white text-slate-700'}`}
               style={t.gold
-                ? { background: 'linear-gradient(135deg, #f7dd8a, #d9a520 55%, #b07d0b)', borderColor: '#b07d0b', color: '#3b2a00', ['--tw-ring-color' as string]: '#b07d0b80' }
-                : tab === t.id ? { background: `linear-gradient(135deg, ${t.from}, ${t.to})`, borderColor: t.from } : { borderColor: `${t.from}55` }}>
+                ? { background: 'linear-gradient(135deg, #f7dd8a, #d9a520 55%, #b07d0b)', borderColor: '#b07d0b', color: '#3b2a00', ['--edge' as string]: '#6b4a05', outline: tab === t.id ? '2px solid #b07d0b80' : undefined, outlineOffset: 2 }
+                : tab === t.id ? { background: `linear-gradient(135deg, ${t.from}, ${t.to})`, borderColor: t.from, ['--edge' as string]: `color-mix(in srgb, ${t.from} 65%, black)` } : { borderColor: `${t.from}55` }}>
               <span aria-hidden className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold" style={t.gold ? { background: 'rgba(59,42,0,.15)', color: '#3b2a00' } : tab === t.id ? { background: 'rgba(255,255,255,.25)', color: '#fff' } : { background: `${t.from}1a`, color: t.from }}>{i + 1}</span>
               {t.label}
               {badge && badge.n ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/25 text-white' : badge.tone}`}>{badge.n}</span> : null}

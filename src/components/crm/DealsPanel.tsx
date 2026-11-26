@@ -43,7 +43,7 @@ export function DealsPanel({ business }: { business: string }) {
         </p>
         {ready.lines.length === 0
           ? <Button disabled>Download file (CSV)</Button>
-          : <a href={downloadUrl} download className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white transition hover:brightness-110">Download file (CSV)</a>}
+          : <a href={downloadUrl} download className="inline-flex items-center justify-center gap-1.5 rounded-lg push push-navy bg-royal-gradient px-3.5 py-2 text-sm font-medium text-white transition hover:brightness-110">Download file (CSV)</a>}
       </div>
       {ready.truncated ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Showing the first 5,000 items. Narrow by business to see the rest.</p> : null}
       {ready.lines.length === 0 ? (

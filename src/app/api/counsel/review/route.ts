@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mammoth from 'mammoth';
 import { apiErrorResponse } from '@/lib/apiError';
 import { readJson } from '@/lib/http';
 import { ValidationError } from '@/lib/validation';
@@ -32,7 +31,7 @@ export async function POST(request: NextRequest) {
       if (contentType === 'application/pdf') {
         pdfBase64 = contentBase64;
       } else if (contentType === DOCX) {
-        text = (await mammoth.extractRawText({ buffer: bytes })).value.trim();
+        text = (await (await import('mammoth')).default.extractRawText({ buffer: bytes })).value.trim();
       } else {
         throw new ValidationError('Upload a PDF or Word (.docx) file, or paste the text.');
       }

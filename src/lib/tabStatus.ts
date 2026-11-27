@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { agentFindings, orders, rfqs, serviceMessages, shipments } from '@/db/schema';
 
@@ -15,26 +15,42 @@ export interface TabStatus {
   attention: Attention[];
 }
 
-async function count(q: Promise<{ n: number }[]>): Promise<number | null> {
+type Counts = { review: number; replies: number; urgent: number; openFindings: number; openShipments: number; rfqReview: number };
+
+/** One statement for all six counts (it used to be six round trips). */
+async function readCounts(): Promise<Counts | null> {
   try {
-    return (await q)[0]?.n ?? 0;
+    const db = getDb();
+    const rows = await db.execute(sql`select
+      (select cast(count(*) as int) from ${orders} where ${orders.status} in ('needs_review','on_hold')) as review,
+      (select cast(count(*) as int) from ${serviceMessages} where ${serviceMessages.status} in ('awaiting_approval','escalated')) as replies,
+      (select cast(count(*) as int) from ${agentFindings} where ${agentFindings.status} = 'open' and ${agentFindings.severity} in ('critical','high')) as urgent,
+      (select cast(count(*) as int) from ${agentFindings} where ${agentFindings.status} = 'open') as "openFindings",
+      (select cast(count(*) as int) from ${shipments} where ${shipments.status} = 'open') as "openShipments",
+      (select cast(count(*) as int) from ${rfqs} where ${rfqs.status} = 'estimator_review') as "rfqReview"`);
+    const r = ((rows as unknown as { rows?: Counts[] }).rows ?? (rows as unknown as Counts[]))[0];
+    return r ? { review: Number(r.review), replies: Number(r.replies), urgent: Number(r.urgent), openFindings: Number(r.openFindings), openShipments: Number(r.openShipments), rfqReview: Number(r.rfqReview) } : null;
   } catch {
     return null;
   }
 }
 
-/** Live counts for the master dashboard. Any query that fails is left out rather than breaking the page. */
+// The menu badges and both alert bells ask for these numbers on every page load. A few seconds of reuse (and one shared
+// in-flight query) means a burst of requests costs one database call. A failed read is not kept.
+const TTL_MS = 15_000;
+let cache: { at: number; value: Counts } | null = null;
+let inflight: Promise<Counts | null> | null = null;
+
+async function counts(): Promise<Counts | null> {
+  if (cache && Date.now() - cache.at < TTL_MS) return cache.value;
+  inflight ??= readCounts().then((v) => { if (v) cache = { at: Date.now(), value: v }; return v; }).finally(() => { inflight = null; });
+  return inflight;
+}
+
+/** Live counts for the master dashboard. If the read fails the badges are left out rather than breaking the page. */
 export async function getTabStatus(): Promise<TabStatus> {
-  const db = getDb();
-  const n = sql<number>`cast(count(*) as int)`;
-  const [review, replies, urgent, openFindings, openShipments, rfqReview] = await Promise.all([
-    count(db.select({ n }).from(orders).where(inArray(orders.status, ['needs_review', 'on_hold']))),
-    count(db.select({ n }).from(serviceMessages).where(inArray(serviceMessages.status, ['awaiting_approval', 'escalated']))),
-    count(db.select({ n }).from(agentFindings).where(and(eq(agentFindings.status, 'open'), inArray(agentFindings.severity, ['critical', 'high'])))),
-    count(db.select({ n }).from(agentFindings).where(eq(agentFindings.status, 'open'))),
-    count(db.select({ n }).from(shipments).where(eq(shipments.status, 'open'))),
-    count(db.select({ n }).from(rfqs).where(eq(rfqs.status, 'estimator_review'))),
-  ]);
+  const c = await counts();
+  const { review, replies, urgent, openFindings, openShipments, rfqReview } = c ?? { review: null, replies: null, urgent: null, openFindings: null, openShipments: null, rfqReview: null };
 
   const badges: Record<string, number> = {};
   if (review !== null && replies !== null) badges['/dashboard/orders'] = review + replies;

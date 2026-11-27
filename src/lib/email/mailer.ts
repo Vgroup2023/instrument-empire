@@ -1,10 +1,11 @@
-import nodemailer, { type Transporter } from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { smtpConfig } from '@/lib/config';
 
 let cached: Transporter | undefined;
 
-function getTransport(): Transporter {
+async function getTransport(): Promise<Transporter> {
   if (!cached) {
+    const nodemailer = (await import('nodemailer')).default;
     cached = nodemailer.createTransport({
       host: smtpConfig.host,
       port: smtpConfig.port,
@@ -34,7 +35,7 @@ export async function sendMail(input: SendMailInput): Promise<void> {
       'Email sending isn’t configured yet. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM (see README) to enable sending invoices, estimates, and reminders.',
     );
   }
-  await getTransport().sendMail({
+  await (await getTransport()).sendMail({
     from: smtpConfig.from,
     to: input.to,
     subject: input.subject,

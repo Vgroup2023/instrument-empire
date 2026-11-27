@@ -7,10 +7,10 @@ import { cn } from '@/lib/cn';
 import { type NavGroup } from './navGroups';
 
 // Each section header is a button with an arrow that opens and closes the pages under it. Which
-// sections are closed is remembered in this browser, so the menu comes back the way it was left.
-// Everything starts open (and the server renders it open), so a first visit shows every page.
+// sections are open is remembered in this browser, so the menu comes back the way it was left.
+// Everything starts closed (the server renders it closed), except the section holding the current page.
 
-const STORE_KEY = 'nav-closed-sections-v1';
+const STORE_KEY = 'nav-open-sections-v2';
 const listeners = new Set<() => void>();
 let memory: string | null = null;
 
@@ -42,7 +42,7 @@ function write(value: string) {
   listeners.forEach((l) => l());
 }
 
-const closedTitles = (raw: string) => new Set(raw ? raw.split('|') : []);
+const titleSet = (raw: string) => new Set(raw ? raw.split('|') : []);
 
 function isActive(pathname: string, href: string) {
   return href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -66,17 +66,17 @@ export function NavLinksList({ groups }: { groups: NavGroup[] }) {
     router.prefetch(href);
   };
   const raw = useSyncExternalStore(subscribe, read, () => '');
-  const closed = closedTitles(raw);
+  const opened = titleSet(raw);
 
   // Going to a page inside a closed section opens that section, so the current page is never hidden.
   useEffect(() => {
-    const current = closedTitles(read());
-    const owner = groups.find((g) => g.items.some((i) => isActive(pathname, i.href)));
-    if (owner && current.delete(owner.title)) write([...current].join('|'));
+    const current = titleSet(read());
+    const owner = groups.find((g) => g.title && g.items.some((i) => isActive(pathname, i.href)));
+    if (owner && !current.has(owner.title)) write([...current, owner.title].join('|'));
   }, [pathname, groups]);
 
   function toggle(title: string) {
-    const next = closedTitles(read());
+    const next = titleSet(read());
     if (!next.delete(title)) next.add(title);
     write([...next].join('|'));
   }
@@ -84,7 +84,7 @@ export function NavLinksList({ groups }: { groups: NavGroup[] }) {
   return (
     <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-label="Main menu">
       {groups.map((group) => (
-        <Section key={group.title || 'root'} group={group} pathname={pathname} open={!closed.has(group.title)} onToggle={() => toggle(group.title)} onWarm={warm} />
+        <Section key={group.title || 'root'} group={group} pathname={pathname} open={!group.title || opened.has(group.title)} onToggle={() => toggle(group.title)} onWarm={warm} />
       ))}
     </nav>
   );

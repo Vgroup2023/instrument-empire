@@ -44,6 +44,9 @@ const nextConfig = {
   // which clears this cache, so lists never show stale data after an edit.
   experimental: {
     staleTimes: { dynamic: 30, static: 180 },
+    // Do not write source maps for the server code. They are only for reading stack traces, are about four times the size of
+    // the code itself, and ship inside the deployed function, where they slow every cold start for nothing.
+    turbopackSourceMaps: false,
   },
   // Which commit this build was made from (Netlify sets COMMIT_REF while building). /api/health reports it,
   // so anyone can tell at a glance whether the live site is running the latest code or a deploy was skipped.

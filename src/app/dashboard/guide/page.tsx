@@ -1,4 +1,3 @@
-import mammoth from 'mammoth';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
 import { GUIDE_FILE, readGuide } from '@/lib/guide';
@@ -13,6 +12,7 @@ let cachedHtml: string | null = null;
 async function loadGuideHtml(): Promise<string | null> {
   if (cachedHtml) return cachedHtml;
   try {
+    const mammoth = (await import('mammoth')).default;
     const { value } = await mammoth.convertToHtml({ buffer: await readGuide() });
     cachedHtml = value;
     return value;

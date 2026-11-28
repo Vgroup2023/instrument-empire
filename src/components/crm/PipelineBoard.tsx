@@ -8,6 +8,9 @@ import { formatCurrency } from '@/lib/format';
 import { Avatar } from './Avatar';
 import { BusinessBadge } from './BusinessBadge';
 
+// A solid coloured header with an arrow point, the stage total underneath, as in common CRM boards.
+const CHEVRON = 'flex items-center justify-between py-2.5 pl-3 pr-6 text-white [clip-path:polygon(0_0,calc(100%-14px)_0,100%_50%,calc(100%-14px)_100%,0_100%)]';
+
 /**
  * Deals as cards in a column per stage, then a Reorder due column for customers whose next order is near. Drag a deal
  * to another column, or use the stage menu on the card. Each card shows who has it, and tags it when it needs a nudge.
@@ -48,16 +51,18 @@ export function PipelineBoard({
               const id = e.dataTransfer.getData('text/deal');
               if (id) onMove(id, stage.key);
             }}
-            className={`flex w-[272px] shrink-0 flex-col rounded-xl2 border bg-slate-50/70 ${over === stage.key ? 'border-brand-400 bg-brand-50/60' : 'border-slate-200'}`}
+            className={`flex w-[272px] shrink-0 flex-col overflow-hidden rounded-lg border bg-[#f5f6fa] ${over === stage.key ? 'border-brand-400 bg-brand-50/60' : 'border-slate-200'}`}
           >
-            <header className="flex items-center justify-between rounded-t-xl2 px-3 py-2.5" style={{ borderTop: `4px solid ${stage.color}`, borderRadius: '1rem 1rem 0 0' }}>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">{stage.label}</h3>
-                <p className="text-xs text-slate-500">{all.length} deal{all.length === 1 ? '' : 's'} · {formatCurrency(total)}{OPEN_STAGES.includes(stage.key) ? ` · ${stage.probability}%` : ''}</p>
+            <header>
+              <div className={CHEVRON} style={{ background: stage.color }}>
+                <h3 className="text-sm font-semibold">{stage.label} / {all.length}</h3>
+                {OPEN_STAGES.includes(stage.key) ? (
+                  <button type="button" onClick={() => onNew(stage.key)} aria-label={`Add a deal to ${stage.label}`} className="rounded px-1.5 text-lg leading-none text-white/90 hover:bg-white/20">+</button>
+                ) : null}
               </div>
-              {OPEN_STAGES.includes(stage.key) ? (
-                <button type="button" onClick={() => onNew(stage.key)} aria-label={`Add a deal to ${stage.label}`} className="rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white hover:text-slate-900">+</button>
-              ) : null}
+              <p className="bg-white px-3 py-2.5 text-[15px] font-medium tabular-nums" style={{ color: stage.color }}>
+                {formatCurrency(total)}{OPEN_STAGES.includes(stage.key) ? <span className="ml-1.5 text-[11px] font-normal text-slate-400">{stage.probability}%</span> : null}
+              </p>
             </header>
             <ul className="flex min-h-[80px] flex-col gap-2 px-2 pb-2">
               {cap(stage.key, all).map((d) => {
@@ -69,11 +74,14 @@ export function PipelineBoard({
                     key={d.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData('text/deal', d.id)}
-                    className="cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-card active:cursor-grabbing"
+                    className="cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm active:cursor-grabbing"
                   >
                     <button type="button" onClick={() => onOpen(d.id)} className="block w-full text-left">
-                      <p className="text-sm font-semibold text-slate-900">{d.title}</p>
-                      <p className="mt-0.5 text-sm font-bold text-[#0f2059]">{formatCurrency(d.value, d.currency)}</p>
+                      <p className="text-sm text-slate-700">{d.title}</p>
+                      <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="rounded bg-slate-100 px-2 py-1 font-semibold tabular-nums text-slate-800" style={{ borderLeft: `3px solid ${stage.color}` }}>{formatCurrency(d.value, d.currency)}</span>
+                        <span className="text-slate-500">Deal value</span>
+                      </p>
                       {c ? <p className="mt-0.5 truncate text-xs text-slate-600">{c.name}{c.company ? ` · ${c.company}` : ''}</p> : null}
                       <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <Avatar name={d.owner} />
@@ -105,10 +113,10 @@ export function PipelineBoard({
         );
       })}
 
-      <section aria-label="Reorder due column" className="flex w-[272px] shrink-0 flex-col rounded-xl2 border border-slate-200 bg-slate-50/70">
-        <header className="px-3 py-2.5" style={{ borderTop: '4px solid #0e7490', borderRadius: '1rem 1rem 0 0' }}>
-          <h3 className="text-sm font-semibold text-slate-900">Reorder due</h3>
-          <p className="text-xs text-slate-500">{reorders.length} customer{reorders.length === 1 ? '' : 's'} · {formatCurrency(reorderTotal)} last order</p>
+      <section aria-label="Reorder due column" className="flex w-[272px] shrink-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-[#f5f6fa]">
+        <header>
+          <div className={CHEVRON} style={{ background: '#0e7490' }}><h3 className="text-sm font-semibold">Reorder due / {reorders.length}</h3></div>
+          <p className="bg-white px-3 py-2.5 text-[15px] font-medium tabular-nums text-cyan-700">{formatCurrency(reorderTotal)} <span className="text-[11px] font-normal text-slate-400">last order</span></p>
         </header>
         <ul className="flex min-h-[80px] flex-col gap-2 px-2 pb-2">
           {reorders.slice(0, 8).map((r) => (
